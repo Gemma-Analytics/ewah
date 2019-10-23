@@ -6,6 +6,7 @@ from ewah.ewah_dwhooks.ewah_dwhook_snowflake import EWAHDWHookSnowflake
 from ewah.constants import EWAHConstants as EC
 
 from datetime import datetime, timedelta
+import re
 
 def datetime_from_string(datetime_string):
     try:
