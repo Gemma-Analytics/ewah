@@ -120,6 +120,34 @@ class EWAHBaseOperator(BaseOperator):
         self.primary_key_column_name = primary_key_column_name # may be used ...
         #   ... by a child class at execution!
 
+        self.hook = {
+            EC.DWH_ENGINE_POSTGRES: EWAHDWHookPostgres,
+            EC.DWH_ENGINE_SNOWFLAKE: EWAHDWHookSnowflake,
+            # DWH_ENGINE_BIGQUERY: bq_hook,
+            # DWH_ENGINE_REDSHIFT: rs_hook,
+        }[self.dwh_engine]
+
+    def test_if_target_table_exists(self):
+        hook = self.hook(self.dwh_conn_id)
+        if self.dwh_engine == EC.DWH_ENGINE_POSTGRES:
+            result = hook.test_if_table_exists(
+                table_name=self.target_table_name,
+                schema_name=self.target_schema_name + self.target_schema_suffix,
+            )
+            hook.close()
+            return result
+        elif self.dwh_engine == EC.DWH_ENGINE_SNOWFLAKE:
+            result = hook.test_if_table_exists(
+                table_name=self.target_table_name,
+                schema_name=self.target_schema_name + self.target_schema_suffix,
+                database_name=self.target_database_name,
+            )
+            hook.close()
+            return result
+        raise Exception('Function not implemented for DWH {0}!'.format(
+            dwh_engine
+        ))
+
     def _create_columns_definition(self, data):
         "Create a columns_definition from data (list of dicts)."
         inconsistent_data_type = EC.QBC_TYPE_MAPPING[self.dwh_engine].get(
@@ -174,12 +202,7 @@ class EWAHBaseOperator(BaseOperator):
             self.log.info('Creating table schema on the fly based on data.')
             columns_definition = self._create_columns_definition(data)
 
-        hook = {
-            EC.DWH_ENGINE_POSTGRES: EWAHDWHookPostgres,
-            EC.DWH_ENGINE_SNOWFLAKE: EWAHDWHookSnowflake,
-            # DWH_ENGINE_BIGQUERY: bq_hook,
-            # DWH_ENGINE_REDSHIFT: rs_hook,
-        }[self.dwh_engine](self.dwh_conn_id)
+        hook = self.hook(self.dwh_conn_id)
 
         if (not self.drop_and_replace) or (self.upload_call_count > 1):
             self.log.info('Checking for, and applying schema changes.')

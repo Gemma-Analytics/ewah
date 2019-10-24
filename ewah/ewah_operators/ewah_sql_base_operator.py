@@ -21,16 +21,26 @@ class EWAHSQLBaseOperator(EWAHBaseOperator):
         timestamp_column=None, # name of column to increment and/or chunk by
         chunking_interval=None, # can be datetime.timedelta or integer
         # also potentially used: primary_key_column_name of parent operator
+        reload_data_from=None, # If a new table is added in production, and
+        #   it is loading incrementally, where to start loading data? datetime
+        reload_data_chunking=None, # must be timedelta
     *args, **kwargs):
 
         if not hasattr(self, 'sql_engine'):
             raise Exception('Operator invalid: need attribute sql_engine!')
+
+        if reload_data_from and not (reload_data_chunking or chunking_interval):
+            raise Exception('When setting reload_data_from, must also set ' \
+                + 'either reload_data_chunking or chunking_interval!')
 
         if data_from or data_until:
             if not timestamp_column:
                 raise Exception("If you used data_from and/or data_until, you" \
                     + " must also use timestamp_column to specify the column" \
                     + " that is being used!")
+            if not (data_from and data_until):
+                raise Exception('If one of data_from and data_until is ' \
+                    + 'specified, the other has to be specified as well!')
 
         if chunking_interval:
             if type(chunking_interval) == timedelta:
@@ -62,6 +72,8 @@ class EWAHSQLBaseOperator(EWAHBaseOperator):
         self.data_until = data_until
         self.timestamp_column = timestamp_column
         self.chunking_interval = chunking_interval
+        self.reload_data_from = reload_data_from
+        self.reload_data_chunking = reload_data_chunking or chunking_interval
 
     def execute(self, context):
 
@@ -72,6 +84,16 @@ class EWAHSQLBaseOperator(EWAHBaseOperator):
                 self.data_from = datetime_from_string(self.data_from)
             if type(self.data_until) == str:
                 self.data_until = datetime_from_string(self.data_until)
+
+            if not self.test_if_target_table_exists():
+                self.chunking_interval = self.reload_data_chunking \
+                    or self.chunking_interval \
+                    or (self.data_from - self.data_until)
+                self.data_from = self.reload_data_from \
+                    or context['dag'].start_date
+                if type(self.data_from) == str:
+                    self.data_from = datetime_from_string(self.data_from)
+
             str_format = '%Y-%m-%dT%H:%M:%SZ'
             self.log.info('Incrementally loading data from {0} to {1}.'.format(
                 self.data_from.strftime(str_format),
