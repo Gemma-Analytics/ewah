@@ -1,6 +1,7 @@
 pt/
 ewah_airflow_tests/
 notes.txt
+requirements.txt
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

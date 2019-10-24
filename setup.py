@@ -10,4 +10,5 @@ setup(
     license='MIT',
     packages=['ewah'],
     zip_safe=False,
+    python_requires=">=3.7",
 )
