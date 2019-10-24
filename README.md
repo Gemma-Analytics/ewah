@@ -12,3 +12,4 @@ Goal: Have functions to create all DAGs required for ELT using only a simple con
 ## Operators Implemented
 - PostgreSQL
 - MySQL
+- Google Analytics
