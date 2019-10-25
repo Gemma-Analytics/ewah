@@ -1,6 +1,5 @@
 from airflow.operators.postgres_operator import PostgresOperator as PGO
 from airflow.operators.python_operator import PythonOperator as PO
-from airflow.models import Variable
 
 from ewah.dwhooks.dwhook_snowflake import EWAHDWHookSnowflake
 from ewah.constants import EWAHConstants as EC
@@ -28,6 +27,7 @@ def etl_schema_tasks(
         target_schema_suffix='_next',
         target_database_name=None,
         copy_schema=False,
+        read_right_users=None, # Only for PostgreSQL
     ):
 
     if dwh_engine == EC.DWH_ENGINE_POSTGRES:
@@ -102,18 +102,12 @@ def etl_schema_tasks(
                 'schema_suffix': target_schema_suffix,
             })
 
-        try:
-            read_right_users = Variable.get('global_dwh_read_rights')
-        except KeyError:
-            read_right_users = None
-
         if read_right_users:
-            list_of_read_right_users = read_right_users.split(',')
-            i = 0
-            for user in list_of_read_right_users:
-                i += 1
-                if re.search(r"\s", user):
-                    raise ValueError('No whitespace allowed in usernames!')
+            if not type(read_right_users) == list:
+                raise Exception('Arg read_right_users must be of type List!')
+            for user in read_right_users:
+                if re.search(r"\s", user) or (';' in user):
+                    raise ValueError('No whitespace or semicolons allowed in usernames!')
                 sql_final += f'\nGRANT USAGE ON SCHEMA "{target_schema_name}" TO {user};'
                 sql_final += f'\nGRANT SELECT ON ALL TABLES IN SCHEMA "{target_schema_name}" TO {user};'
 
