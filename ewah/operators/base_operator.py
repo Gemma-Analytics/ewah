@@ -1,7 +1,7 @@
 from airflow.models import BaseOperator
 
-from ewah.ewah_dwhooks.ewah_dwhook_snowflake import EWAHDWHookSnowflake
-from ewah.ewah_dwhooks.ewah_dwhook_postgres import EWAHDWHookPostgres
+from ewah.dwhooks.dwhook_snowflake import EWAHDWHookSnowflake
+from ewah.dwhooks.dwhook_postgres import EWAHDWHookPostgres
 from ewah.constants import EWAHConstants as EC
 
 

@@ -1,7 +1,7 @@
 from airflow import DAG
 
-from airflow.operators.bash_operator import BashOperator
 from airflow.operators.postgres_operator import PostgresOperator
+from airflow.operators.bash_operator import BashOperator
 from airflow.sensors.sql_sensor import SqlSensor
 from airflow.hooks.base_hook import BaseHook
 from airflow.configuration import conf

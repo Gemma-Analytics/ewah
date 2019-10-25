@@ -1,4 +1,4 @@
-from ewah.ewah_dwhooks.ewah_base_dwhook import EWAHBaseDWHook
+from ewah.dwhooks.base_dwhook import EWAHBaseDWHook
 from ewah.constants import EWAHConstants as EC
 
 import snowflake.connector

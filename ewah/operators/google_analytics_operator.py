@@ -3,7 +3,7 @@ Modified version of the google analytics to s3 operator
 Source of original: https://github.com/airflow-plugins/google_analytics_plugin/blob/master/operators/google_analytics_reporting_to_s3_operator.py
 Accessed 5 March 2019
 """
-from ewah.ewah_operators.ewah_base_operator import EWAHBaseOperator
+from ewah.operators.base_operator import EWAHBaseOperator
 from ewah.ewah_utils.airflow_utils import datetime_from_string
 from ewah.constants import EWAHConstants as EC
 

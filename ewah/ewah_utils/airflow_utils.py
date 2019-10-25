@@ -2,7 +2,7 @@ from airflow.operators.postgres_operator import PostgresOperator as PGO
 from airflow.operators.python_operator import PythonOperator as PO
 from airflow.models import Variable
 
-from ewah.ewah_dwhooks.ewah_dwhook_snowflake import EWAHDWHookSnowflake
+from ewah.dwhooks.dwhook_snowflake import EWAHDWHookSnowflake
 from ewah.constants import EWAHConstants as EC
 
 from datetime import datetime, timedelta

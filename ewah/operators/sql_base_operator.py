@@ -1,4 +1,4 @@
-from ewah.ewah_operators.ewah_base_operator import EWAHBaseOperator
+from ewah.operators.base_operator import EWAHBaseOperator
 from ewah.ewah_utils.airflow_utils import datetime_from_string
 from ewah.constants import EWAHConstants as EC
 
