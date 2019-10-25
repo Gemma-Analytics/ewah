@@ -38,9 +38,6 @@ class EWAHSQLBaseOperator(EWAHBaseOperator):
                 raise Exception("If you used data_from and/or data_until, you" \
                     + " must also use timestamp_column to specify the column" \
                     + " that is being used!")
-            if not (data_from and data_until):
-                raise Exception('If one of data_from and data_until is ' \
-                    + 'specified, the other has to be specified as well!')
 
         if chunking_interval:
             if type(chunking_interval) == timedelta:
@@ -77,14 +74,14 @@ class EWAHSQLBaseOperator(EWAHBaseOperator):
 
     def execute(self, context):
 
+        if type(self.data_from) == str:
+            self.data_from = datetime_from_string(self.data_from)
+        if type(self.data_until) == str:
+            self.data_until = datetime_from_string(self.data_until)
+
         if self.drop_and_replace:
             self.log.info('Loading data as full refresh.')
         else:
-            if type(self.data_from) == str:
-                self.data_from = datetime_from_string(self.data_from)
-            if type(self.data_until) == str:
-                self.data_until = datetime_from_string(self.data_until)
-
             if not self.test_if_target_table_exists():
                 self.chunking_interval = self.reload_data_chunking \
                     or self.chunking_interval \
@@ -115,6 +112,18 @@ class EWAHSQLBaseOperator(EWAHBaseOperator):
             )
 
         if self.drop_and_replace:
+            if self.data_from:
+                sql_base = sql_base.format('{0}{1}{0} >= {2} AND {{0}}'.format(
+                    self._SQL_COLUMN_QUOTE,
+                    self.timestamp_column,
+                    self.data_from.strftime(str_format),
+                ))
+            if self.data_until:
+                sql_base = sql_base.format('{0}{1}{0} <= {2} AND {{0}}'.format(
+                    self._SQL_COLUMN_QUOTE,
+                    self.timestamp_column,
+                    self.data_until.strftime(str_format),
+                ))
             sql_base = sql_base.format('TRUE {0}')
         else:
             sql_base = sql_base.format('{3}{0}{3}>={1} AND {3}{0}{3}<{2} {{0}}'
@@ -141,6 +150,11 @@ class EWAHSQLBaseOperator(EWAHBaseOperator):
                     ),
                     return_dict=False,
                 )[0]
+                if chunking_column == self.timestamp_column:
+                    if self.data_from:
+                        previous_chunk = max(previous_chunk, self.data_from)
+                    if self.data_until:
+                        max_chunk = min(max_chunk, self.data_until)
             else:
                 previous_chunk = self.data_from
                 max_chunk = self.until
@@ -164,9 +178,7 @@ class EWAHSQLBaseOperator(EWAHBaseOperator):
                     return_dict=True,
                 )
 
-                self.upload_data(
-                    data=data,
-                )
+                self.upload_data(data=data)
                 previous_chunk += self.chunking_interval
         else:
             self.upload_data(
