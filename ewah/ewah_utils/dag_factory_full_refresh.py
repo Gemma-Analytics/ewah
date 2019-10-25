@@ -8,7 +8,7 @@ def dag_factory_drop_and_replace(
         dag_name,
         dwh_engine,
         dwh_conn_id,
-        etl_operator,
+        el_operator,
         operator_config,
         target_schema_name,
         target_schema_suffix='_next',
@@ -18,9 +18,9 @@ def dag_factory_drop_and_replace(
         schedule_interval=timedelta(days=1),
     ):
 
-    if not hasattr(etl_operator, '_IS_FULL_REFRESH'):
+    if not hasattr(el_operator, '_IS_FULL_REFRESH'):
         raise Exception('Invalid operator supplied!')
-    if not etl_operator._IS_FULL_REFRESH:
+    if not el_operator._IS_FULL_REFRESH:
         raise Exception('Operator does not support full refreshs!')
 
     dag = DAG(
@@ -44,7 +44,9 @@ def dag_factory_drop_and_replace(
 
     with dag:
         for table in operator_config['tables'].keys():
-            table_config = {
+            table_config = operator_config.get('general_config', {})
+            table_config.update(operator_config['tables'][table] or {})
+            table_config.update({
                 'task_id': 'extract_load_'+table,
                 'dwh_engine': dwh_engine,
                 'dwh_conn_id': dwh_conn_id,
@@ -53,10 +55,8 @@ def dag_factory_drop_and_replace(
                 'target_schema_suffix': target_schema_suffix,
                 'target_database_name': target_database_name,
                 'drop_and_replace': True,
-            }
-            table_config.update(operator_config.get('general_config', {}))
-            table_config.update(operator_config['tables'][table] or {})
-            table_task = etl_operator(**table_config)
+            })
+            table_task = el_operator(**table_config)
             kickoff >> table_task >> final
 
     return dag

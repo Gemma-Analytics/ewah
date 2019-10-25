@@ -69,7 +69,7 @@ def dag_factory_incremental_loading(
         dwh_conn_id,
         airflow_conn_id,
         start_date,
-        etl_operator,
+        el_operator,
         operator_config,
         target_schema_name,
         target_schema_suffix='_next',
@@ -80,9 +80,9 @@ def dag_factory_incremental_loading(
         switch_date=None,
     ):
 
-    if not hasattr(etl_operator, '_IS_INCREMENTAL'):
+    if not hasattr(el_operator, '_IS_INCREMENTAL'):
         raise Exception('Invalid operator supplied!')
-    if not etl_operator._IS_INCREMENTAL:
+    if not el_operator._IS_INCREMENTAL:
         raise Exception('Operator does not support incremental loading!')
     if not type(schedule_interval_future) == timedelta:
         raise Exception('Schedule intervals must be datetime.timedelta!')
@@ -251,7 +251,8 @@ def dag_factory_incremental_loading(
     # add table creation tasks
     count_backfill_tasks = 0
     for table in operator_config['tables'].keys():
-        arg_dict = {
+        arg_dict = operator_config.get('general_config', {})
+        arg_dict_internal = {
             'task_id': 'extract_load_' + table,
             'dwh_engine': dwh_engine,
             'dwh_conn_id': dwh_conn_id,
@@ -264,18 +265,21 @@ def dag_factory_incremental_loading(
             # update_on_columns
             # primary_key_column_name
         }
-        arg_dict.update(operator_config.get('general_config', {}))
+
         arg_dict_backfill = deepcopy(arg_dict)
         arg_dict.update(operator_config.get('incremental_config', {}))
         arg_dict_backfill.update(operator_config.get('backfill_config', {}))
         arg_dict.update(operator_config['tables'][table] or {})
         arg_dict_backfill.update(operator_config['tables'][table] or {})
 
-        task = etl_operator(dag=dags[0], **arg_dict)
+        arg_dict.update(arg_dict_internal)
+        arg_dict_backfill.update(arg_dict_internal)
+
+        task = el_operator(dag=dags[0], **arg_dict)
         kickoff >> task >> final
 
         if not arg_dict.get('skip_backfill', False):
-            task = etl_operator(dag=dags[1], **arg_dict_backfill)
+            task = el_operator(dag=dags[1], **arg_dict_backfill)
             kickoff_backfill >> task >> final_backfill
             count_backfill_tasks += 1
 
