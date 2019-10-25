@@ -57,6 +57,7 @@ def dag_factory_incremental_loading(
         default_args=None,
         schedule_interval_backfill=timedelta(days=1),
         schedule_interval_future=timedelta(hours=1),
+        switch_date=None,
     ):
 
     if not hasattr(etl_operator, '_IS_INCREMENTAL'):
@@ -75,10 +76,11 @@ def dag_factory_incremental_loading(
     if not operator_config.get('tables'):
         raise Exception('Requires a "tables" dictionary in operator_config!')
 
-    current_time = datetime.now() - timedelta(hours=12) # don't switch immediately
-    switch_date = int((current_time-start_date)/schedule_interval_backfill)
-    switch_date *= schedule_interval_backfill
-    switch_date += start_date
+    if not switch_date:
+        current_time = datetime.now() - timedelta(hours=12) # don't switch immediately
+        switch_date = int((current_time-start_date)/schedule_interval_backfill)
+        switch_date *= schedule_interval_backfill
+        switch_date += start_date
 
     backfill_timedelta = switch_date - start_date
     backfill_tasks_count = backfill_timedelta / schedule_interval_backfill
