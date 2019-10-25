@@ -2,11 +2,12 @@ from airflow import DAG
 from airflow.operators.postgres_operator import PostgresOperator as PGO
 from airflow.sensors.external_task_sensor import ExternalTaskSensor as ETS
 
-from ewah.ewah_utils.airflow_utils import etl_schema_tasks
+from ewah.ewah_utils.airflow_utils import etl_schema_tasks, datetime_from_string
 from ewah.constants import EWAHConstants as EC
 
 from datetime import datetime, timedelta
 from copy import deepcopy
+import time
 
 class ExtendedETS(ETS):
     """Extend ETS functionality to support the interplay of backfill and
@@ -17,17 +18,37 @@ class ExtendedETS(ETS):
         backfill_execution_delta=None,
         backfill_execution_date_fn=None,
         backfill_external_task_id=None,
+        execution_delay_in_seconds=120,
     *args, **kwargs):
+
         self.backfill_dag_id = backfill_dag_id
         self.backfill_execution_delta = backfill_execution_delta
         self.backfill_execution_date_fn = backfill_execution_date_fn
         self.backfill_external_task_id = backfill_external_task_id
+        self.execution_delay_in_seconds = execution_delay_in_seconds
+
         super().__init__(*args, **kwargs)
 
 
     def execute(self, context):
 
+        # When a DAG is executed as soon as possible, some data sources
+        # may not immediately have up to date data from their API.
+        # E.g. querying all data until 12.30pm only gives all relevant data
+        # after 12.32pm due to some internal delays. In those cases, make
+        # sure the incremental loading DAGs don't execute too quickly.
+        next_execution_date = context['next_execution_date']
+        next_execution_date = datetime_from_string(next_execution_date)
+        next_execution_date += self.execution_delay_in_seconds
+        while datetime.now() < next_execution_date:
+            self.log.info('Waiting until {0} to execute... (now: {1})'.format(
+                str(next_execution_date),
+                str(datetime.now())
+            ))
+            time.sleep((self.execution_delay_in_seconds or 20) / 20)
+
         if context['dag'].start_date == context['execution_date']:
+            # First execution of the DAG.
             if self.backfill_dag_id:
                 # Check if the latest backfill ran! --> then run normally
                 self.execution_delta = self.backfill_execution_delta or self.execution_delta
@@ -37,7 +58,6 @@ class ExtendedETS(ETS):
                 self.log.info('First instance, looking for previous backfill!')
                 super().execute(context)
             else:
-                # return true if this is the first instance and no backfills!
                 self.log.info('This is the first execution of the DAG. Thus, ' + \
                 'the sensor automatically succeeds.')
         else:
