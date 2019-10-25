@@ -12,6 +12,9 @@ class EWAHSQLBaseOperator(EWAHBaseOperator):
     _MYSQL = 'MySQL'
     _PGSQL = 'PostgreSQL'
 
+    _IS_INCREMENTAL = True
+    _IS_FULL_REFRESH = True
+
     def __init__(self,
         source_conn_id, # string
         source_schema_name=None, # string

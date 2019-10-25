@@ -51,6 +51,9 @@ class EWAHBaseOperator(BaseOperator):
     - Redshift
     """
 
+    _IS_INCREMENTAL = False # Child class must update these values accordingly.
+    _IS_FULL_REFRESH = False # Defines whether operator is usable in factories.
+
     upload_call_count = 0
 
     def __init__(

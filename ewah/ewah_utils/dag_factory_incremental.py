@@ -59,6 +59,10 @@ def dag_factory_incremental_loading(
         schedule_interval_future=timedelta(hours=1),
     ):
 
+    if not hasattr(etl_operator, '_IS_INCREMENTAL'):
+        raise Exception('Invalid operator supplied!')
+    if not etl_operator._IS_INCREMENTAL:
+        raise Exception('Operator does not support incremental loading!')
     if not type(schedule_interval_future) == timedelta:
         raise Exception('Schedule intervals must be datetime.timedelta!')
     if not type(schedule_interval_backfill) == timedelta:

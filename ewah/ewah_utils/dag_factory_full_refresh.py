@@ -18,6 +18,11 @@ def dag_factory_drop_and_replace(
         schedule_interval=timedelta(days=1),
     ):
 
+    if not hasattr(etl_operator, '_IS_FULL_REFRESH'):
+        raise Exception('Invalid operator supplied!')
+    if not etl_operator._IS_FULL_REFRESH:
+        raise Exception('Operator does not support full refreshs!')
+
     dag = DAG(
         dag_name,
         catchup=False,

@@ -20,6 +20,9 @@ class EWAHGAOperator(EWAHBaseOperator):
 
     template_fields = ('data_from', 'data_until')
 
+    _IS_INCREMENTAL = True
+    _IS_FULL_REFRESH = False
+
     def __init__(
         self,
         google_conn_id,
