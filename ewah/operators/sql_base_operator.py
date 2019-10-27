@@ -30,6 +30,8 @@ class EWAHSQLBaseOperator(EWAHBaseOperator):
         reload_data_chunking=None, # must be timedelta
     *args, **kwargs):
 
+        source_table_name = source_table_name or kwargs.get('target_table_name')
+
         if not hasattr(self, 'sql_engine'):
             raise Exception('Operator invalid: need attribute sql_engine!')
 
@@ -75,15 +77,11 @@ class EWAHSQLBaseOperator(EWAHBaseOperator):
                             kwargs['primary_key_column_name'] = key
                             break
 
-
-
             else:
                 raise Exception("Arg chunking_interval must be integer or "\
                     + "datetime.timedelta!")
 
         super().__init__(*args, **kwargs)
-
-        source_table_name = source_table_name or self.target_table_name
 
         if not self.drop_and_replace:
             if not (data_from and data_until):
