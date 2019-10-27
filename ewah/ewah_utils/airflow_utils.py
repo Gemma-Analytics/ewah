@@ -1,5 +1,6 @@
 from airflow.operators.postgres_operator import PostgresOperator as PGO
 from airflow.operators.python_operator import PythonOperator as PO
+from airflow.hooks.base_hook import BaseHook
 
 from ewah.dwhooks.dwhook_snowflake import EWAHDWHookSnowflake
 from ewah.constants import EWAHConstants as EC
@@ -131,6 +132,8 @@ def etl_schema_tasks(
                 ),
         )
     elif dwh_engine == EC.DWH_ENGINE_SNOWFLAKE:
+        target_database_name = target_database_name or (BaseHook \
+                .get_connection(dwh_conn_id).extra_dejson.get('database'))
         if copy_schema:
             sql_kickoff = '''
                 /*Make sure there is something to clone in step 2*/
