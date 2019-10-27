@@ -150,7 +150,7 @@ class EWAHSQLBaseOperator(EWAHBaseOperator):
                     self.timestamp_column,
                     self.data_until.strftime(str_format),
                 ))
-            sql_base = sql_base.format('TRUE {0}')
+            sql_base = sql_base.format('1 = 1 {0}')
         else:
             sql_base = sql_base.format('{3}{0}{3}>={1} AND {3}{0}{3}<{2} {{0}}'
                 .format(
@@ -209,7 +209,7 @@ class EWAHSQLBaseOperator(EWAHBaseOperator):
         else:
             self.upload_data(
                 data=self._get_data_from_sql(
-                    sql=sql_base.format('AND TRUE'),
+                    sql=sql_base.format('AND 1 = 1'),
                     return_dict=True,
                 ),
             )
