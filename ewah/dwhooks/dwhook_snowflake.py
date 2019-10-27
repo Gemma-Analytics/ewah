@@ -177,9 +177,10 @@ class EWAHDWHookSnowflake(EWAHBaseDWHook):
                 ', '.join([
                     'a."{0}" = b."{0}"'.format(col) for col in update_set_cols
                 ]),
-                '"'+'", "'.join(list(columns.keys()))+'"',
+                '"'+'", "'.join(list(columns_definition.keys()))+'"',
                 ', '.join([
-                    'b."{0}"'.format(col) for col in list(columns.keys())
+                    'b."{0}"'.format(col) \
+                    for col in list(columns_definition.keys())
                 ]),
             )
 
