@@ -37,9 +37,8 @@ class ExtendedETS(ETS):
         # E.g. querying all data until 12.30pm only gives all relevant data
         # after 12.32pm due to some internal delays. In those cases, make
         # sure the incremental loading DAGs don't execute too quickly.
-        next_execution_date = context['next_execution_date']
-        next_execution_date = datetime_from_string(next_execution_date)
-        next_execution_date += self.execution_delay_in_seconds
+        next_execution_date = context['next_execution_date'] # type: Pendulum
+        next_execution_date += timedelta(seconds=self.execution_delay_in_seconds)
         while datetime.now() < next_execution_date:
             self.log.info('Waiting until {0} to execute... (now: {1})'.format(
                 str(next_execution_date),

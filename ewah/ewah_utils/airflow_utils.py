@@ -8,14 +8,15 @@ from datetime import datetime, timedelta
 import re
 
 def datetime_from_string(datetime_string):
+    datetime_string = datetime_string.split('+')[0].split('.')[0]
     try:
         return datetime.strptime(
-            datetime_string.split('+')[0].split('.')[0],
+            datetime_string,
             '%Y-%m-%dT%H:%M:%S',
         )
     except ValueError:
         return datetime.strptime(
-            datetime_string.split('+')[0].split('.')[0],
+            datetime_string,
             '%Y-%m-%d %H:%M:%S',
         )
 
