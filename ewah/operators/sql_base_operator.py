@@ -11,6 +11,7 @@ class EWAHSQLBaseOperator(EWAHBaseOperator):
     # implemented SQL sources - set self.sql_engine to this value in operator
     _MYSQL = 'MySQL'
     _PGSQL = 'PostgreSQL'
+    _ORACLE = 'OracleSQL'
 
     _IS_INCREMENTAL = True
     _IS_FULL_REFRESH = True
