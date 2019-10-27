@@ -2,8 +2,8 @@ from ewah.dwhooks.base_dwhook import EWAHBaseDWHook
 from ewah.constants import EWAHConstants as EC
 
 import os
+import csv
 import snowflake.connector
-from copy import deepcopy
 from tempfile import NamedTemporaryFile
 from airflow.utils.file import TemporaryDirectory
 
