@@ -185,8 +185,6 @@ class EWAHDWHookSnowflake(EWAHBaseDWHook):
 
         self.log.info('Final Step: Merging data')
         self.execute(sql_final)
-        if commit:
-            self.commit()
 
     def commit(self):
         self.cur.execute('COMMIT;')
