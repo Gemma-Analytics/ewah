@@ -63,9 +63,15 @@ class EWAHBaseDWHook(BaseHook):
         for statement in sql.split(';'):
             if statement.strip():
                 kwargs = {}
+                args = []
                 if params:
-                    kwargs.update({'vars': params})
-                (cursor or self.cur).execute(statement.strip(), **kwargs)
+                    if self.dwh_engine == EC.DWH_ENGINE_POSTGRES:
+                        kwargs.update({'vars': params})
+                    elif self.dwh_engine == EC.DWH_ENGINE_SNOWFLAKE:
+                        args = [params]
+                    else:
+                        raise Exception('Feature not implemented!')
+                (cursor or self.cur).execute(statement.strip(), *args, **kwargs)
         if commit:
             self.commit()
 
