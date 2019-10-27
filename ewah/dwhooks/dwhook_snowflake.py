@@ -104,8 +104,8 @@ class EWAHDWHookSnowflake(EWAHBaseDWHook):
                         quoting=csv.QUOTE_MINIMAL,
                     )
 
-                    for _ in range(len(upload_data)):
-                        datum = upload_data.pop(0)
+                    for _ in range(len(data)):
+                        datum = data.pop(0)
                         # Make sure order of csv is the same as order of columns
                         csvwriter.writerow(
                             [datum.get(col) for col in list_of_columns],
