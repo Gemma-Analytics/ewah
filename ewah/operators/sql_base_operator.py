@@ -102,17 +102,17 @@ class EWAHSQLBaseOperator(EWAHBaseOperator):
 
 
         if self.columns_definition:
-            sql_base = self._SQL_BASE_COLUMNS.format(
-                '{0}, {0}'.format(self._SQL_COLUMN_QUOTE)
-                    .join(self.columns_definition.keys()),
-                self.source_schema_name,
-                self.source_table_name,
-            )
+            sql_base = self._SQL_BASE_COLUMNS.format(**{
+                'columns': ('{0}, {0}'.format(self._SQL_COLUMN_QUOTE)
+                    .join(self.columns_definition.keys())),
+                'schema': self.source_schema_name,
+                'table': self.source_table_name,
+            })
         else:
-            sql_base = self._SQL_BASE_ALL.format(
-                self.source_schema_name,
-                self.source_table_name,
-            )
+            sql_base = self._SQL_BASE_ALL.format(**{
+                'schema': self.source_schema_name,
+                'table': self.source_table_name,
+            })
 
         if self.drop_and_replace:
             if self.data_from:
@@ -146,11 +146,11 @@ class EWAHSQLBaseOperator(EWAHBaseOperator):
 
             if self.drop_and_replace:
                 previous_chunk, max_chunk=self._get_data_from_sql(
-                    sql=self._SQL_MINMAX_CHUNKS.format(
-                        chunking_column,
-                        self.source_schema_name,
-                        self.source_table_name,
-                    ),
+                    sql=self._SQL_MINMAX_CHUNKS.format(**{
+                        'column': chunking_column,
+                        'schema': self.source_schema_name,
+                        'table': self.source_table_name,
+                    }),
                     return_dict=False,
                 )[0]
                 if chunking_column == self.timestamp_column:
@@ -166,11 +166,11 @@ class EWAHSQLBaseOperator(EWAHBaseOperator):
                 data = self._get_data_from_sql(
                     sql=sql_base.format(
                         self._SQL_CHUNKING_CLAUSE
-                    ).format(
-                        chunking_column,
-                        '=' if max_chunk < (previous_chunk \
-                            + self.chunking_interval) else '',
-                    ),
+                    ).format(**{
+                        'column': chunking_column,
+                        'equal_sign': ('=' if max_chunk < (previous_chunk \
+                            + self.chunking_interval) else ''),
+                    }),
                     params={
                         'from': previous_chunk,
                         'until': min(

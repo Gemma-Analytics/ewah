@@ -7,11 +7,11 @@ from mysql.connector import connect
 
 class EWAHMySQLOperator(EWAHSQLBaseOperator):
 
-    _SQL_BASE_COLUMNS = 'SELECT `{0}` FROM `{1}`.`{2}`\nWHERE {{0}};'
-    _SQL_BASE_ALL = 'SELECT * FROM `{0}`.`{1}`\nWHERE {{0}};'
+    _SQL_BASE_COLUMNS = 'SELECT `{columns}` FROM `{schema}`.`{table}`\nWHERE {{0}};'
+    _SQL_BASE_ALL = 'SELECT * FROM `{schema}`.`{table}`\nWHERE {{0}};'
     _SQL_COLUMN_QUOTE = '`'
-    _SQL_MINMAX_CHUNKS = 'SELECT MIN(`{0}`), MAX(`{0}`) FROM `{1}`.`{2}`;'
-    _SQL_CHUNKING_CLAUSE = 'AND `{0}` >= %(from)s AND `{0}` <{1} %(until)s'
+    _SQL_MINMAX_CHUNKS = 'SELECT MIN(`{column}`), MAX(`{column}`) FROM `{schema}`.`{table}`;'
+    _SQL_CHUNKING_CLAUSE = 'AND `{column}` >= %(from)s AND `{column}` <{equal_sign} %(until)s'
 
     def __init__(self, *args, **kwargs):
         self.sql_engine = self._MYSQL
@@ -35,21 +35,3 @@ class EWAHMySQLOperator(EWAHSQLBaseOperator):
         self.source_schema_name = self.source_schema_name or \
             BaseHook.get_connection(self.source_conn_id).schema
         super().execute(context=context)
-
-    def _execute(self, context): # deprecated
-
-        conn = BaseHook.get_connection(self.source_conn_id)
-        conn = {
-            'host': conn.host,
-            'user': conn.login,
-            'passwd': conn.password,
-            'port': conn.port,
-            'database': conn.schema,
-        }
-
-        db = connect(**conn)
-        cursor = db.cursor(dictionary=True)
-        cursor.execute('SELECT * FROM {0}'.format(self.source_table_name))
-        data = cursor.fetchall()
-
-        self.upload_data(data)
