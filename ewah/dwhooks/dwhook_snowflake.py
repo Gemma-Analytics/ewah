@@ -23,16 +23,15 @@ class EWAHDWHookSnowflake(EWAHBaseDWHook):
         ADD COLUMN "{column_name}" {column_type};
     """
 
-    def __init__(self, database=None, *args, **kwargs):
-        if database:
-            self.database = database
+    def __init__(self, *args, database=None, **kwargs):
+        self.database = database
         super().__init__(EC.DWH_ENGINE_SNOWFLAKE, *args, **kwargs)
 
 
     def _create_conn(self, database=None):
         creds = self.credentials
         extra = creds.extra_dejson
-        extra[password] = creds.password
+        extra['password'] = creds.password
         if creds.host:
             extra['account'] = creds.host
         if creds.login:

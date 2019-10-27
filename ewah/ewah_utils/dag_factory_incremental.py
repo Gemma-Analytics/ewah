@@ -277,7 +277,8 @@ def dag_factory_incremental_loading(
         task = el_operator(dag=dags[0], **arg_dict)
         kickoff >> task >> final
 
-        if not arg_dict.get('skip_backfill', False):
+        if ('skip_backfill' in arg_dict) and \
+            (not arg_dict.pop('skip_backfill')):
             task = el_operator(dag=dags[1], **arg_dict_backfill)
             kickoff_backfill >> task >> final_backfill
             count_backfill_tasks += 1

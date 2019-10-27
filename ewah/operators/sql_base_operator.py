@@ -55,15 +55,21 @@ class EWAHSQLBaseOperator(EWAHBaseOperator):
                     # use it. Otherwise, raise error.
                     error_msg = "If chunking via integer, must supply " \
                         + "primary_key_column_name OR have EXACTLY ONE " \
-                        + "primary key defined in the columns_definition dict!"
+                        + "primary key defined in the columns_definition dict" \
+                        + "! This is not the case for: {0}. {{0}}" \
+                            .format(source_table_name)
                     if not kwargs.get('columns_definition'):
-                        raise Exception(error_msg)
+                        raise Exception(error_msg.format(
+                            'You did not supply the columns_definition dict.'
+                        ))
                     columns = kwargs.get('columns_definition')
                     if not (sum([
                             1 if columns[key].get(EC.QBC_FIELD_PK) else 0
                             for key in columns.keys()
                         ]) == 1):
-                        raise Exception(error_msg)
+                        raise Exception(error_msg.format(
+                            'There is not exactly one primary key in the dict.'
+                        ))
                     for key in columns.keys():
                         if columns[key].get(EC.QBC_FIELD_PK):
                             kwargs['primary_key_column_name'] = key
@@ -95,6 +101,7 @@ class EWAHSQLBaseOperator(EWAHBaseOperator):
         self.reload_data_chunking = reload_data_chunking or chunking_interval
 
     def execute(self, context):
+        str_format = '%Y-%m-%dT%H:%M:%SZ'
 
         if type(self.data_from) == str:
             self.data_from = datetime_from_string(self.data_from)
@@ -113,7 +120,6 @@ class EWAHSQLBaseOperator(EWAHBaseOperator):
                 if type(self.data_from) == str:
                     self.data_from = datetime_from_string(self.data_from)
 
-            str_format = '%Y-%m-%dT%H:%M:%SZ'
             self.log.info('Incrementally loading data from {0} to {1}.'.format(
                 self.data_from.strftime(str_format),
                 self.data_until.strftime(str_format),

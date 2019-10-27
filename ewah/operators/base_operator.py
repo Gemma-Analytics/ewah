@@ -1,4 +1,5 @@
 from airflow.models import BaseOperator
+from airflow.hooks.base_hook import BaseHook
 
 from ewah.dwhooks.dwhook_snowflake import EWAHDWHookSnowflake
 from ewah.dwhooks.dwhook_postgres import EWAHDWHookPostgres
@@ -79,12 +80,17 @@ class EWAHBaseOperator(BaseOperator):
 
         if dwh_engine == EC.DWH_ENGINE_SNOWFLAKE:
             if not target_database_name:
-                raise Exception('If using DWH Engine {0}, must provide {1}!'
-                    .format(
-                        dwh_engine,
-                        '"target_database_name" to specify the Database',
+                conn_db_name = BaseHook.get_connection(dwh_conn_id)
+                conn_db_name = conn_db_name.extra_dejson.get('database')
+                if conn_db_name:
+                    target_database_name = conn_db_name
+                else:
+                    raise Exception('If using DWH Engine {0}, must provide {1}!'
+                        .format(
+                            dwh_engine,
+                            '"target_database_name" to specify the Database',
+                        )
                     )
-                )
         else:
             if target_database_name:
                 raise Exception('Received argument for "target_database_name"!')
