@@ -51,7 +51,7 @@ class EWAHDWHookSnowflake(EWAHBaseDWHook):
         table_name,
         schema_name,
         database_name,
-        columns_definition, # Not used but supplied!
+        columns_definition,
         columns_partial_query,
         update_on_columns,
         drop_and_replace,
@@ -152,7 +152,7 @@ class EWAHDWHookSnowflake(EWAHBaseDWHook):
             )
         else:
             update_set_cols = []
-            for col in columns.keys():
+            for col in columns_definition.keys():
                 if not (col in update_on_columns):
                     update_set_cols += [col]
 
