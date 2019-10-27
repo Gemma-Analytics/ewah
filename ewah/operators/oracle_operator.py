@@ -22,7 +22,7 @@ class EWAHOracleSQLOperator(EWAHSQLBaseOperator):
 
         def _get_data_from_sql(self,
                 sql,
-                params=None,
+                params={},
                 return_dict=True,
             ):
             '''In Oracle, params are passed to the execute() function as kwargs
