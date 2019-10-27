@@ -63,12 +63,12 @@ class EWAHDWHookSnowflake(EWAHBaseDWHook):
             sql="""CREATE OR REPLACE TABLE
                     "{database_name}"."{schema_name}"."{table_name}"
                     ({columns});
-            """.format(
+            """.format(**{
                 'database_name': database_name,
                 'schema_name': schema_name,
                 'table_name': new_table_name,
                 'columns': columns_partial_query,
-            ),
+            }),
             commit=False,
         )
 
