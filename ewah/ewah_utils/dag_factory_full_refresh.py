@@ -3,6 +3,7 @@ from airflow import DAG
 from ewah.ewah_utils.airflow_utils import etl_schema_tasks
 
 from datetime import datetime, timedelta
+from copy import deepcopy
 
 def dag_factory_drop_and_replace(
         dag_name,
@@ -44,7 +45,7 @@ def dag_factory_drop_and_replace(
 
     with dag:
         for table in operator_config['tables'].keys():
-            table_config = operator_config.get('general_config', {})
+            table_config = deepcopy(operator_config.get('general_config', {}))
             table_config.update(operator_config['tables'][table] or {})
             table_config.update({
                 'task_id': 'extract_load_'+table,

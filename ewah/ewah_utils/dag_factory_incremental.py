@@ -250,7 +250,7 @@ def dag_factory_incremental_loading(
     # add table creation tasks
     count_backfill_tasks = 0
     for table in operator_config['tables'].keys():
-        arg_dict = operator_config.get('general_config', {})
+        arg_dict = deepcopy(operator_config.get('general_config', {}))
         arg_dict_internal = {
             'task_id': 'extract_load_' + table,
             'dwh_engine': dwh_engine,
