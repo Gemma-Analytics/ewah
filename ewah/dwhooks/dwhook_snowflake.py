@@ -51,7 +51,7 @@ class EWAHDWHookSnowflake(EWAHBaseDWHook):
         table_name,
         schema_name,
         database_name,
-        columns_definition,
+        columns_definition, # Not used but supplied!
         columns_partial_query,
         update_on_columns,
         drop_and_replace,
@@ -209,8 +209,8 @@ class EWAHDWHookSnowflake(EWAHBaseDWHook):
             WHERE table_schema LIKE '{1}'
             AND table_name LIKE '{2}'
             """.format(
-                table_name,
-                schema_name,
                 database_name or self.database_name,
+                schema_name,
+                table_name,
             )
         ))
