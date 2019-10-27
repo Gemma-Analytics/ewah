@@ -195,8 +195,8 @@ class EWAHSQLBaseOperator(EWAHBaseOperator):
                             + self.chunking_interval) else ''),
                     }),
                     params={
-                        'from': previous_chunk,
-                        'until': min(
+                        'from_value': previous_chunk,
+                        'until_value': min(
                             max_chunk,
                             previous_chunk + self.chunking_interval,
                         ),
