@@ -1,7 +1,11 @@
 from ewah.dwhooks.base_dwhook import EWAHBaseDWHook
 from ewah.constants import EWAHConstants as EC
 
+import os
 import snowflake.connector
+from copy import deepcopy
+from tempfile import NamedTemporaryFile
+from airflow.utils.file import TemporaryDirectory
 
 class EWAHDWHookSnowflake(EWAHBaseDWHook):
 
@@ -46,14 +50,143 @@ class EWAHDWHookSnowflake(EWAHBaseDWHook):
         data,
         table_name,
         schema_name,
-        # database_name,
+        database_name,
         columns_definition,
         columns_partial_query,
         update_on_columns,
         drop_and_replace,
         logging_function,
     ):
-        logging('Whoop!')
+        logging_function('Preparing DWH Tables...')
+        new_table_name = table_name + '_new'
+        self.execute(
+            sql="""CREATE OR REPLACE TABLE
+                    "{database_name}"."{schema_name}"."{table_name}"
+                    ({columns});
+            """.format(
+                'database_name': database_name,
+                'schema_name': schema_name,
+                'table_name': new_table_name,
+                'columns': columns_partial_query,
+            ),
+            commit=False,
+        )
+
+        list_of_columns = self.execute_and_return_result(
+            sql="""SELECT
+                column_name
+                FROM "{0}".information_schema.columns
+                WHERE table_catalog = '{0}'
+                AND table_schema = '{1}'
+                AND table_name = '{2}'
+                ORDER BY ordinal_position ASC
+            """.format(
+                database_name,
+                schema_name,
+                new_table_name,
+            ),
+        )
+        list_of_columns = [col[0].strip() for col in list_of_columns]
+
+        self.log.info('Writing data to a temporary .csv file')
+        with TemporaryDirectory(prefix='uploadtosnowflake') as tmp_dir:
+            with NamedTemporaryFile(
+                dir=tmp_dir,
+                prefix=new_table_name,
+                suffix='.csv',
+            ) as datafile:
+                file_name = os.path.abspath(datafile.name)
+                with open(file_name, mode='w') as csv_file:
+                    csvwriter = csv.writer(
+                        csv_file,
+                        delimiter=',',
+                        quotechar='"',
+                        quoting=csv.QUOTE_MINIMAL,
+                    )
+
+                    for _ in range(len(upload_data)):
+                        datum = upload_data.pop(0)
+                        # Make sure order of csv is the same as order of columns
+                        csvwriter.writerow(
+                            [datum.get(col) for col in list_of_columns],
+                        )
+
+                # now stage and copy into snowflake!
+                sql_upload = '''
+                    USE DATABASE "{2}";
+                    USE SCHEMA "{3}";
+                    DROP FILE FORMAT IF EXISTS {1}_format;
+                    CREATE OR REPLACE FILE FORMAT {1}_format
+                        type = 'CSV'
+                        field_delimiter = ','
+                        field_optionally_enclosed_by = '"'
+                    ;
+                    DROP STAGE IF EXISTS {1}_stage;
+                    CREATE OR REPLACE STAGE {1}_stage
+                        file_format = {1}_format;
+                    PUT file://{0} @{1}_stage;
+                    COPY INTO "{2}"."{3}"."{1}" FROM '@{1}_stage/{4}.gz';
+                '''.format(
+                    file_name,
+                    new_table_name,
+                    database_name,
+                    schema_name,
+                    file_name[file_name.rfind('/')+1:],
+                )
+                self.log.info('Uploading data to Snowflake...')
+                self.execute(sql_upload)
+
+        if drop_and_replace or (not self.test_if_table_exists(
+            table_name=table_name,
+            schema_name=schema_name,
+            database_name=database_name,
+        )):
+            sql_final = '''
+                DROP TABLE IF EXISTS "{0}"."{1}"."{2}" CASCADE;
+                ALTER TABLE "{0}"."{1}"."{3}" RENAME TO "{2}";
+            '''.format(
+                database_name,
+                schema_name,
+                table_name,
+                new_table_name,
+            )
+        else:
+            update_set_cols = []
+            for col in columns.keys():
+                if not (col in update_on_columns):
+                    update_set_cols += [col]
+
+            sql_final = '''
+                MERGE INTO "{0}"."{1}"."{2}" AS a
+                    USING "{0}"."{1}"."{3}" AS b
+                    ON {4}
+                    WHEN MATCHED THEN UPDATE
+                    SET {5}
+                    WHEN NOT MATCHED THEN INSERT
+                    ({6}) VALUES ({7})
+                    ;
+                DROP TABLE "{0}"."{1}"."{3}" CASCADE;
+            '''.format(
+                database_name,
+                schema_name,
+                table_name,
+                new_table_name,
+                ' AND '.join([
+                    'a."{0}" = b."{0}"'.format(col) for col in update_on_columns
+                ]),
+                ', '.join([
+                    'a."{0}" = b."{0}"'.format(col) for col in update_set_cols
+                ]),
+                '"'+'", "'.join(list(columns.keys()))+'"',
+                ', '.join([
+                    'b."{0}"'.format(col) for col in list(columns.keys())
+                ]),
+            )
+
+        self.log.info('Final Step: Merging data')
+        self.execute(sql_final)
+        if commit:
+            self.commit()
 
     def commit(self):
         self.cur.execute('COMMIT;')
