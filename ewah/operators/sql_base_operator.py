@@ -51,8 +51,26 @@ class EWAHSQLBaseOperator(EWAHBaseOperator):
                         + "incrementally!")
             elif type(chunking_interval) == int:
                 if not kwargs.get('primary_key_column_name'):
-                    raise Exception("If chunking via integer, must supply" \
-                        + " primary_key_column_name!")
+                    # Check columns for primary key - if exactly one,
+                    # use it. Otherwise, raise error.
+                    error_msg = "If chunking via integer, must supply " \
+                        + "primary_key_column_name OR have EXACTLY ONE " \
+                        + "primary key defined in the columns_definition dict!"
+                    if not kwargs.get('columns_definition'):
+                        raise Exception(error_msg)
+                    columns = kwargs.get('columns_definition')
+                    if not (sum([
+                            1 if columns[key].get(EC.QBC_FIELD_PK) else 0
+                            for key in columns.keys()
+                        ]) == 1):
+                        raise Exception(error_msg)
+                    for key in columns.keys():
+                        if columns[key].get(EC.QBC_FIELD_PK):
+                            kwargs['primary_key_column_name'] = key
+                            break
+
+
+
             else:
                 raise Exception("Arg chunking_interval must be integer or "\
                     + "datetime.timedelta!")
