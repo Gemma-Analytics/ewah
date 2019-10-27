@@ -89,7 +89,7 @@ class EWAHBaseDWHook(BaseHook):
             return self.cur.fetchall()
 
         if self.dwh_engine == EC.DWH_ENGINE_SNOWFLAKE:
-            return [[row for row in self.cur]]
+            return [row for row in self.cur]
 
         raise Exception(
             'Function not implemented for this DWH Engine: {0}'.format(
