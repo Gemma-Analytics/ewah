@@ -9,6 +9,7 @@ class EWAHPostgresOperator(EWAHSQLBaseOperator):
     _SQL_COLUMN_QUOTE = '"'
     _SQL_MINMAX_CHUNKS = 'SELECT MIN("{column}"), MAX("{column}") FROM "{schema}"."{table}";'
     _SQL_CHUNKING_CLAUSE = 'AND "{column}" >= %(from_value)s AND "{column}" <{equal_sign} %(until_value)s'
+    _SQL_PARAMS = '%({0})s'
 
     def __init__(self, *args, **kwargs):
         self.sql_engine = self._PGSQL

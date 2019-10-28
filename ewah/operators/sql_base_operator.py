@@ -137,28 +137,34 @@ class EWAHSQLBaseOperator(EWAHBaseOperator):
                 'table': self.source_table_name,
             })
 
+        params = {}
+        # _SQL_PARAMS
         if self.drop_and_replace:
             if self.data_from:
                 sql_base = sql_base.format('{0}{1}{0} >= {2} AND {{0}}'.format(
                     self._SQL_COLUMN_QUOTE,
                     self.timestamp_column,
-                    self.data_from.strftime(str_format),
+                    self._SQL_PARAMS.format('data_from'),
                 ))
+                params.update({'data_from': self.data_from})
             if self.data_until:
                 sql_base = sql_base.format('{0}{1}{0} <= {2} AND {{0}}'.format(
                     self._SQL_COLUMN_QUOTE,
                     self.timestamp_column,
-                    self.data_until.strftime(str_format),
+                    self._SQL_PARAMS.format('data_until'),
                 ))
+                params.update({'data_until': self.data_from})
             sql_base = sql_base.format('1 = 1 {0}')
         else:
             sql_base = sql_base.format('{3}{0}{3}>={1} AND {3}{0}{3}<{2} {{0}}'
                 .format(
                     self.timestamp_column,
-                    self.data_from.strftime(str_format),
-                    self.data_until.strftime(str_format),
+                    self._SQL_PARAMS.format('data_from'),
+                    self._SQL_PARAMS.format('data_until'),
                     self._SQL_COLUMN_QUOTE,
             ))
+            params.update({'data_from': self.data_from})
+            params.update({'data_until': self.data_from})
 
 
         if self.chunking_interval:
@@ -186,6 +192,13 @@ class EWAHSQLBaseOperator(EWAHBaseOperator):
                 max_chunk = self.until
 
             while previous_chunk <= max_chunk:
+                params.update({
+                    'from_value': previous_chunk,
+                    'until_value': min(
+                        max_chunk,
+                        previous_chunk + self.chunking_interval,
+                    ),
+                })
                 data = self._get_data_from_sql(
                     sql=sql_base.format(
                         self._SQL_CHUNKING_CLAUSE
@@ -194,13 +207,7 @@ class EWAHSQLBaseOperator(EWAHBaseOperator):
                         'equal_sign': ('=' if max_chunk < (previous_chunk \
                             + self.chunking_interval) else ''),
                     }),
-                    params={
-                        'from_value': previous_chunk,
-                        'until_value': min(
-                            max_chunk,
-                            previous_chunk + self.chunking_interval,
-                        ),
-                    },
+                    params=params,
                     return_dict=True,
                 )
 
