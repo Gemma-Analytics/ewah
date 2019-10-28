@@ -116,7 +116,7 @@ def dbt_dags_factory(
             'DBT_ROLE': analytics_conn_extra.get('role'),
             'DBT_DB': analytics_conn_extra.get('database'),
             'DBT_WH': analytics_conn_extra.get('warehouse'),
-            'DBT_PROFILES_DIR': folder + '/' + project_name,
+            'DBT_PROFILES_DIR': folder,
         }
     else:
         raise ValueError('DWH type not implemented!')
