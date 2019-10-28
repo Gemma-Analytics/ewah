@@ -224,7 +224,7 @@ class EWAHBaseDWHook(BaseHook):
             )]
             if self._get_column_type(definition) == 'jsonb':
                 jsonb_columns += [column_name]
-            if definition.get(field_constraints_mapping[EC.QBC_FIELD_PK]):
+            if create_update_on_columns and definition.get(EC.QBC_FIELD_PK):
                 update_on_columns += [column_name]
         sql_part_columns = ',\n\t'.join(sql_part_columns)
 
