@@ -17,7 +17,6 @@ class EWAHSQLBaseOperator(EWAHBaseOperator):
     _IS_FULL_REFRESH = True
 
     def __init__(self,
-        source_conn_id, # string
         source_schema_name=None, # string
         source_table_name=None, # string, defaults to same as target_table_name
         data_from=None, # datetime, ISO datetime string, or airflow JINJA macro
@@ -88,7 +87,7 @@ class EWAHSQLBaseOperator(EWAHBaseOperator):
                 raise Exception('For incremental loading, you must specify ' \
                     + 'both data_from and data_until!')
 
-        self.source_conn_id = source_conn_id
+
         self.source_schema_name = source_schema_name
         self.source_table_name = source_table_name
         self.data_from = data_from

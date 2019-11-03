@@ -59,6 +59,7 @@ class EWAHBaseOperator(BaseOperator):
 
     def __init__(
         self,
+        source_conn_id,
         dwh_engine,
         dwh_conn_id,
         target_table_name,
@@ -115,6 +116,7 @@ class EWAHBaseOperator(BaseOperator):
 
         super().__init__(*args, **kwargs)
 
+        self.source_conn_id = source_conn_id
         self.dwh_engine = dwh_engine
         self.dwh_conn_id = dwh_conn_id
         self.target_table_name = target_table_name

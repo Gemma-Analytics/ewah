@@ -25,7 +25,6 @@ class EWAHGAOperator(EWAHBaseOperator):
 
     def __init__(
         self,
-        google_conn_id,
         view_id,
         data_from,
         data_until,
@@ -59,8 +58,7 @@ class EWAHGAOperator(EWAHBaseOperator):
 
         super().__init__(*args, **kwargs)
 
-        #self.google_conn_id = google_conn_id
-        self.credentials = BaseHook.get_connection(google_conn_id)
+        self.credentials = BaseHook.get_connection(self.source_conn_id)
         self.credentials = self.credentials.extra_dejson
         self.view_id = view_id
         self.data_from = data_from
