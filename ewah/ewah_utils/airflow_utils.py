@@ -9,17 +9,32 @@ from datetime import datetime, timedelta
 import re
 
 def datetime_from_string(datetime_string):
-    datetime_string = datetime_string.split('+')[0].split('.')[0]
-    try:
-        return datetime.strptime(
-            datetime_string,
-            '%Y-%m-%dT%H:%M:%S',
-        )
-    except ValueError:
-        return datetime.strptime(
-            datetime_string,
-            '%Y-%m-%d %H:%M:%S',
-        )
+    if '-' in datetime_string[10:]:
+        tz_sign = '-'
+    else:
+        tz_sign = '+'
+    datetime_strings = datetime_string.split(tz_sign)
+
+    if 'T' in datetime_string:
+        format_string = '%Y-%m-%dT%H:%M:%S'
+    else:
+        format_string = '%Y-%m-%d %H:%M:%S'
+
+    if '.' in datetime_string:
+        format_string += '.%f'
+
+    if len(datetime_strings) == 2:
+        if ':' in datetime_strings[1]:
+            datetime_strings[1] = datetime_strings[1].replace(':', '')
+        datetime_string = tz_sign.join(datetime_strings)
+        format_string += '%z'
+    elif 'Z' in datetime_string:
+        format_string += 'Z'
+
+    return datetime.strptime(
+        datetime_string,
+        format_string,
+    )
 
 def etl_schema_tasks(
         dag,

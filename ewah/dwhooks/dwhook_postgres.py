@@ -87,6 +87,11 @@ class EWAHDWHookPostgres(EWAHBaseDWHook):
                 commit=False,
             )
 
+        set_columns = []
+        for column in columns_definition.keys():
+            if not (column in update_on_columns):
+                set_columns += [column]
+
         sql="""
             INSERT INTO "{schema_name}"."{table_name}"
             ("{column_names}") VALUES %s
@@ -99,10 +104,9 @@ class EWAHDWHookPostgres(EWAHBaseDWHook):
                 ("{update_columns}") DO UPDATE SET\n\t{sets}
             """.format(
                 update_columns='", "'.join(update_on_columns),
-                sets=',\n\t'.join([
-                    ('-- ' if column in update_on_columns else '')
-                    + '"{column}" = EXCLUDED."{column}"'.format(column=column)
-                    for column in list(columns_definition.keys())
+                sets='\n\t,'.join([
+                    '"{column}" = EXCLUDED."{column}"'.format(column=column)
+                    for column in set_columns
                 ]),
             ),
         })
