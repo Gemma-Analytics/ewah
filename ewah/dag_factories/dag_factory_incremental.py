@@ -2,7 +2,7 @@ from airflow import DAG
 from airflow.operators.postgres_operator import PostgresOperator as PGO
 from airflow.sensors.external_task_sensor import ExternalTaskSensor as ETS
 
-from ewah.ewah_utils.airflow_utils import etl_schema_tasks, datetime_from_string
+from ewah.ewah_utils.airflow_utils import etl_schema_tasks
 from ewah.constants import EWAHConstants as EC
 
 from datetime import datetime, timedelta
@@ -77,6 +77,7 @@ def dag_factory_incremental_loading(
         schedule_interval_backfill=timedelta(days=1),
         schedule_interval_future=timedelta(hours=1),
         switch_date=None,
+        end_date=None,
     ):
 
     if not hasattr(el_operator, '_IS_INCREMENTAL'):
@@ -118,11 +119,12 @@ def dag_factory_incremental_loading(
             catchup=True,
             max_active_runs=1,
             default_args=default_args,
+            end_date=end_date,
         ),
         DAG(
             dag_base_name+'_Incremental_Backfill',
             start_date=start_date,
-            end_date=switch_date,
+            end_date=switch_date or end_date,
             schedule_interval=schedule_interval_backfill,
             catchup=True,
             max_active_runs=1,
@@ -274,14 +276,14 @@ def dag_factory_incremental_loading(
         arg_dict.update(arg_dict_internal)
         arg_dict_backfill.update(arg_dict_internal)
 
+        if not arg_dict.pop('skip_backfill', False):
+            arg_dict_backfill.pop('skip_backfill', False)
+            task_backfill = el_operator(dag=dags[1], **arg_dict_backfill)
+            kickoff_backfill >> task_backfill >> final_backfill
+            count_backfill_tasks += 1
+
         task = el_operator(dag=dags[0], **arg_dict)
         kickoff >> task >> final
-
-        if ('skip_backfill' in arg_dict) and \
-            (not arg_dict.pop('skip_backfill')):
-            task = el_operator(dag=dags[1], **arg_dict_backfill)
-            kickoff_backfill >> task >> final_backfill
-            count_backfill_tasks += 1
 
     if count_backfill_tasks == 0:
         kickoff_backfill >> final_backfill

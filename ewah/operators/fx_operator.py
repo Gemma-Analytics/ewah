@@ -3,7 +3,7 @@ from yahoofinancials import YahooFinancials
 
 from ewah.constants import EWAHConstants as EC
 from ewah.operators.base_operator import EWAHBaseOperator
-from ewah.ewah_utils.airflow_utils import datetime_from_string
+from ewah.ewah_utils.airflow_utils import airflow_datetime_adjustments
 
 class EWAHFXOperator(EWAHBaseOperator):
 
@@ -52,10 +52,8 @@ class EWAHFXOperator(EWAHBaseOperator):
         self.frequency = frequency
 
     def execute(self, context):
-        if type(self.data_from) == str:
-            self.data_from = datetime_from_string(self.data_from)
-        if type(self.data_until) == str:
-            self.data_until = datetime_from_string(self.data_until)
+        self.data_from = airflow_datetime_adjustments(self.data_from)
+        self.data_until = airflow_datetime_adjustments(self.data_until)
 
         format_str = '%Y-%m-%d'
         currency_str = '{0}{1}=X'.format(*self.currency_pair)

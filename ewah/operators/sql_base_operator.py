@@ -1,12 +1,12 @@
 from ewah.operators.base_operator import EWAHBaseOperator
-from ewah.ewah_utils.airflow_utils import datetime_from_string
+from ewah.ewah_utils.airflow_utils import airflow_datetime_adjustments
 from ewah.constants import EWAHConstants as EC
 
 from datetime import timedelta
 
 class EWAHSQLBaseOperator(EWAHBaseOperator):
 
-    template_fields = ('data_from', 'data_until')
+    template_fields = ('data_from', 'data_until', 'reload_data_from')
 
     # implemented SQL sources - set self.sql_engine to this value in operator
     _MYSQL = 'MySQL'
@@ -100,10 +100,10 @@ class EWAHSQLBaseOperator(EWAHBaseOperator):
     def execute(self, context):
         str_format = '%Y-%m-%dT%H:%M:%SZ'
 
-        if type(self.data_from) == str:
-            self.data_from = datetime_from_string(self.data_from)
-        if type(self.data_until) == str:
-            self.data_until = datetime_from_string(self.data_until)
+        self.data_from = airflow_datetime_adjustments(self.data_from)
+        self.data_until = airflow_datetime_adjustments(self.data_until)
+        self.reload_data_from = \
+            airflow_datetime_adjustments(self.reload_data_from)
 
         if self.drop_and_replace:
             self.log.info('Loading data as full refresh.')

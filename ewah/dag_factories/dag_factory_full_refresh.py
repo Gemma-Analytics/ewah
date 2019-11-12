@@ -17,6 +17,7 @@ def dag_factory_drop_and_replace(
         default_args=None,
         start_date=datetime(2019, 1, 1),
         schedule_interval=timedelta(days=1),
+        end_date=None,
     ):
 
     if not hasattr(el_operator, '_IS_FULL_REFRESH'):
@@ -31,6 +32,7 @@ def dag_factory_drop_and_replace(
         max_active_runs=1,
         schedule_interval=schedule_interval,
         start_date=start_date,
+        end_date=end_date,
     )
 
     kickoff, final = etl_schema_tasks(

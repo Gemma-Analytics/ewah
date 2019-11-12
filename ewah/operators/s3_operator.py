@@ -1,5 +1,5 @@
 from ewah.operators.base_operator import EWAHBaseOperator
-from ewah.ewah_utils.airflow_utils import datetime_from_string
+from ewah.ewah_utils.airflow_utils import airflow_datetime_adjustments
 from ewah.constants import EWAHConstants as EC
 
 from airflow.hooks.S3_hook import S3Hook
@@ -74,10 +74,8 @@ class EWAHS3Operator(EWAHBaseOperator):
                 in hook.read_key(key, bucket).split('\n')
             ]
 
-        if type(self.data_from) == str:
-            self.data_from = datetime_from_string(self.data_from)
-        if type(self.data_until) == str:
-            self.data_until = datetime_from_string(self.data_until)
+        self.data_from = airflow_datetime_adjustments(self.data_from)
+        self.data_until = airflow_datetime_adjustments(self.data_until)
 
         hook = S3Hook(self.source_conn_id)
 

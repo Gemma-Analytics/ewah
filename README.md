@@ -15,6 +15,7 @@ Goal: Have functions to create all DAGs required for ELT using only a simple con
 - OracleSQL
 - Google Analytics (Incremental Only)
 - S3 (for JSON files stored in an S3 bucket, e.g. from Kinesis Firehose)
+- FX Rates (from Yahoo Finance)
 
 ## Philosophy
 
@@ -86,3 +87,18 @@ dag = dag_factory_drop_and_replace(
 ```
 
 For all kwargs of the operator config, the general config can be overwritten by supplying specific kwargs at the table level.
+
+### Configure all DAGs in a single YAML file
+
+Standard data loading DAGs should be just a configuration. Thus, you can
+configure the DAGs using a simple YAML file. A proper description of how
+that YAML file looks like will appear here soon. Your `dags.py` file in your
+`$AIRFLOW_HOME/dags` folder may then look like that, and nothing more:
+```
+from airflow import DAG # This module must be imported for airflow to see DAGs
+from ewah.dag_factories import dags_from_yml_file
+
+dags = dags_from_yml_file('/path/to/my/dag/config.yml')
+for dag in dags: # Must add the individual DAGs to the global namespace
+  globals()[dag._dag_id] = dag
+```

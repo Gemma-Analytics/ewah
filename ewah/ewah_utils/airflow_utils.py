@@ -5,36 +5,47 @@ from airflow.hooks.base_hook import BaseHook
 from ewah.dwhooks.dwhook_snowflake import EWAHDWHookSnowflake
 from ewah.constants import EWAHConstants as EC
 
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import re
 
-def datetime_from_string(datetime_string):
-    if '-' in datetime_string[10:]:
-        tz_sign = '-'
-    else:
-        tz_sign = '+'
-    datetime_strings = datetime_string.split(tz_sign)
+def airflow_datetime_adjustments(datetime_raw):
+    if type(datetime_raw) == str:
+        datetime_string = datetime_raw
+        if '-' in datetime_string[10:]:
+            tz_sign = '-'
+        else:
+            tz_sign = '+'
+        datetime_strings = datetime_string.split(tz_sign)
 
-    if 'T' in datetime_string:
-        format_string = '%Y-%m-%dT%H:%M:%S'
-    else:
-        format_string = '%Y-%m-%d %H:%M:%S'
+        if 'T' in datetime_string:
+            format_string = '%Y-%m-%dT%H:%M:%S'
+        else:
+            format_string = '%Y-%m-%d %H:%M:%S'
 
-    if '.' in datetime_string:
-        format_string += '.%f'
+        if '.' in datetime_string:
+            format_string += '.%f'
 
-    if len(datetime_strings) == 2:
-        if ':' in datetime_strings[1]:
-            datetime_strings[1] = datetime_strings[1].replace(':', '')
-        datetime_string = tz_sign.join(datetime_strings)
-        format_string += '%z'
-    elif 'Z' in datetime_string:
-        format_string += 'Z'
+        if len(datetime_strings) == 2:
+            if ':' in datetime_strings[1]:
+                datetime_strings[1] = datetime_strings[1].replace(':', '')
+            datetime_string = tz_sign.join(datetime_strings)
+            format_string += '%z'
+        elif 'Z' in datetime_string:
+            format_string += 'Z'
+        datetime_raw = datetime.strptime(
+            datetime_string,
+            format_string,
+        )
+    elif not (type(datetime_raw) in (type(None), datetime)):
+        raise Exception('Invalid datetime type supplied! Supply either string' \
+            + ' or datetime.datetime! supplied: {0}'.format(
+                str(type(datetime_raw))
+            ))
 
-    return datetime.strptime(
-        datetime_string,
-        format_string,
-    )
+    if datetime_raw and datetime_raw.tzinfo is None:
+        datetime_raw = datetime_raw.replace(tzinfo=timezone.utc)
+
+    return datetime_raw
 
 def etl_schema_tasks(
         dag,

@@ -247,3 +247,8 @@ class EWAHBaseOperator(BaseOperator):
         )
         #hook.commit()
         hook.close()
+
+class EWAHEmptyOperator(EWAHBaseOperator):
+    def __init__(self, *args, **kwargs):
+        raise Exception('Failed to load operator! Probably missing' \
+            + ' requirements for the operator in question.')

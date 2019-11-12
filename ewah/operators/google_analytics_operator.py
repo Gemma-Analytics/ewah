@@ -4,7 +4,7 @@ Source of original: https://github.com/airflow-plugins/google_analytics_plugin/b
 Accessed 5 March 2019
 """
 from ewah.operators.base_operator import EWAHBaseOperator
-from ewah.ewah_utils.airflow_utils import datetime_from_string
+from ewah.ewah_utils.airflow_utils import airflow_datetime_adjustments
 from ewah.constants import EWAHConstants as EC
 
 from airflow.hooks.base_hook import BaseHook
@@ -117,19 +117,17 @@ class EWAHGAOperator(EWAHBaseOperator):
 
 
     def execute(self, context):
-
-        if type(self.data_until) == str:
-            self.data_until = datetime_from_string(self.data_until)
-        if type(self.data_from) == str:
-            self.data_from = datetime_from_string(self.data_from)
+        self.data_until = airflow_datetime_adjustments(self.data_until)
+        self.data_from = airflow_datetime_adjustments(self.data_from)
+        self.reload_data_from = \
+            airflow_datetime_adjustments(self.reload_data_from)
 
         if not self.drop_and_replace and not self.test_if_target_table_exists():
             self.chunking_interval = self.reload_data_chunking \
                 or self.chunking_interval \
                 or (self.data_until - self.data_from)
             self.data_from = self.reload_data_from or context['dag'].start_date
-            if type(self.data_from) == str:
-                self.data_from = datetime_from_string(self.data_from)
+            self.data_from = airflow_datetime_adjustments(self.data_from)
         elif not self.chunking_interval:
             self.chunking_interval = self.data_until - self.data_from
 
