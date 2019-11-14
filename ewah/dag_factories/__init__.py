@@ -31,7 +31,8 @@ def dags_from_dict(
     1) The first level may be one of the following:
     - el_dags: contains the actual DAG definitions
     - base_config: template configuration for all DAGs - will be overwritten
-        by individual configurations
+        by individual configurations, except for additional_task_args, which
+        will only be updated by DAG configurations
 
     el_dags is expected to be a dictionary where the key is the (base) name of
         the DAG(s) and the value is a dictionary of its configuration.
@@ -51,8 +52,26 @@ def dags_from_dict(
         - target_database_name optional for snowflake DWHs, forbidden otherwise
             -> name of the target database (looks at dwh_conn_id's extra json
             if not specified for a snowflake DWH)
-        - default_args the default_args parameter as supplied to airflow DAGs
-            if specified at DAG level, it overrides any base_config
+        - additional_task_args optional dict with arguments for the individual
+            tasks of the DAG(s). Allowed arguments are:
+            - email
+            - email_on_retry
+            - email_on_failure
+            - retries
+            - retry_delay
+            - priorirty_weight
+            - weight_rule
+            - pool
+            - owner
+            ->> See airflow documentation for details
+        - additional_dag_args optional dict, you can additionally set the
+            following DAG-level arguments in this dict:
+            - description
+            - params
+            - default_view
+            - orientation
+            - access_control
+            ->> See airflow documentation for details
         - operator_config this is complex enough to warrant its own section
 
         for drop and replace only:
@@ -126,15 +145,64 @@ def dags_from_dict(
         's3': EWAHS3Operator,
     }
 
+    allowed_dag_args = [
+        'description',
+        'params',
+        'default_view',
+        'orientation',
+        'access_control',
+    ]
+
+    allowed_task_args = [
+        'email',
+        'email_on_retry',
+        'email_on_failure',
+        'retries',
+        'retry_delay',
+        'priorirty_weight',
+        'weight_rule',
+        'pool',
+        'owner', # set within this function, can be overwritten
+    ]
+
     def warn_me(*warning_strings):
         if raise_warnings_as_errors:
             raise Exception(' '.join(warning_strings))
         print(*warning_strings)
 
+    def check_keys_are_allowed(dict, allowed_list, dict_name):
+        for key in dict.keys():
+            if not key in allowed_list:
+                warn_me('Unexpected key {0} was found in dict {1}!'.format(
+                    key,
+                    dict_name,
+                ))
+
     base_config = dag_definition.pop('base_config', {})
     dags_dict = dag_definition.pop('el_dags', {})
     if not dags_dict:
         warn_me('No EL DAGs specified!')
+
+    additional_dag_args = base_config.pop('additional_dag_args', {})
+    base_config['additional_dag_args'] = {}
+    for key, value in additional_dag_args.items():
+        if key in allowed_dag_args:
+            base_config['additional_dag_args'].update({key: value})
+        else:
+            warn_me(('Unexpected key {0} found in ' \
+                + 'additional_dag_args in base_config!').format(
+                key,
+            ))
+
+    additional_task_args = base_config.pop('additional_task_args', {})
+    base_config['additional_task_args'] = {'owner': 'EWAH'}
+    for key, value in additional_task_args.items():
+        if key in allowed_task_args:
+            base_config['additional_task_args'].update({key: value})
+        else:
+            warn_me('Unexpected key {0} found in additional_task_args!'.format(
+                key,
+            ))
 
     if dag_definition:
         warn_me(
@@ -145,6 +213,22 @@ def dags_from_dict(
     dags = []
     for dag_name, dag_config in dags_dict.items():
         config = deepcopy(base_config)
+        config['additional_task_args'].update(
+            dag_config.pop('additional_task_args', {})
+        )
+        config['additional_dag_args'].update(
+            dag_config.pop('additional_dag_args', {})
+        )
+        check_keys_are_allowed(
+            config['additional_task_args'],
+            allowed_task_args,
+            'el_dags.{0}.additional_task_args'.format(dag_name),
+        )
+        check_keys_are_allowed(
+            config['additional_dag_args'],
+            allowed_dag_args,
+            'el_dags.{0}.additional_dag_args'.format(dag_name),
+        )
         config.update(dag_config)
         drop_and_replace = not config.pop('incremental', False)
         try:
@@ -161,13 +245,6 @@ def dags_from_dict(
                 str(config.get('el_operator', None)),
                 '\n\t'.join(list(operators.keys())),
             ))
-
-        tables_dict = {}
-        for _ in range(len(config['operator_config']['tables'])):
-            table = config['operator_config']['tables'].pop(0)
-            table_name = table.pop('name')
-            tables_dict.update({table_name: table})
-        config['operator_config']['tables'] = tables_dict
 
         if drop_and_replace:
             config.update({'dag_name': dag_name})
@@ -187,8 +264,8 @@ def dags_from_dict(
 
 def dags_from_yml_file(
     file_path,
-    raise_error_when_empty=False,
-    raise_warnings_as_errors=False,
+    raise_error_when_empty=True,
+    raise_warnings_as_errors=True,
 ):
 
     return dags_from_dict(

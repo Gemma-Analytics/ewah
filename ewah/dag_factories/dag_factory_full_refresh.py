@@ -18,6 +18,8 @@ def dag_factory_drop_and_replace(
         start_date=datetime(2019, 1, 1),
         schedule_interval=timedelta(days=1),
         end_date=None,
+        additional_dag_args={},
+        additional_task_args={},
     ):
 
     if not hasattr(el_operator, '_IS_FULL_REFRESH'):
@@ -33,6 +35,7 @@ def dag_factory_drop_and_replace(
         schedule_interval=schedule_interval,
         start_date=start_date,
         end_date=end_date,
+        **additional_dag_args,
     )
 
     kickoff, final = etl_schema_tasks(
@@ -43,11 +46,13 @@ def dag_factory_drop_and_replace(
         target_schema_suffix=target_schema_suffix,
         target_database_name=target_database_name,
         copy_schema=False,
+        **additional_task_args
     )
 
     with dag:
         for table in operator_config['tables'].keys():
-            table_config = deepcopy(operator_config.get('general_config', {}))
+            table_config = deepcopy(additional_task_args)
+            table_config.update(operator_config.get('general_config', {}))
             table_config.update(operator_config['tables'][table] or {})
             table_config.update({
                 'task_id': 'extract_load_'+table,

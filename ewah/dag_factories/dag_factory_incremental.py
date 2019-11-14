@@ -83,6 +83,8 @@ def dag_factory_incremental_loading(
         #   to move from backfill DAG to normal DAG? Defaults to minuts half
         #   of schedule_interval_future (which is recommended in most cases)
         end_date=None,
+        additional_dag_args={},
+        additional_task_args={},
     ):
 
     if not hasattr(el_operator, '_IS_INCREMENTAL'):
@@ -146,6 +148,7 @@ def dag_factory_incremental_loading(
             catchup=True,
             max_active_runs=1,
             default_args=default_args,
+            **additional_dag_args
         ),
         DAG(
             dag_base_name+'_Incremental_Backfill',
@@ -155,6 +158,7 @@ def dag_factory_incremental_loading(
             catchup=True,
             max_active_runs=1,
             default_args=default_args,
+            **additional_dag_args
         ),
         DAG(
             dag_base_name+'_Incremental_Reset',
@@ -164,6 +168,7 @@ def dag_factory_incremental_loading(
             catchup=False,
             max_active_runs=1,
             default_args=default_args,
+            **additional_dag_args
         ),
     )
 
@@ -207,6 +212,7 @@ def dag_factory_incremental_loading(
         },
         task_id='reset_by_deleting_all_task_instances',
         dag=dags[2],
+        **additional_task_args
     )
     drop_sql = f'DROP SCHEMA IF EXISTS "{target_schema_name}" CASCADE;'
     drop_sql += '\nDROP SCHEMA IF EXISTS "{schema}" CASCADE;'.format(**{
@@ -218,6 +224,7 @@ def dag_factory_incremental_loading(
             postgres_conn_id=dwh_conn_id,
             task_id='delete_previous_schema_if_exists',
             dag=dags[2],
+            **additional_task_args
         )
     elif dwh_engine == EC.DWH_ENGINE_SNOWFLAKE:
         drop_task = SnowflakeOperator(
@@ -226,6 +233,7 @@ def dag_factory_incremental_loading(
             database=target_database_name,
             task_id='delete_previous_schema_if_exists',
             dag=dags[2],
+            **additional_task_args
         )
     else:
         raise ValueError('DWH not implemented for this task!')
@@ -239,6 +247,7 @@ def dag_factory_incremental_loading(
         target_schema_name=target_schema_name,
         target_schema_suffix=target_schema_suffix,
         dwh_conn_id=dwh_conn_id,
+        **additional_task_args
     )
 
     # Backfill DAG schema tasks
@@ -249,6 +258,7 @@ def dag_factory_incremental_loading(
         target_schema_name=target_schema_name,
         target_schema_suffix=target_schema_suffix,
         dwh_conn_id=dwh_conn_id,
+        **additional_task_args
     )
 
     # Make sure incremental loading stops if there is an error!
@@ -263,6 +273,7 @@ def dag_factory_incremental_loading(
             backfill_external_task_id=final_backfill.task_id,
             backfill_execution_delta=schedule_interval_backfill,
             dag=dags[0],
+            **additional_task_args
         ),
         ExtendedETS(
             task_id='sense_previous_instance',
@@ -271,6 +282,7 @@ def dag_factory_incremental_loading(
             external_task_id=final_backfill.task_id,
             execution_delta=schedule_interval_backfill,
             dag=dags[1],
+            **additional_task_args
         )
     )
     ets[0] >> kickoff
@@ -279,7 +291,8 @@ def dag_factory_incremental_loading(
     # add table creation tasks
     count_backfill_tasks = 0
     for table in operator_config['tables'].keys():
-        arg_dict = deepcopy(operator_config.get('general_config', {}))
+        arg_dict = deepcopy(additional_task_args)
+        arg_dict.update(operator_config.get('general_config', {}))
         arg_dict_internal = {
             'task_id': 'extract_load_' + table,
             'dwh_engine': dwh_engine,
@@ -304,7 +317,7 @@ def dag_factory_incremental_loading(
         arg_dict_backfill.update(arg_dict_internal)
 
         if not arg_dict.pop('skip_backfill', False):
-            arg_dict_backfill.pop('skip_backfill', False)
+            assert arg_dict_backfill.pop('skip_backfill', False)
             task_backfill = el_operator(dag=dags[1], **arg_dict_backfill)
             kickoff_backfill >> task_backfill >> final_backfill
             count_backfill_tasks += 1
