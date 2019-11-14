@@ -76,7 +76,12 @@ def dag_factory_incremental_loading(
         default_args=None,
         schedule_interval_backfill=timedelta(days=1),
         schedule_interval_future=timedelta(hours=1),
-        switch_date=None,
+        switch_absolute_date=None, # If provided, switch from backfill DAG to
+        #   normal DAG at that point in time (datetime.datetime) - best practice
+        #   would be to leave None is most cases
+        switch_relative_timedelta=None, # if switch_absolute_date is None, when
+        #   to move from backfill DAG to normal DAG? Defaults to minuts half
+        #   of schedule_interval_future (which is recommended in most cases)
         end_date=None,
     ):
 
@@ -95,14 +100,35 @@ def dag_factory_incremental_loading(
             + ' regular schedule interval!')
     if not operator_config.get('tables'):
         raise Exception('Requires a "tables" dictionary in operator_config!')
+    if not (switch_relative_timedelta is None \
+        or type(switch_relative_timedelta) == timedelta):
+        raise Exception('switch_relative_timedelta must be timedelta or None!')
 
-    if not switch_date:
-        current_time = datetime.now() - timedelta(hours=12) # don't switch immediately
-        switch_date = int((current_time-start_date)/schedule_interval_backfill)
-        switch_date *= schedule_interval_backfill
-        switch_date += start_date
+    if not switch_absolute_date:
+        if switch_relative_timedelta is None:
+            # Make switch halway between latest normal DAG run and the
+            #   next_execution_date of the next-to-run backfill DAG
+            #   --> no interruption of the system, airflow has time to register
+            #   the change, the backfill DAG can run once unimpeded and the
+            #   normal DAG can then resume as per normal. Note: in that case,
+            #   keep both DAGs active!
+            switch_relative_timedelta = -schedule_interval_future / 2
 
-    backfill_timedelta = switch_date - start_date
+        current_time = datetime.now() - switch_relative_timedelta
+        # How much time has passed in total between start_date and now?
+        switch_absolute_date = current_time - start_date
+        # How often could the backfill DAG run in that time frame?
+        switch_absolute_date /= schedule_interval_backfill
+        switch_absolute_date = int(switch_absolute_date)
+        # What is the exact datetime after the last of those runs?
+        switch_absolute_date *= schedule_interval_backfill
+        switch_absolute_date += start_date
+        # --> switch_absolute_date is always in the (recent) past, unless
+        #   switch_relative_timedelta is negative
+
+    # Make sure that the backfill and normal DAG start_date and
+    #   schedule_interval calculations were successful and correct
+    backfill_timedelta = switch_absolute_date - start_date
     backfill_tasks_count = backfill_timedelta / schedule_interval_backfill
     # The schedule interval of the backfill must be an exact integer multiple
     # of the time period between start date and switch date!
@@ -114,17 +140,17 @@ def dag_factory_incremental_loading(
     dags = (
         DAG(
             dag_base_name+'_Incremental',
-            start_date=switch_date,
+            start_date=switch_absolute_date,
+            end_date=end_date,
             schedule_interval=schedule_interval_future,
             catchup=True,
             max_active_runs=1,
             default_args=default_args,
-            end_date=end_date,
         ),
         DAG(
             dag_base_name+'_Incremental_Backfill',
             start_date=start_date,
-            end_date=switch_date or end_date,
+            end_date=min(switch_absolute_date, end_date),
             schedule_interval=schedule_interval_backfill,
             catchup=True,
             max_active_runs=1,
@@ -133,6 +159,7 @@ def dag_factory_incremental_loading(
         DAG(
             dag_base_name+'_Incremental_Reset',
             start_date=start_date,
+            end_date=end_date,
             schedule_interval=None,
             catchup=False,
             max_active_runs=1,

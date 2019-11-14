@@ -1,8 +1,8 @@
 from ewah.constants import EWAHConstants as EC
 from ewah.operators import *
 
-from ewah.dag_factories.dag_factory_full_refresh import dag_factory_drop_and_replace
-from ewah.dag_factories.dag_factory_incremental import dag_factory_incremental_loading
+from .dag_factory_full_refresh import dag_factory_drop_and_replace
+from .dag_factory_incremental import dag_factory_incremental_loading
 
 from copy import deepcopy
 
