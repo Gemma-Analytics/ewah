@@ -38,7 +38,7 @@ class ExtendedETS(ETS):
         # after 12.32pm due to some internal delays. In those cases, make
         # sure the incremental loading DAGs don't execute too quickly.
         next_execution_date = context['next_execution_date'] # type: Pendulum
-        next_execution_date += timedelta(seconds=self.execution_delay_in_seconds)
+        next_execution_date +=timedelta(seconds=self.execution_delay_in_seconds)
         while datetime.now() < next_execution_date:
             self.log.info('Waiting until {0} to execute... (now: {1})'.format(
                 str(next_execution_date),
@@ -50,15 +50,18 @@ class ExtendedETS(ETS):
             # First execution of the DAG.
             if self.backfill_dag_id:
                 # Check if the latest backfill ran! --> then run normally
-                self.execution_delta = self.backfill_execution_delta or self.execution_delta
-                self.execution_date_fn = self.backfill_execution_date_fn or self.execution_date_fn
-                self.external_task_id = self.backfill_external_task_id or self.external_task_id
+                self.execution_delta = self.backfill_execution_delta or \
+                    self.execution_delta
+                self.execution_date_fn = self.backfill_execution_date_fn or \
+                    self.execution_date_fn
+                self.external_task_id = self.backfill_external_task_id or \
+                    self.external_task_id
                 self.external_dag_id = self.backfill_dag_id
                 self.log.info('First instance, looking for previous backfill!')
                 super().execute(context)
             else:
-                self.log.info('This is the first execution of the DAG. Thus, ' + \
-                'the sensor automatically succeeds.')
+                self.log.info('This is the first execution of the DAG. Thus, ' \
+                    + 'the sensor automatically succeeds.')
         else:
             super().execute(context)
 
