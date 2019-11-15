@@ -141,7 +141,10 @@ def dag_factory_incremental_loading(
         raise Exception('The schedule interval of the backfill must be an ' \
             + 'exact integer multiple of the time period between start date '\
             + 'and switch date!')
-
+    if end_date:
+        backfill_end_date = min(switch_absolute_date, end_date)
+    else:
+        backfill_end_date = switch_absolute_date
     dags = (
         DAG(
             dag_base_name+'_Incremental',
@@ -156,7 +159,7 @@ def dag_factory_incremental_loading(
         DAG(
             dag_base_name+'_Incremental_Backfill',
             start_date=start_date,
-            end_date=min(switch_absolute_date, end_date),
+            end_date=backfill_end_date,
             schedule_interval=schedule_interval_backfill,
             catchup=True,
             max_active_runs=1,
@@ -320,7 +323,7 @@ def dag_factory_incremental_loading(
         arg_dict_backfill.update(arg_dict_internal)
 
         if not arg_dict.pop('skip_backfill', False):
-            assert arg_dict_backfill.pop('skip_backfill', False)
+            assert not arg_dict_backfill.pop('skip_backfill', False)
             task_backfill = el_operator(dag=dags[1], **arg_dict_backfill)
             kickoff_backfill >> task_backfill >> final_backfill
             count_backfill_tasks += 1

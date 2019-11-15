@@ -110,13 +110,13 @@ def dags_from_dict(
         backfill_config
             Same as incremental_config, but only applies to the backfill DAGs
         tables
-            Is a non-empty list of dicts, where each dict contains at least one
-            key-value pair: "name", which is the name of the table in the DWH.
-            May also contain any argument to overwrite the other operator config
-            values as well as the arguments "skip_backfill", which removes this
-            particular table from backfill DAGs, and "drop_and_replace",
-            which is False per default but may be useful as True for some
-            tables, especially used in conjunction with "skip_backfill"
+            Is a dict of dicts, where the key of the dict is the name of the
+            table in the DWH. May also contain any argument to overwrite the
+            other operator config values as well as the arguments
+            "skip_backfill", which removes this particular table from backfill
+            DAGs, and "drop_and_replace", which is False per default but may
+            be useful as True for some tables, especially used in conjunction
+            with "skip_backfill"
     """
 
     _INCR_ONLY = [

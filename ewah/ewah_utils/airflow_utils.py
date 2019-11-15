@@ -6,6 +6,7 @@ from ewah.dwhooks.dwhook_snowflake import EWAHDWHookSnowflake
 from ewah.constants import EWAHConstants as EC
 
 from datetime import datetime, timedelta, timezone
+from copy import deepcopy
 import re
 
 def airflow_datetime_adjustments(datetime_raw):
@@ -56,6 +57,7 @@ def etl_schema_tasks(
         target_database_name=None,
         copy_schema=False,
         read_right_users=None, # Only for PostgreSQL
+        **additional_task_args
     ):
 
     if dwh_engine == EC.DWH_ENGINE_POSTGRES:
@@ -139,24 +141,25 @@ def etl_schema_tasks(
                 sql_final += f'\nGRANT USAGE ON SCHEMA "{target_schema_name}" TO {user};'
                 sql_final += f'\nGRANT SELECT ON ALL TABLES IN SCHEMA "{target_schema_name}" TO {user};'
 
-        return (
-                PGO(
-                    sql=sql_kickoff,
-                    task_id='kickoff_'+target_schema_name,
-                    dag=dag,
-                    postgres_conn_id=dwh_conn_id,
-                    retries=1,
-                    retry_delay=timedelta(minutes=1),
-                ),
-                PGO(
-                    sql=sql_final,
-                    task_id='final_'+target_schema_name,
-                    dag=dag,
-                    postgres_conn_id=dwh_conn_id,
-                    retries=1,
-                    retry_delay=timedelta(minutes=1),
-                ),
-        )
+        task_1_args = deepcopy(additional_task_args)
+        task_2_args = deepcopy(additional_task_args)
+        task_1_args.update({
+            'sql': sql_kickoff,
+            'task_id': 'kickoff_{0}'.format(target_schema_name),
+            'dag': dag,
+            'postgres_conn_id': dwh_conn_id,
+            # 'retries': 1,
+            # 'retry_delay': timedelta(minutes=1),
+        })
+        task_2_args.update({
+            'sql': sql_final,
+            'task_id': 'final_{0}'.format(target_schema_name),
+            'dag': dag,
+            'postgres_conn_id': dwh_conn_id,
+            # 'retries': 1,
+            # 'retry_delay': timedelta(minutes=1),
+        })
+        return (PGO(**task_1_args), PGO(**task_2_args))
     elif dwh_engine == EC.DWH_ENGINE_SNOWFLAKE:
         target_database_name = target_database_name or (BaseHook \
                 .get_connection(dwh_conn_id).extra_dejson.get('database'))
@@ -195,27 +198,28 @@ def etl_schema_tasks(
             hook.execute(sql)
             hook.close()
 
-        return (
-            PO(
-                task_id='kickoff_'+target_schema_name,
-                python_callable=execute_snowflake,
-                op_kwargs={
-                    'sql': sql_kickoff,
-                    'conn_id': dwh_conn_id,
-                },
-                provide_context=True,
-                dag=dag,
-            ),
-            PO(
-                task_id='final_'+target_schema_name,
-                python_callable=execute_snowflake,
-                op_kwargs={
-                    'sql': sql_final,
-                    'conn_id': dwh_conn_id,
-                },
-                provide_context=True,
-                dag=dag,
-            ),
-        )
+        task_1_args = deepcopy(additional_task_args)
+        task_2_args = deepcopy(additional_task_args)
+        task_1_args.update({
+            'task_id': 'kickoff_{0}'.format(target_schema_name),
+            'python_callable': execute_snowflake,
+            'op_kwargs': {
+                'sql': sql_kickoff,
+                'conn_id': dwh_conn_id,
+            },
+            'provide_context': True,
+            'dag': dag,
+        })
+        task_2_args.update({
+            'task_id': 'final_{0}'.format(target_schema_name),
+            'python_callable': execute_snowflake,
+            'op_kwargs': {
+                'sql': sql_final,
+                'conn_id': dwh_conn_id,
+            },
+            'provide_context': True,
+            'dag': dag,
+        })
+        return (PO(**task_1_args), PO(**task_2_args))
     else:
         raise ValueError('Feature not implemented!')
