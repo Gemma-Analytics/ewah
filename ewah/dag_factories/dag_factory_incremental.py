@@ -1,4 +1,5 @@
 from airflow import DAG
+from airflow.hooks.base_hook import BaseHook
 from airflow.operators.postgres_operator import PostgresOperator as PGO
 from airflow.sensors.external_task_sensor import ExternalTaskSensor as ETS
 
@@ -180,41 +181,45 @@ def dag_factory_incremental_loading(
 
     # Create reset DAG
     reset_sql = """
-        DELETE FROM dag_run
-        WHERE dag_id LIKE %(dag_name)s;
-        DELETE FROM job
-        WHERE dag_id LIKE %(dag_name)s;
-        DELETE FROM task_fail
-        WHERE dag_id LIKE %(dag_name)s;
-        DELETE FROM task_instance
-        WHERE dag_id LIKE %(dag_name)s;
-        DELETE FROM task_reschedule
-        WHERE dag_id LIKE %(dag_name)s;
-        DELETE FROM xcom
-        WHERE dag_id LIKE %(dag_name)s;
-        DELETE FROM dag_stats
-        WHERE dag_id LIKE %(dag_name)s;
-        DELETE FROM dag_run
-        WHERE dag_id LIKE %(dag_name_backfill)s;
-        DELETE FROM job
-        WHERE dag_id LIKE %(dag_name_backfill)s;
-        DELETE FROM task_fail
-        WHERE dag_id LIKE %(dag_name_backfill)s;
-        DELETE FROM task_instance
-        WHERE dag_id LIKE %(dag_name_backfill)s;
-        DELETE FROM task_reschedule
-        WHERE dag_id LIKE %(dag_name_backfill)s;
-        DELETE FROM xcom
-        WHERE dag_id LIKE %(dag_name_backfill)s;
-        DELETE FROM dag_stats
-        WHERE dag_id LIKE %(dag_name_backfill)s;
+        /*
+            Different versions of airflow contain different tables. Only
+            DELETE DAG from tables that actually exist.
+        */
+        CREATE OR REPLACE FUNCTION __ewah_delete_all_dag_stats(dag_name text)
+        RETURNS void AS
+        $$
+        DECLARE
+        	meta_db text;
+        	meta_schema text;
+        	meta_table text;
+        BEGIN
+        	FOR meta_db, meta_schema, meta_table IN
+        		SELECT table_catalog, table_schema, table_name
+        		FROM information_schema.tables
+        		WHERE table_name IN ('dag_run', 'job', 'task_fail',
+                    'task_instance', 'task_reschedule', 'xcom', 'dag_stats')
+        		AND table_catalog LIKE %(db_name)s
+        		AND table_schema LIKE %(schema_name)s
+        	LOOP
+        		EXECUTE 'DELETE FROM "' || meta_db || '"."' || meta_schema
+                    || '"."' || meta_table
+                    || '" WHERE dag_id = ''' || dag_name || '''';
+        	END LOOP;
+        END;
+        $$ LANGUAGE plpgsql VOLATILE;
+        SELECT __ewah_delete_all_dag_stats(%(dag_name)s);
+        SELECT __ewah_delete_all_dag_stats(%(dag_name_backfill)s);
+        DROP FUNCTION __ewah_delete_all_dag_stats;
     """
+    airflow_conn = BaseHook.get_connection(airflow_conn_id)
     reset_task = PGO(
         sql=reset_sql,
         postgres_conn_id=airflow_conn_id,
         parameters={
-            'dag_name':dag_base_name+'_Incremental',
-            'dag_name_backfill':dag_base_name+'_Incremental_Backfill',
+            'dag_name': dag_base_name+'_Incremental',
+            'dag_name_backfill': dag_base_name+'_Incremental_Backfill',
+            'db_name': airflow_conn.schema,
+            'schema_name': airflow_conn.extra_dejson.get('schema', 'public'),
         },
         task_id='reset_by_deleting_all_task_instances',
         dag=dags[2],
