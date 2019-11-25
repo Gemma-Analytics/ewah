@@ -8,6 +8,8 @@ from facebook_business.api import FacebookAdsApi
 from facebook_business.adobjects.adaccount import AdAccount
 from facebook_business.adobjects.adsinsights import AdsInsights
 
+from datetime import datetime, timedelta
+
 import inspect
 import time
 
@@ -30,6 +32,8 @@ class EWAHFBOperator(EWAHBaseOperator):
         level,
         time_increment=1,
         breakdowns=None,
+        execution_waittime_seconds=300, # wait for a while before execution
+        #   to avoid hitting rate limits during backfill
     *args, **kwargs):
 
         if kwargs.get('update_on_columns'):
@@ -111,11 +115,21 @@ class EWAHFBOperator(EWAHBaseOperator):
         self.level = level
         self.time_increment = time_increment
         self.breakdowns = breakdowns
+        self.execution_waittime_seconds = execution_waittime_seconds
 
     def _clean_response_data(self, response):
         return [dict(datum) for datum in list(response)]
 
     def execute(self, context):
+        if self.execution_waittime_seconds:
+            self.log.info('Delaying exectuion by {0} seconds...'.format(
+                str(self.execution_waittime_seconds),
+            ))
+            now = datetime.now()
+            while datetime.now() < \
+                (now + timedelta(seconds=self.execution_waittime_seconds)):
+                time.sleep(1)
+
         self.data_from = airflow_datetime_adjustments(self.data_from)
         self.data_until = airflow_datetime_adjustments(self.data_until)
 
