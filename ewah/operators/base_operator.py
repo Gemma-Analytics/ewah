@@ -249,6 +249,11 @@ class EWAHBaseOperator(BaseOperator):
         hook.close()
 
 class EWAHEmptyOperator(EWAHBaseOperator):
+    _IS_INCREMENTAL = True
+    _IS_FULL_REFRESH = True
     def __init__(self, *args, **kwargs):
         raise Exception('Failed to load operator! Probably missing' \
-            + ' requirements for the operator in question.')
+            + ' requirements for the operator in question.\n\nSupplied args:' \
+            + '\n\t' + '\n\t'.join(args) + '\n\nSupplied kwargs:\n\t' \
+            + '\n\t'.join(['{0}: {1}'.format(k, v) for k, v in kwargs.items()])
+        )
