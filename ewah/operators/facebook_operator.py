@@ -41,7 +41,7 @@ class EWAHFBOperator(EWAHBaseOperator):
 
         if level == self.levels.ad:
             kwargs['update_on_columns'] = [
-                self.levels.ad,
+                'ad_id',
                 'date_start',
                 'date_stop',
             ]
@@ -112,7 +112,7 @@ class EWAHFBOperator(EWAHBaseOperator):
         self.time_increment = time_increment
         self.breakdowns = breakdowns
 
-    def _clean_response_data(response):
+    def _clean_response_data(self, response):
         return [dict(datum) for datum in list(response)]
 
     def execute(self, context):
