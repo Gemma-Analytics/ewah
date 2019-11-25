@@ -22,3 +22,7 @@ try:
     from ewah.operators.s3_operator import EWAHS3Operator
 except ImportError:
     from ewah.operators.base_operator import EWAHEmptyOperator as EWAHS3Operator
+try:
+    from ewah.operators.facebook_operator import EWAHFBOperator
+except ImportError:
+    from ewah.operators.base_operator import EWAHEmptyOperator as EWAHFBOperator

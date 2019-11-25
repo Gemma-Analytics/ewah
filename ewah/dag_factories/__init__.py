@@ -143,6 +143,7 @@ def dags_from_dict(
         'oracle': EWAHOracleSQLOperator,
         'postgres': EWAHPostgresOperator,
         's3': EWAHS3Operator,
+        'fb': EWAHFBOperator,
     }
 
     allowed_dag_args = [
