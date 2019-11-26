@@ -34,6 +34,7 @@ class EWAHFBOperator(EWAHBaseOperator):
         breakdowns=None,
         execution_waittime_seconds=300, # wait for a while before execution
         #   to avoid hitting rate limits during backfill
+        pagination_limit=10000,
     *args, **kwargs):
 
         if kwargs.get('update_on_columns'):
@@ -116,13 +117,14 @@ class EWAHFBOperator(EWAHBaseOperator):
         self.time_increment = time_increment
         self.breakdowns = breakdowns
         self.execution_waittime_seconds = execution_waittime_seconds
+        self.pagination_limit = pagination_limit
 
     def _clean_response_data(self, response):
         return [dict(datum) for datum in list(response)]
 
     def execute(self, context):
         if self.execution_waittime_seconds:
-            self.log.info('Delaying exectuion by {0} seconds...'.format(
+            self.log.info('Delaying execution by {0} seconds...'.format(
                 str(self.execution_waittime_seconds),
             ))
             now = datetime.now()
@@ -144,6 +146,7 @@ class EWAHFBOperator(EWAHBaseOperator):
             'time_range': time_range,
             'time_increment': self.time_increment,
             'level': self.level,
+            'limit': self.pagination_limit,
         }
         if self.breakdowns:
             params.update({'breakdowns': ','.join(self.breakdowns)})
