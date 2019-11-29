@@ -26,3 +26,7 @@ try:
     from ewah.operators.facebook_operator import EWAHFBOperator
 except ImportError:
     from ewah.operators.base_operator import EWAHEmptyOperator as EWAHFBOperator
+try:
+    from ewah.operators.google_sheets_operator import EWAHGSpreadOperator
+except ImportError:
+    from ewah.operators.base_operator import EWAHEmptyOperator as EWAHGSpreadOperator

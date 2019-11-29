@@ -142,8 +142,13 @@ def dags_from_dict(
         'mysql': EWAHMySQLOperator,
         'oracle': EWAHOracleSQLOperator,
         'postgres': EWAHPostgresOperator,
+        'postgresql': EWAHPostgresOperator,
         's3': EWAHS3Operator,
         'fb': EWAHFBOperator,
+        'facebook': EWAHFBOperator,
+        'gsheets': EWAHGSpreadOperator,
+        'google_sheets': EWAHGSpreadOperator,
+        'gs': EWAHGSpreadOperator,
     }
 
     allowed_dag_args = [
@@ -240,7 +245,9 @@ def dags_from_dict(
                 '\n\t'.join(list(dwh_engines.keys())),
             ))
         try:
-            config.update({'el_operator': operators[config['el_operator']]})
+            config.update({
+                'el_operator': operators[config['el_operator'].lower()],
+            })
         except KeyError:
             raise Exception('Invalid el_operator {0}\nAllowed:\n\t{1}'.format(
                 str(config.get('el_operator', None)),
