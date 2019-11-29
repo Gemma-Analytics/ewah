@@ -49,7 +49,7 @@ class EWAHFBOperator(EWAHBaseOperator):
                 'ad_id',
                 'date_start',
                 'date_stop',
-            ]
+            ] + (breakdowns or [])
             insight_fields += ['ad_id', 'ad_name']
             insight_fields = list(set(insight_fields))
         else:
