@@ -32,7 +32,7 @@ class EWAHS3Operator(EWAHBaseOperator):
 
         if key_name:
             if data_from or data_until:
-                raise Exception('Both key_name and either data_from or data ' \
+                raise Exception('Both key_name and either data_from or data_' \
                     + 'until specified! Cannot have both specified.')
 
         super().__init__(*args, **kwargs)
@@ -67,13 +67,6 @@ class EWAHS3Operator(EWAHBaseOperator):
             raise Exception('File format not implemented!')
 
     def execute_json(self, context, f_get_data):
-
-        def get_data(hook, key, bucket):
-            return [
-                json.loads(row) for row \
-                in hook.read_key(key, bucket).split('\n')
-            ]
-
         self.data_from = airflow_datetime_adjustments(self.data_from)
         self.data_until = airflow_datetime_adjustments(self.data_until)
 
