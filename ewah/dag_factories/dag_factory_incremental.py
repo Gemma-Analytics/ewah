@@ -4,6 +4,7 @@ from airflow.operators.postgres_operator import PostgresOperator as PGO
 from airflow.sensors.external_task_sensor import ExternalTaskSensor as ETS
 
 from ewah.ewah_utils.airflow_utils import etl_schema_tasks
+from ewah.dwhooks.dwhook_snowflake import SnowflakeOperator
 from ewah.constants import EWAHConstants as EC
 
 from datetime import datetime, timedelta
