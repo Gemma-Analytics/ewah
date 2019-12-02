@@ -328,8 +328,7 @@ def dag_factory_incremental_loading(
         arg_dict.update(arg_dict_internal)
         arg_dict_backfill.update(arg_dict_internal)
 
-        if not arg_dict.pop('drop_and_replace', False):
-            assert not arg_dict_backfill.pop('skip_backfill', False)
+        if not arg_dict.get('drop_and_replace', False):
             task_backfill = el_operator(dag=dags[1], **arg_dict_backfill)
             kickoff_backfill >> task_backfill >> final_backfill
             count_backfill_tasks += 1
