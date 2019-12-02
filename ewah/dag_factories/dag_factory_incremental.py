@@ -304,6 +304,7 @@ def dag_factory_incremental_loading(
     count_backfill_tasks = 0
     for table in operator_config['tables'].keys():
         arg_dict = deepcopy(additional_task_args)
+        arg_dict.update({'drop_and_replace': False})
         arg_dict.update(operator_config.get('general_config', {}))
         arg_dict_internal = {
             'task_id': 'extract_load_' + table,
@@ -313,7 +314,7 @@ def dag_factory_incremental_loading(
             'target_schema_name': target_schema_name,
             'target_schema_suffix': target_schema_suffix,
             'target_database_name': target_database_name,
-            'drop_and_replace': False,
+            # 'drop_and_replace': False,
             # columns_definition
             # update_on_columns
             # primary_key_column_name
