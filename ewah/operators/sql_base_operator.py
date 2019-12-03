@@ -126,7 +126,7 @@ class EWAHSQLBaseOperator(EWAHBaseOperator):
 
         if self.columns_definition:
             sql_base = self._SQL_BASE_COLUMNS.format(**{
-                'columns': ('{0}, {0}'.format(self._SQL_COLUMN_QUOTE)
+                'columns': ('{0}\n, {0}'.format(self._SQL_COLUMN_QUOTE)
                     .join(self.columns_definition.keys())),
                 'schema': self.source_schema_name,
                 'table': self.source_table_name,
@@ -141,15 +141,13 @@ class EWAHSQLBaseOperator(EWAHBaseOperator):
         # _SQL_PARAMS
         if self.drop_and_replace:
             if self.data_from:
-                sql_base = sql_base.format('{0}{1}{0} >= {2} AND {{0}}'.format(
-                    self._SQL_COLUMN_QUOTE,
+                sql_base = sql_base.format('{0} >= {1} AND {{0}}'.format(
                     self.timestamp_column,
                     self._SQL_PARAMS.format('data_from'),
                 ))
                 params.update({'data_from': self.data_from})
             if self.data_until:
-                sql_base = sql_base.format('{0}{1}{0} <= {2} AND {{0}}'.format(
-                    self._SQL_COLUMN_QUOTE,
+                sql_base = sql_base.format('{0} <= {1} AND {{0}}'.format(
                     self.timestamp_column,
                     self._SQL_PARAMS.format('data_until'),
                 ))
@@ -161,7 +159,6 @@ class EWAHSQLBaseOperator(EWAHBaseOperator):
                     self.timestamp_column,
                     self._SQL_PARAMS.format('data_from'),
                     self._SQL_PARAMS.format('data_until'),
-                    # self._SQL_COLUMN_QUOTE,
             ))
             params.update({'data_from': self.data_from})
             params.update({'data_until': self.data_from})
