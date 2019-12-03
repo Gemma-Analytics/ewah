@@ -28,7 +28,10 @@ class EWAHMySQLOperator(EWAHSQLBaseOperator):
             'database': connection.schema,
         })
         cursor = database_conn.cursor(dictionary=return_dict)
-        self.log.info('Executing:\n{0}'.format(sql))
+        self.log.info('Executing:\n{0}\n\nWith params:\n{1}'.format(
+            sql,
+            str(params),
+        ))
         cursor.execute(sql, params=params)
         data = cursor.fetchall()
         cursor.close()

@@ -17,6 +17,10 @@ class EWAHPostgresOperator(EWAHSQLBaseOperator):
 
     def _get_data_from_sql(self, sql, params=None, return_dict=True):
         hook = EWAHDWHookPostgres(self.source_conn_id)
+        self.log.info('Executing:\n{0}\n\nWith params:\n{1}'.format(
+            sql,
+            str(params),
+        ))
         data = hook.execute_and_return_result(
             sql=sql,
             params=params,
