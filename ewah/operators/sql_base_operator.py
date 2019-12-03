@@ -184,13 +184,13 @@ class EWAHSQLBaseOperator(EWAHBaseOperator):
                 )[0]
                 if chunking_column == self.timestamp_column:
                     tz = timezone('UTC')
+                    if not previous_chunk.tzinfo:
+                        previous_chunk = tz.localize(previous_chunk)
                     if self.data_from:
-                        if not previous_chunk.tzinfo:
-                            previous_chunk = tz.localize(previous_chunk)
                         previous_chunk = max(previous_chunk, self.data_from)
+                    if not max_chunk.tzinfo:
+                        max_chunk = tz.localize(max_chunk)
                     if self.data_until:
-                        if not max_chunk.tzinfo:
-                            max_chunk = tz.localize(max_chunk)
                         max_chunk = min(max_chunk, self.data_until)
             else:
                 previous_chunk = self.data_from
