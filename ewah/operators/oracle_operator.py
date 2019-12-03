@@ -10,8 +10,8 @@ class EWAHOracleSQLOperator(EWAHSQLBaseOperator):
         _SQL_BASE_COLUMNS = 'SELECT "{columns}" FROM "{table}"\nWHERE {{0}};'
         _SQL_BASE_ALL = 'SELECT * FROM "{table}"\nWHERE {{0}};'
         _SQL_COLUMN_QUOTE = '"'
-        _SQL_MINMAX_CHUNKS = 'SELECT MIN("{column}"), MAX("{column}") FROM "{table}";'
-        _SQL_CHUNKING_CLAUSE = 'AND "{column}" >= :from_value AND "{column}" <{equal_sign} :until_value'
+        _SQL_MINMAX_CHUNKS = 'SELECT MIN({column}), MAX({column}) FROM "{table}";'
+        _SQL_CHUNKING_CLAUSE = 'AND {column} >= :from_value AND {column} <{equal_sign} :until_value'
         _SQL_PARAMS = ':{0}'
 
         def __init__(self, *args, **kwargs):
