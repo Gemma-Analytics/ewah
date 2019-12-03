@@ -161,7 +161,7 @@ class EWAHSQLBaseOperator(EWAHBaseOperator):
                     self._SQL_PARAMS.format('data_until'),
             ))
             params.update({'data_from': self.data_from})
-            params.update({'data_until': self.data_from})
+            params.update({'data_until': self.data_until})
 
 
         if self.chunking_interval:
