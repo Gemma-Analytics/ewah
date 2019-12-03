@@ -156,12 +156,12 @@ class EWAHSQLBaseOperator(EWAHBaseOperator):
                 params.update({'data_until': self.data_from})
             sql_base = sql_base.format('1 = 1 {0}')
         else:
-            sql_base = sql_base.format('{3}{0}{3}>={1} AND {3}{0}{3}<{2} {{0}}'
+            sql_base = sql_base.format('{0} >= {1} AND {0} < {2} {{0}}'
                 .format(
                     self.timestamp_column,
                     self._SQL_PARAMS.format('data_from'),
                     self._SQL_PARAMS.format('data_until'),
-                    self._SQL_COLUMN_QUOTE,
+                    # self._SQL_COLUMN_QUOTE,
             ))
             params.update({'data_from': self.data_from})
             params.update({'data_until': self.data_from})
