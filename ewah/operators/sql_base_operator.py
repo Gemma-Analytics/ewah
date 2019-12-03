@@ -3,6 +3,7 @@ from ewah.ewah_utils.airflow_utils import airflow_datetime_adjustments
 from ewah.constants import EWAHConstants as EC
 
 from datetime import timedelta
+from pytz import timezone
 
 class EWAHSQLBaseOperator(EWAHBaseOperator):
 
@@ -173,7 +174,7 @@ class EWAHSQLBaseOperator(EWAHBaseOperator):
                 chunking_column = self.primary_key_column_name
 
             if self.drop_and_replace:
-                previous_chunk, max_chunk=self._get_data_from_sql(
+                previous_chunk, max_chunk = self._get_data_from_sql(
                     sql=self._SQL_MINMAX_CHUNKS.format(**{
                         'column': chunking_column,
                         'schema': self.source_schema_name,
@@ -182,13 +183,18 @@ class EWAHSQLBaseOperator(EWAHBaseOperator):
                     return_dict=False,
                 )[0]
                 if chunking_column == self.timestamp_column:
+                    tz = timezone('UTC')
                     if self.data_from:
+                        if not previous_chunk.tzinfo:
+                            previous_chunk = tz.localize(previous_chunk)
                         previous_chunk = max(previous_chunk, self.data_from)
                     if self.data_until:
+                        if not max_chunk.tzinfo:
+                            max_chunk = tz.localize(max_chunk)
                         max_chunk = min(max_chunk, self.data_until)
             else:
                 previous_chunk = self.data_from
-                max_chunk = self.until
+                max_chunk = self.data_until
 
             while previous_chunk <= max_chunk:
                 params.update({
