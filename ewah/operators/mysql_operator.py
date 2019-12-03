@@ -30,7 +30,10 @@ class EWAHMySQLOperator(EWAHSQLBaseOperator):
         cursor = database_conn.cursor(dictionary=return_dict)
         self.log.info('Executing:\n{0}'.format(sql))
         cursor.execute(sql, params=params)
-        return cursor.fetchall()
+        data = cursor.fetchall()
+        cursor.close()
+        database_conn.close()
+        return data
 
     def execute(self, context):
         self.source_schema_name = self.source_schema_name or \

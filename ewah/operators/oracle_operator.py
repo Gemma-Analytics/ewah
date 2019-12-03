@@ -54,6 +54,7 @@ class EWAHOracleSQLOperator(EWAHSQLBaseOperator):
             cursor = oracle_conn.cursor()
             if sql.strip()[-1:] == ';': # OracleSQL doesn't like semicolons
                 sql = sql.strip()[:-1]
+            self.log.info('Executing:\n{0}'.format(sql))
             cursor.execute(sql, **params)
             if return_dict:
                 cursor.rowfactory = makeDictFactory(cursor)
