@@ -224,4 +224,5 @@ class EWAHSQLBaseOperator(EWAHBaseOperator):
                     sql=sql_base.format('AND 1 = 1'),
                     return_dict=True,
                 ),
+                params=params,
             )
