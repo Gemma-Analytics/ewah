@@ -220,6 +220,6 @@ class EWAHSQLBaseOperator(EWAHBaseOperator):
                 data=self._get_data_from_sql(
                     sql=sql_base.format('AND 1 = 1'),
                     return_dict=True,
+                    params=params,
                 ),
-                params=params,
             )

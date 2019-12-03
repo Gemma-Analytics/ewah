@@ -7,7 +7,7 @@ import cx_Oracle
 
 class EWAHOracleSQLOperator(EWAHSQLBaseOperator):
 
-        _SQL_BASE_COLUMNS = 'SELECT "{columns}" FROM "{table}"\nWHERE {{0}};'
+        _SQL_BASE_COLUMNS = 'SELECT\n"{columns}"\nFROM "{table}"\nWHERE {{0}};'
         _SQL_BASE_ALL = 'SELECT * FROM "{table}"\nWHERE {{0}};'
         _SQL_COLUMN_QUOTE = '"'
         _SQL_MINMAX_CHUNKS = 'SELECT MIN({column}), MAX({column}) FROM "{table}";'

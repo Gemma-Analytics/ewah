@@ -7,7 +7,7 @@ from mysql.connector import connect
 
 class EWAHMySQLOperator(EWAHSQLBaseOperator):
 
-    _SQL_BASE_COLUMNS = 'SELECT `{columns}` FROM `{schema}`.`{table}`\nWHERE {{0}};'
+    _SQL_BASE_COLUMNS = 'SELECT\n`{columns}`\nFROM `{schema}`.`{table}`\nWHERE {{0}};'
     _SQL_BASE_ALL = 'SELECT * FROM `{schema}`.`{table}`\nWHERE {{0}};'
     _SQL_COLUMN_QUOTE = '`'
     _SQL_MINMAX_CHUNKS = 'SELECT MIN({column}), MAX({column}) FROM `{schema}`.`{table}`;'
