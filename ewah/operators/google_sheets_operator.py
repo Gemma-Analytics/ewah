@@ -36,7 +36,7 @@ class EWAHGSpreadOperator(EWAHBaseOperator):
         sheet_key, # name of the worksheet
         start_row=2, # in what row does the data begin?
         end_row=None, # optional: what is the last row? None gets all data
-    ):
+    *args, **kwargs):
         super().__init__(*args, **kwargs)
 
         credentials = BaseHook.get_connection(self.source_conn_id).extra_dejson
