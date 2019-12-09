@@ -153,8 +153,12 @@ class EWAHFBOperator(EWAHBaseOperator):
 
         for account_id in self.account_ids:
             account_object = AdAccount('act_{0}'.format(str(account_id)))
-            self.log.info('Requesting data for account_id={0}...'.format(
+            self.log.info((
+                'Requesting data for account_id={0} between {1} and {2}.'
+            ).format(
                 str(account_id),
+                time_range['since'],
+                time_range['until'],
             ))
             response = account_object.get_insights(
                 fields=self.insight_fields,
