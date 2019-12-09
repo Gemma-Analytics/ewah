@@ -3,6 +3,7 @@ from ewah.ewah_utils.airflow_utils import airflow_datetime_adjustments
 from ewah.constants import EWAHConstants as EC
 
 from datetime import timedelta
+from pytz import timezone
 
 class EWAHSQLBaseOperator(EWAHBaseOperator):
 
@@ -125,7 +126,7 @@ class EWAHSQLBaseOperator(EWAHBaseOperator):
 
         if self.columns_definition:
             sql_base = self._SQL_BASE_COLUMNS.format(**{
-                'columns': ('{0}, {0}'.format(self._SQL_COLUMN_QUOTE)
+                'columns': ('{0}\n, {0}'.format(self._SQL_COLUMN_QUOTE)
                     .join(self.columns_definition.keys())),
                 'schema': self.source_schema_name,
                 'table': self.source_table_name,
@@ -140,30 +141,27 @@ class EWAHSQLBaseOperator(EWAHBaseOperator):
         # _SQL_PARAMS
         if self.drop_and_replace:
             if self.data_from:
-                sql_base = sql_base.format('{0}{1}{0} >= {2} AND {{0}}'.format(
-                    self._SQL_COLUMN_QUOTE,
+                sql_base = sql_base.format('{0} >= {1} AND {{0}}'.format(
                     self.timestamp_column,
                     self._SQL_PARAMS.format('data_from'),
                 ))
                 params.update({'data_from': self.data_from})
             if self.data_until:
-                sql_base = sql_base.format('{0}{1}{0} <= {2} AND {{0}}'.format(
-                    self._SQL_COLUMN_QUOTE,
+                sql_base = sql_base.format('{0} <= {1} AND {{0}}'.format(
                     self.timestamp_column,
                     self._SQL_PARAMS.format('data_until'),
                 ))
                 params.update({'data_until': self.data_from})
             sql_base = sql_base.format('1 = 1 {0}')
         else:
-            sql_base = sql_base.format('{3}{0}{3}>={1} AND {3}{0}{3}<{2} {{0}}'
+            sql_base = sql_base.format('{0} >= {1} AND {0} < {2} {{0}}'
                 .format(
                     self.timestamp_column,
                     self._SQL_PARAMS.format('data_from'),
                     self._SQL_PARAMS.format('data_until'),
-                    self._SQL_COLUMN_QUOTE,
             ))
             params.update({'data_from': self.data_from})
-            params.update({'data_until': self.data_from})
+            params.update({'data_until': self.data_until})
 
 
         if self.chunking_interval:
@@ -173,7 +171,7 @@ class EWAHSQLBaseOperator(EWAHBaseOperator):
                 chunking_column = self.primary_key_column_name
 
             if self.drop_and_replace:
-                previous_chunk, max_chunk=self._get_data_from_sql(
+                previous_chunk, max_chunk = self._get_data_from_sql(
                     sql=self._SQL_MINMAX_CHUNKS.format(**{
                         'column': chunking_column,
                         'schema': self.source_schema_name,
@@ -182,13 +180,18 @@ class EWAHSQLBaseOperator(EWAHBaseOperator):
                     return_dict=False,
                 )[0]
                 if chunking_column == self.timestamp_column:
+                    tz = timezone('UTC')
+                    if not previous_chunk.tzinfo:
+                        previous_chunk = tz.localize(previous_chunk)
                     if self.data_from:
                         previous_chunk = max(previous_chunk, self.data_from)
+                    if not max_chunk.tzinfo:
+                        max_chunk = tz.localize(max_chunk)
                     if self.data_until:
                         max_chunk = min(max_chunk, self.data_until)
             else:
                 previous_chunk = self.data_from
-                max_chunk = self.until
+                max_chunk = self.data_until
 
             while previous_chunk <= max_chunk:
                 params.update({
@@ -217,5 +220,6 @@ class EWAHSQLBaseOperator(EWAHBaseOperator):
                 data=self._get_data_from_sql(
                     sql=sql_base.format('AND 1 = 1'),
                     return_dict=True,
+                    params=params,
                 ),
             )

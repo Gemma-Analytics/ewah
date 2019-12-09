@@ -7,11 +7,11 @@ from mysql.connector import connect
 
 class EWAHMySQLOperator(EWAHSQLBaseOperator):
 
-    _SQL_BASE_COLUMNS = 'SELECT `{columns}` FROM `{schema}`.`{table}`\nWHERE {{0}};'
+    _SQL_BASE_COLUMNS = 'SELECT\n`{columns}`\nFROM `{schema}`.`{table}`\nWHERE {{0}};'
     _SQL_BASE_ALL = 'SELECT * FROM `{schema}`.`{table}`\nWHERE {{0}};'
     _SQL_COLUMN_QUOTE = '`'
-    _SQL_MINMAX_CHUNKS = 'SELECT MIN(`{column}`), MAX(`{column}`) FROM `{schema}`.`{table}`;'
-    _SQL_CHUNKING_CLAUSE = 'AND `{column}` >= %(from_value)s AND `{column}` <{equal_sign} %(until_value)s'
+    _SQL_MINMAX_CHUNKS = 'SELECT MIN({column}), MAX({column}) FROM `{schema}`.`{table}`;'
+    _SQL_CHUNKING_CLAUSE = 'AND {column} >= %(from_value)s AND {column} <{equal_sign} %(until_value)s'
     _SQL_PARAMS = '%({0})s'
 
     def __init__(self, *args, **kwargs):
@@ -28,9 +28,15 @@ class EWAHMySQLOperator(EWAHSQLBaseOperator):
             'database': connection.schema,
         })
         cursor = database_conn.cursor(dictionary=return_dict)
-        self.log.info('Executing:\n{0}'.format(sql))
+        self.log.info('Executing:\n{0}\n\nWith params:\n{1}'.format(
+            sql,
+            str(params),
+        ))
         cursor.execute(sql, params=params)
-        return cursor.fetchall()
+        data = cursor.fetchall()
+        cursor.close()
+        database_conn.close()
+        return data
 
     def execute(self, context):
         self.source_schema_name = self.source_schema_name or \

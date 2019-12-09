@@ -6,6 +6,32 @@ import csv
 import snowflake.connector
 from tempfile import NamedTemporaryFile
 from airflow.utils.file import TemporaryDirectory
+from airflow.models import BaseOperator
+
+class SnowflakeOperator(BaseOperator):
+    "Operate to execute SQL on Snowflake"
+
+    def __init__(
+        self,
+        sql,
+        snowflake_conn_id,
+        database,
+        params=None,
+    *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.sql = sql
+        self.conn_id = snowflake_conn_id
+        self.database = database
+        self.params = params
+
+    def execute(self, context):
+        hook = EWAHDWHookSnowflake(
+            conn_id=self.conn_id,
+            database=self.database,
+        )
+        self.log.info('execute: '+self.sql)
+        hook.execute(self.sql, commit=True, params=self.params)
+        hook.close()
 
 class EWAHDWHookSnowflake(EWAHBaseDWHook):
 

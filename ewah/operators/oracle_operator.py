@@ -7,11 +7,11 @@ import cx_Oracle
 
 class EWAHOracleSQLOperator(EWAHSQLBaseOperator):
 
-        _SQL_BASE_COLUMNS = 'SELECT "{columns}" FROM "{table}"\nWHERE {{0}};'
+        _SQL_BASE_COLUMNS = 'SELECT\n"{columns}"\nFROM "{table}"\nWHERE {{0}};'
         _SQL_BASE_ALL = 'SELECT * FROM "{table}"\nWHERE {{0}};'
         _SQL_COLUMN_QUOTE = '"'
-        _SQL_MINMAX_CHUNKS = 'SELECT MIN("{column}"), MAX("{column}") FROM "{table}";'
-        _SQL_CHUNKING_CLAUSE = 'AND "{column}" >= :from_value AND "{column}" <{equal_sign} :until_value'
+        _SQL_MINMAX_CHUNKS = 'SELECT MIN({column}), MAX({column}) FROM "{table}";'
+        _SQL_CHUNKING_CLAUSE = 'AND {column} >= :from_value AND {column} <{equal_sign} :until_value'
         _SQL_PARAMS = ':{0}'
 
         def __init__(self, *args, **kwargs):
@@ -54,6 +54,10 @@ class EWAHOracleSQLOperator(EWAHSQLBaseOperator):
             cursor = oracle_conn.cursor()
             if sql.strip()[-1:] == ';': # OracleSQL doesn't like semicolons
                 sql = sql.strip()[:-1]
+            self.log.info('Executing:\n{0}\n\nWith params:\n{1}'.format(
+                sql,
+                str(params),
+            ))
             cursor.execute(sql, **params)
             if return_dict:
                 cursor.rowfactory = makeDictFactory(cursor)
