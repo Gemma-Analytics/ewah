@@ -125,15 +125,6 @@ class EWAHFBOperator(EWAHBaseOperator):
         return [dict(datum) for datum in list(response)]
 
     def execute(self, context):
-        if self.execution_waittime_seconds:
-            self.log.info('Delaying execution by {0} seconds...'.format(
-                str(self.execution_waittime_seconds),
-            ))
-            now = datetime.now()
-            while datetime.now() < \
-                (now + timedelta(seconds=self.execution_waittime_seconds)):
-                time.sleep(1)
-
         self.data_from = airflow_datetime_adjustments(self.data_from)
         self.data_until = airflow_datetime_adjustments(self.data_until)
 
@@ -154,6 +145,15 @@ class EWAHFBOperator(EWAHBaseOperator):
             params.update({'breakdowns': ','.join(self.breakdowns)})
 
         for account_id in self.account_ids:
+            if self.execution_waittime_seconds:
+                self.log.info('Delaying execution by {0} seconds...'.format(
+                    str(self.execution_waittime_seconds),
+                ))
+                now = datetime.now()
+                while datetime.now() < \
+                    (now + timedelta(seconds=self.execution_waittime_seconds)):
+                    time.sleep(1)
+                    
             account_object = AdAccount('act_{0}'.format(str(account_id)))
             self.log.info((
                 'Requesting data for account_id={0} between {1} and {2}.'
