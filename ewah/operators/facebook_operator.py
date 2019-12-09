@@ -174,8 +174,9 @@ class EWAHFBOperator(EWAHBaseOperator):
                 'Job Skipped',
             ]
             while not (job_remote_read.get('async_status') in done_status):
-                self.log.info('Asnyc job completion: {0}%'.format(
+                self.log.info('Asnyc job completion: {0}% (status: {1})'.format(
                     str(job_remote_read.get('async_percent_completion')),
+                    str(job_remote_read.get('async_status')),
                 ))
                 time.sleep(self.async_job_read_frequency_seconds)
                 job_remote_read = async_job.api_get()
