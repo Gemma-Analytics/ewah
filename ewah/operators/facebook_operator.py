@@ -34,7 +34,8 @@ class EWAHFBOperator(EWAHBaseOperator):
         breakdowns=None,
         execution_waittime_seconds=300, # wait for a while before execution
         #   to avoid hitting rate limits during backfill
-        pagination_limit=10000,
+        pagination_limit=1000,
+        async_job_read_frequency_seconds=1,
     *args, **kwargs):
 
         if kwargs.get('update_on_columns'):
@@ -118,6 +119,7 @@ class EWAHFBOperator(EWAHBaseOperator):
         self.breakdowns = breakdowns
         self.execution_waittime_seconds = execution_waittime_seconds
         self.pagination_limit = pagination_limit
+        self.async_job_read_frequency_seconds = async_job_read_frequency_seconds
 
     def _clean_response_data(self, response):
         return [dict(datum) for datum in list(response)]
@@ -160,15 +162,27 @@ class EWAHFBOperator(EWAHBaseOperator):
                 time_range['since'],
                 time_range['until'],
             ))
-            response = account_object.get_insights(
+
+            async_job = account_object.get_insights_async(
                 fields=self.insight_fields,
                 params=params,
             )
-            data = self._clean_response_data(response)
-            while not response._finished_iteration:
-                self.log.info('Requesting another page...')
-                time.sleep(1)
-                response.load_next_page()
-                data += self._clean_response_data(response)
+            job_remote_read = async_job.api_get()
+            done_status = [
+                'Job Completed',
+                'Job Failed',
+                'Job Skipped',
+            ]
+            while not (job_remote_read.get('async_status') in done_status):
+                self.log.info('Asnyc job completion: {0}%'.format(
+                    str(job_remote_read.get('async_percent_completion')),
+                ))
+                time.sleep(self.async_job_read_frequency_seconds)
+                job_remote_read = async_job.api_get()
 
+            time.sleep(1)
+            assert job_remote_read.get('async_status') == 'Job Completed'
+            data = self._clean_response_data(async_job.get_result(
+                params={'limit': self.pagination_limit},
+            ))
             self.upload_data(data)
