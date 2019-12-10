@@ -168,6 +168,7 @@ class EWAHDWHookSnowflake(EWAHBaseDWHook):
             database_name=database_name,
         )):
             sql_final = '''
+                USE SCHEMA "{0}"."{1}";
                 DROP TABLE IF EXISTS "{0}"."{1}"."{2}" CASCADE;
                 ALTER TABLE "{0}"."{1}"."{3}" RENAME TO "{2}";
             '''.format(
@@ -183,6 +184,7 @@ class EWAHDWHookSnowflake(EWAHBaseDWHook):
                     update_set_cols += [col]
 
             sql_final = '''
+                USE SCHEMA "{0}"."{1}";
                 MERGE INTO "{0}"."{1}"."{2}" AS a
                     USING "{0}"."{1}"."{3}" AS b
                     ON {4}
