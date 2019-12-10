@@ -9,14 +9,18 @@ Goal: Have functions to create all DAGs required for ELT using only a simple con
 - Snowflake
 - PostgreSQL
 
+## DWHs Planned
+- Bigquery
+- Redshift
+
 ## Operators Implemented
 - PostgreSQL
 - MySQL
 - OracleSQL
-- Google Analytics (Incremental Only)
+- Google Analytics (incremental only)
 - S3 (for JSON files stored in an S3 bucket, e.g. from Kinesis Firehose)
 - FX Rates (from Yahoo Finance)
-- Facebook (partially, so far: ads insights)
+- Facebook (partially, so far: ads insights; incremental only)
 - Google Sheets
 
 ## Philosophy
@@ -35,7 +39,8 @@ This package strictly follows an ELT Philosophy:
 ## Usage
 
 In your airflow Dags folder, define the DAGs by invoking either the incremental loading or full refresh DAG factory. The incremental loading DAG factory returns three DAGs in a tuple, make sure to call it like so: `dag1, dag2, dag3 = dag_factory_incremental_loading()` or add the dag IDs to your namespace like so:
-```dags = dag_factory_incremental_loading()
+```python
+dags = dag_factory_incremental_loading()
 for dag in dags:
   globals()[dag._dag_id] = dag
 ```
@@ -45,7 +50,7 @@ The former must be a child object of `ewah.operators.base_operator.EWAHBaseOpera
 ### Full refresh factory
 
 A `filename.py` file in your airflow/dags folder may look something like this:
-```
+```python
 from ewah.ewah_utils.dag_factory_full_refresh import dag_factory_drop_and_replace
 from ewah.constants import EWAHConstants as EC
 from ewah.operators.postgres_operator import EWAHPostgresOperator
@@ -93,14 +98,86 @@ For all kwargs of the operator config, the general config can be overwritten by 
 ### Configure all DAGs in a single YAML file
 
 Standard data loading DAGs should be just a configuration. Thus, you can
-configure the DAGs using a simple YAML file. A proper description of how
-that YAML file looks like will appear here soon. Your `dags.py` file in your
+configure the DAGs using a simple YAML file. Your `dags.py` file in your
 `$AIRFLOW_HOME/dags` folder may then look like that, and nothing more:
-```
+```python
+import os
 from airflow import DAG # This module must be imported for airflow to see DAGs
+from airflow.configuration import conf
+
 from ewah.dag_factories import dags_from_yml_file
 
-dags = dags_from_yml_file('/path/to/my/dag/config.yml')
+folder = os.environ.get('AIRFLOW__CORE__DAGS_FOLDER', None)
+folder = folder or conf.get("core", "dags_folder")
+dags = dags_from_yml_file(folder + os.sep + 'dags.yml', True, True)
 for dag in dags: # Must add the individual DAGs to the global namespace
-  globals()[dag._dag_id] = dag
+    globals()[dag._dag_id] = dag
+
+```
+And the YAML file may look like this:
+```YAML
+---
+
+base_config: # applied to all DAGs unless overwritten
+  dwh_engine: postgres
+  dwh_conn_id: dwh
+  airflow_conn_id: airflow
+  start_date: 2019-10-23 00:00:00+00:00
+  schedule_interval: !!python/object/apply:datetime.timedelta
+    - 0 # days
+    - 3600 # seconds
+  schedule_interval_backfill: !!python/object/apply:datetime.timedelta
+    - 7
+  schedule_interval_future: !!python/object/apply:datetime.timedelta
+    - 0
+    - 3600
+  additional_task_args:
+    retries: 1
+    retry_delay: !!python/object/apply:datetime.timedelta
+      - 0
+      - 300
+    email_on_retry: False
+    email_on_failure: True
+    email: ['me+airflowerror@mail.com']
+el_dags:
+  EL_Production: # equals the name of the DAG
+    incremental: False
+    el_operator: postgres
+    target_schema_name: raw_production
+    operator_config:
+      general_config:
+        source_conn_id: production_postgres
+        source_schema_name: public
+      tables:
+        users:
+          source_table_name: Users
+        transactions:
+          source_table_name: UserTransactions
+          source_schema_name: transaction_schema # Overwrite general_config args as needed
+  EL_Facebook:
+    incremental: True
+    el_operator: fb
+    start_date: 2019-07-01 00:00:00+00:00
+    target_schema_name: raw_facebook
+    operator_config:
+      general_config:
+        source_conn_id: facebook
+        account_ids:
+          - 123
+          - 987
+        data_from: '{{ execution_date }}' # Some fields allow airflow templating, depending on the operator
+        data_until: '{{ next_execution_date }}'
+        level: ad
+      tables:
+        ads_data_age_gender:
+          insight_fields:
+            - adset_id
+            - adset_name
+            - campaign_name
+            - campaign_id
+            - spend
+          breackdowns:
+            - age
+            - gender
+...
 ```
