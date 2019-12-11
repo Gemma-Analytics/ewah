@@ -18,6 +18,7 @@ class EWAHGSpreadOperator(EWAHBaseOperator):
         if type(column_identifier) == str:
             column_number = 0
             i = 0
+            ident_dict = {}
             while column_identifier:
                 letter = column_identifier[-1:].lower()
                 if ord(letter) > ord('z') or ord(letter) < ord('a'):
@@ -25,8 +26,9 @@ class EWAHGSpreadOperator(EWAHBaseOperator):
                         letter,
                     ))
                 column_identifier = column_identifier[:-1]
-                column_number += ord(letter) + 1 - ord('a') + (i * 26)
+                ident_dict.update({i: ord(letter) + 1 - ord('a')})
                 i += 1
+            return sum([v * (26 ** k) for k, v in ident_dict.items()])
         else:
             return column_identifier
 
