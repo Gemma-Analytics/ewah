@@ -120,11 +120,16 @@ class EWAHFBOperator(EWAHBaseOperator):
         self.execution_waittime_seconds = execution_waittime_seconds
         self.pagination_limit = pagination_limit
         self.async_job_read_frequency_seconds = async_job_read_frequency_seconds
+        self.reload_data_from = reload_data_from
 
     def _clean_response_data(self, response):
         return [dict(datum) for datum in list(response)]
 
     def execute(self, context):
+        if not self.test_if_target_table_exists():
+            if self.reload_data_from:
+                self.data_from = self.reload_data_from
+
         self.data_from = airflow_datetime_adjustments(self.data_from)
         self.data_until = airflow_datetime_adjustments(self.data_until)
 
