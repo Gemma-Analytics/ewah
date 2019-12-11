@@ -32,10 +32,11 @@ class EWAHFBOperator(EWAHBaseOperator):
         level,
         time_increment=1,
         breakdowns=None,
-        execution_waittime_seconds=300, # wait for a while before execution
-        #   to avoid hitting rate limits during backfill
+        execution_waittime_seconds=60, # wait for a while before execution
+        #   between account_ids to avoid hitting rate limits during backfill
         pagination_limit=1000,
-        async_job_read_frequency_seconds=1,
+        async_job_read_frequency_seconds=5,
+        reload_data_from=None,
     *args, **kwargs):
 
         if kwargs.get('update_on_columns'):
