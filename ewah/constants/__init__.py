@@ -18,11 +18,11 @@ class EWAHConstants:
     ]
 
     # Query Building Constants
-    QBC_FIELD_TYPE = 'ft'
+    QBC_FIELD_TYPE = 'data_type'
 
-    QBC_FIELD_PK = 'pk'
-    QBC_FIELD_NN = 'nn'
-    QBC_FIELD_UQ = 'uq'
+    QBC_FIELD_PK = 'is_primary_key'
+    QBC_FIELD_NN = 'is_not_null'
+    QBC_FIELD_UQ = 'is_unique'
     QBC_FIELD_GSHEET_COLNO = 'column' # Gsheet operator: position of the column
     QBC_FIELD_CONSTRAINTS_MAPPING = {
         DWH_ENGINE_POSTGRES: {
