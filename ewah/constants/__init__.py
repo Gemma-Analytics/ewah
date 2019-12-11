@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, date
 
 class EWAHConstants:
     "This class contains a number of constants for use throughout Ewah."
@@ -57,6 +57,7 @@ class EWAHConstants:
             type([]): 'jsonb',
             type(True): 'boolean',
             type(datetime.now()): 'timestamp with time zone',
+            date: 'date',
         },
         DWH_ENGINE_SNOWFLAKE: {
             QBC_TYPE_MAPPING_DEFAULT: 'text',
@@ -68,6 +69,7 @@ class EWAHConstants:
             type([]): 'jsonb',
             type(True): 'boolean',
             type(datetime.now()): 'timestamp with time zone',
+            date: 'date',
         },
         # DWH_ENGINE_BIGQUERY: {},
         # DWH_ENGINE_REDSHIFT: {},
