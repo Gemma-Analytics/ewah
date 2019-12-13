@@ -5,6 +5,7 @@ from ewah.constants import EWAHConstants as EC
 from airflow.hooks.base_hook import BaseHook
 
 import gspread
+import json
 from oauth2client.service_account import ServiceAccountCredentials as SAC
 
 class EWAHGSpreadOperator(EWAHBaseOperator):
