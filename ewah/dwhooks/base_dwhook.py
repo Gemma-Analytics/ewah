@@ -63,9 +63,15 @@ class EWAHBaseDWHook(BaseHook):
         for statement in sql.split(';'):
             if statement.strip():
                 kwargs = {}
+                args = []
                 if params:
-                    kwargs.update({'vars': params})
-                (cursor or self.cur).execute(statement.strip(), **kwargs)
+                    if self.dwh_engine == EC.DWH_ENGINE_POSTGRES:
+                        kwargs.update({'vars': params})
+                    elif self.dwh_engine == EC.DWH_ENGINE_SNOWFLAKE:
+                        args = [params]
+                    else:
+                        raise Exception('Feature not implemented!')
+                (cursor or self.cur).execute(statement.strip(), *args, **kwargs)
         if commit:
             self.commit()
 
@@ -89,7 +95,7 @@ class EWAHBaseDWHook(BaseHook):
             return self.cur.fetchall()
 
         if self.dwh_engine == EC.DWH_ENGINE_SNOWFLAKE:
-            return [[row for row in self.cur]]
+            return [row for row in self.cur]
 
         raise Exception(
             'Function not implemented for this DWH Engine: {0}'.format(
@@ -218,7 +224,7 @@ class EWAHBaseDWHook(BaseHook):
             )]
             if self._get_column_type(definition) == 'jsonb':
                 jsonb_columns += [column_name]
-            if definition.get(field_constraints_mapping[EC.QBC_FIELD_PK]):
+            if create_update_on_columns and definition.get(EC.QBC_FIELD_PK):
                 update_on_columns += [column_name]
         sql_part_columns = ',\n\t'.join(sql_part_columns)
 

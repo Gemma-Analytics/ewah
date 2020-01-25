@@ -1,12 +1,15 @@
 from airflow import DAG
+from airflow.hooks.base_hook import BaseHook
 from airflow.operators.postgres_operator import PostgresOperator as PGO
 from airflow.sensors.external_task_sensor import ExternalTaskSensor as ETS
 
 from ewah.ewah_utils.airflow_utils import etl_schema_tasks
+from ewah.dwhooks.dwhook_snowflake import SnowflakeOperator
 from ewah.constants import EWAHConstants as EC
 
 from datetime import datetime, timedelta
 from copy import deepcopy
+import time
 
 class ExtendedETS(ETS):
     """Extend ETS functionality to support the interplay of backfill and
@@ -17,29 +20,50 @@ class ExtendedETS(ETS):
         backfill_execution_delta=None,
         backfill_execution_date_fn=None,
         backfill_external_task_id=None,
+        execution_delay_in_seconds=120,
     *args, **kwargs):
+
         self.backfill_dag_id = backfill_dag_id
         self.backfill_execution_delta = backfill_execution_delta
         self.backfill_execution_date_fn = backfill_execution_date_fn
         self.backfill_external_task_id = backfill_external_task_id
+        self.execution_delay_in_seconds = execution_delay_in_seconds
+
         super().__init__(*args, **kwargs)
 
 
     def execute(self, context):
 
+        # When a DAG is executed as soon as possible, some data sources
+        # may not immediately have up to date data from their API.
+        # E.g. querying all data until 12.30pm only gives all relevant data
+        # after 12.32pm due to some internal delays. In those cases, make
+        # sure the incremental loading DAGs don't execute too quickly.
+        next_execution_date = context['next_execution_date'] # type: Pendulum
+        next_execution_date +=timedelta(seconds=self.execution_delay_in_seconds)
+        while datetime.now() < next_execution_date:
+            self.log.info('Waiting until {0} to execute... (now: {1})'.format(
+                str(next_execution_date),
+                str(datetime.now())
+            ))
+            time.sleep((self.execution_delay_in_seconds or 20) / 20)
+
         if context['dag'].start_date == context['execution_date']:
+            # First execution of the DAG.
             if self.backfill_dag_id:
                 # Check if the latest backfill ran! --> then run normally
-                self.execution_delta = self.backfill_execution_delta or self.execution_delta
-                self.execution_date_fn = self.backfill_execution_date_fn or self.execution_date_fn
-                self.external_task_id = self.backfill_external_task_id or self.external_task_id
+                self.execution_delta = self.backfill_execution_delta or \
+                    self.execution_delta
+                self.execution_date_fn = self.backfill_execution_date_fn or \
+                    self.execution_date_fn
+                self.external_task_id = self.backfill_external_task_id or \
+                    self.external_task_id
                 self.external_dag_id = self.backfill_dag_id
                 self.log.info('First instance, looking for previous backfill!')
                 super().execute(context)
             else:
-                # return true if this is the first instance and no backfills!
-                self.log.info('This is the first execution of the DAG. Thus, ' + \
-                'the sensor automatically succeeds.')
+                self.log.info('This is the first execution of the DAG. Thus, ' \
+                    + 'the sensor automatically succeeds.')
         else:
             super().execute(context)
 
@@ -49,7 +73,7 @@ def dag_factory_incremental_loading(
         dwh_conn_id,
         airflow_conn_id,
         start_date,
-        etl_operator,
+        el_operator,
         operator_config,
         target_schema_name,
         target_schema_suffix='_next',
@@ -57,8 +81,21 @@ def dag_factory_incremental_loading(
         default_args=None,
         schedule_interval_backfill=timedelta(days=1),
         schedule_interval_future=timedelta(hours=1),
+        switch_absolute_date=None, # If provided, switch from backfill DAG to
+        #   normal DAG at that point in time (datetime.datetime) - best practice
+        #   would be to leave None is most cases
+        switch_relative_timedelta=None, # if switch_absolute_date is None, when
+        #   to move from backfill DAG to normal DAG? Defaults to minuts half
+        #   of schedule_interval_future (which is recommended in most cases)
+        end_date=None,
+        additional_dag_args={},
+        additional_task_args={},
     ):
 
+    if not hasattr(el_operator, '_IS_INCREMENTAL'):
+        raise Exception('Invalid operator supplied!')
+    if not el_operator._IS_INCREMENTAL:
+        raise Exception('Operator does not support incremental loading!')
     if not type(schedule_interval_future) == timedelta:
         raise Exception('Schedule intervals must be datetime.timedelta!')
     if not type(schedule_interval_backfill) == timedelta:
@@ -70,13 +107,35 @@ def dag_factory_incremental_loading(
             + ' regular schedule interval!')
     if not operator_config.get('tables'):
         raise Exception('Requires a "tables" dictionary in operator_config!')
+    if not (switch_relative_timedelta is None \
+        or type(switch_relative_timedelta) == timedelta):
+        raise Exception('switch_relative_timedelta must be timedelta or None!')
 
-    current_time = datetime.now() - timedelta(hours=12) # don't switch immediately
-    switch_date = int((current_time-start_date)/schedule_interval_backfill)
-    switch_date *= schedule_interval_backfill
-    switch_date += start_date
+    if not switch_absolute_date:
+        if switch_relative_timedelta is None:
+            # Make switch halway between latest normal DAG run and the
+            #   next_execution_date of the next-to-run backfill DAG
+            #   --> no interruption of the system, airflow has time to register
+            #   the change, the backfill DAG can run once unimpeded and the
+            #   normal DAG can then resume as per normal. Note: in that case,
+            #   keep both DAGs active!
+            switch_relative_timedelta = -schedule_interval_future / 2
 
-    backfill_timedelta = switch_date - start_date
+        current_time = datetime.now() - switch_relative_timedelta
+        # How much time has passed in total between start_date and now?
+        switch_absolute_date = current_time - start_date
+        # How often could the backfill DAG run in that time frame?
+        switch_absolute_date /= schedule_interval_backfill
+        switch_absolute_date = int(switch_absolute_date)
+        # What is the exact datetime after the last of those runs?
+        switch_absolute_date *= schedule_interval_backfill
+        switch_absolute_date += start_date
+        # --> switch_absolute_date is always in the (recent) past, unless
+        #   switch_relative_timedelta is negative
+
+    # Make sure that the backfill and normal DAG start_date and
+    #   schedule_interval calculations were successful and correct
+    backfill_timedelta = switch_absolute_date - start_date
     backfill_tasks_count = backfill_timedelta / schedule_interval_backfill
     # The schedule interval of the backfill must be an exact integer multiple
     # of the time period between start date and switch date!
@@ -84,75 +143,88 @@ def dag_factory_incremental_loading(
         raise Exception('The schedule interval of the backfill must be an ' \
             + 'exact integer multiple of the time period between start date '\
             + 'and switch date!')
-
+    if end_date:
+        backfill_end_date = min(switch_absolute_date, end_date)
+    else:
+        backfill_end_date = switch_absolute_date
     dags = (
         DAG(
             dag_base_name+'_Incremental',
-            start_date=switch_date,
+            start_date=switch_absolute_date,
+            end_date=end_date,
             schedule_interval=schedule_interval_future,
             catchup=True,
             max_active_runs=1,
             default_args=default_args,
+            **additional_dag_args
         ),
         DAG(
             dag_base_name+'_Incremental_Backfill',
             start_date=start_date,
-            end_date=switch_date,
+            end_date=backfill_end_date,
             schedule_interval=schedule_interval_backfill,
             catchup=True,
             max_active_runs=1,
             default_args=default_args,
+            **additional_dag_args
         ),
         DAG(
             dag_base_name+'_Incremental_Reset',
             start_date=start_date,
+            end_date=end_date,
             schedule_interval=None,
             catchup=False,
             max_active_runs=1,
             default_args=default_args,
+            **additional_dag_args
         ),
     )
 
     # Create reset DAG
     reset_sql = """
-        DELETE FROM dag_run
-        WHERE dag_id LIKE %(dag_name)s;
-        DELETE FROM job
-        WHERE dag_id LIKE %(dag_name)s;
-        DELETE FROM task_fail
-        WHERE dag_id LIKE %(dag_name)s;
-        DELETE FROM task_instance
-        WHERE dag_id LIKE %(dag_name)s;
-        DELETE FROM task_reschedule
-        WHERE dag_id LIKE %(dag_name)s;
-        DELETE FROM xcom
-        WHERE dag_id LIKE %(dag_name)s;
-        DELETE FROM dag_stats
-        WHERE dag_id LIKE %(dag_name)s;
-        DELETE FROM dag_run
-        WHERE dag_id LIKE %(dag_name_backfill)s;
-        DELETE FROM job
-        WHERE dag_id LIKE %(dag_name_backfill)s;
-        DELETE FROM task_fail
-        WHERE dag_id LIKE %(dag_name_backfill)s;
-        DELETE FROM task_instance
-        WHERE dag_id LIKE %(dag_name_backfill)s;
-        DELETE FROM task_reschedule
-        WHERE dag_id LIKE %(dag_name_backfill)s;
-        DELETE FROM xcom
-        WHERE dag_id LIKE %(dag_name_backfill)s;
-        DELETE FROM dag_stats
-        WHERE dag_id LIKE %(dag_name_backfill)s;
+        /*
+            Different versions of airflow contain different tables. Only
+            DELETE DAG from tables that actually exist.
+        */
+        CREATE OR REPLACE FUNCTION __ewah_delete_all_dag_stats(dag_name text)
+        RETURNS void AS
+        $$
+        DECLARE
+        	meta_db text;
+        	meta_schema text;
+        	meta_table text;
+        BEGIN
+        	FOR meta_db, meta_schema, meta_table IN
+        		SELECT table_catalog, table_schema, table_name
+        		FROM information_schema.tables
+        		WHERE table_name IN ('dag_run', 'job', 'task_fail',
+                    'task_instance', 'task_reschedule', 'xcom', 'dag_stats')
+        		AND table_catalog LIKE %(db_name)s
+        		AND table_schema LIKE %(schema_name)s
+        	LOOP
+        		EXECUTE 'DELETE FROM "' || meta_db || '"."' || meta_schema
+                    || '"."' || meta_table
+                    || '" WHERE dag_id = ''' || dag_name || '''';
+        	END LOOP;
+        END;
+        $$ LANGUAGE plpgsql VOLATILE;
+        SELECT __ewah_delete_all_dag_stats(%(dag_name)s);
+        SELECT __ewah_delete_all_dag_stats(%(dag_name_backfill)s);
+        DROP FUNCTION __ewah_delete_all_dag_stats;
     """
+    airflow_conn = BaseHook.get_connection(airflow_conn_id)
     reset_task = PGO(
         sql=reset_sql,
         postgres_conn_id=airflow_conn_id,
         parameters={
-            'dag_name':dag_base_name+'_Incremental',
-            'dag_name_backfill':dag_base_name+'_Incremental_Backfill',
+            'dag_name': dag_base_name+'_Incremental',
+            'dag_name_backfill': dag_base_name+'_Incremental_Backfill',
+            'db_name': airflow_conn.schema,
+            'schema_name': airflow_conn.extra_dejson.get('schema', 'public'),
         },
         task_id='reset_by_deleting_all_task_instances',
         dag=dags[2],
+        **additional_task_args
     )
     drop_sql = f'DROP SCHEMA IF EXISTS "{target_schema_name}" CASCADE;'
     drop_sql += '\nDROP SCHEMA IF EXISTS "{schema}" CASCADE;'.format(**{
@@ -164,6 +236,7 @@ def dag_factory_incremental_loading(
             postgres_conn_id=dwh_conn_id,
             task_id='delete_previous_schema_if_exists',
             dag=dags[2],
+            **additional_task_args
         )
     elif dwh_engine == EC.DWH_ENGINE_SNOWFLAKE:
         drop_task = SnowflakeOperator(
@@ -172,6 +245,7 @@ def dag_factory_incremental_loading(
             database=target_database_name,
             task_id='delete_previous_schema_if_exists',
             dag=dags[2],
+            **additional_task_args
         )
     else:
         raise ValueError('DWH not implemented for this task!')
@@ -185,6 +259,7 @@ def dag_factory_incremental_loading(
         target_schema_name=target_schema_name,
         target_schema_suffix=target_schema_suffix,
         dwh_conn_id=dwh_conn_id,
+        **additional_task_args
     )
 
     # Backfill DAG schema tasks
@@ -195,6 +270,7 @@ def dag_factory_incremental_loading(
         target_schema_name=target_schema_name,
         target_schema_suffix=target_schema_suffix,
         dwh_conn_id=dwh_conn_id,
+        **additional_task_args
     )
 
     # Make sure incremental loading stops if there is an error!
@@ -209,6 +285,7 @@ def dag_factory_incremental_loading(
             backfill_external_task_id=final_backfill.task_id,
             backfill_execution_delta=schedule_interval_backfill,
             dag=dags[0],
+            **additional_task_args
         ),
         ExtendedETS(
             task_id='sense_previous_instance',
@@ -217,6 +294,7 @@ def dag_factory_incremental_loading(
             external_task_id=final_backfill.task_id,
             execution_delta=schedule_interval_backfill,
             dag=dags[1],
+            **additional_task_args
         )
     )
     ets[0] >> kickoff
@@ -225,7 +303,10 @@ def dag_factory_incremental_loading(
     # add table creation tasks
     count_backfill_tasks = 0
     for table in operator_config['tables'].keys():
-        arg_dict = {
+        arg_dict = deepcopy(additional_task_args)
+        arg_dict.update({'drop_and_replace': False})
+        arg_dict.update(operator_config.get('general_config', {}))
+        arg_dict_internal = {
             'task_id': 'extract_load_' + table,
             'dwh_engine': dwh_engine,
             'dwh_conn_id': dwh_conn_id,
@@ -233,25 +314,28 @@ def dag_factory_incremental_loading(
             'target_schema_name': target_schema_name,
             'target_schema_suffix': target_schema_suffix,
             'target_database_name': target_database_name,
-            'drop_and_replace': False,
+            # 'drop_and_replace': False,
             # columns_definition
             # update_on_columns
             # primary_key_column_name
         }
-        arg_dict.update(operator_config.get('general_config', {}))
+
         arg_dict_backfill = deepcopy(arg_dict)
         arg_dict.update(operator_config.get('incremental_config', {}))
         arg_dict_backfill.update(operator_config.get('backfill_config', {}))
         arg_dict.update(operator_config['tables'][table] or {})
         arg_dict_backfill.update(operator_config['tables'][table] or {})
 
-        task = etl_operator(dag=dags[0], **arg_dict)
-        kickoff >> task >> final
+        arg_dict.update(arg_dict_internal)
+        arg_dict_backfill.update(arg_dict_internal)
 
-        if not arg_dict.get('skip_backfill', False):
-            task = etl_operator(dag=dags[1], **arg_dict_backfill)
-            kickoff_backfill >> task >> final_backfill
+        if not arg_dict.get('drop_and_replace', False):
+            task_backfill = el_operator(dag=dags[1], **arg_dict_backfill)
+            kickoff_backfill >> task_backfill >> final_backfill
             count_backfill_tasks += 1
+
+        task = el_operator(dag=dags[0], **arg_dict)
+        kickoff >> task >> final
 
     if count_backfill_tasks == 0:
         kickoff_backfill >> final_backfill

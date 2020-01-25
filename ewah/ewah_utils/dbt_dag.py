@@ -1,7 +1,7 @@
 from airflow import DAG
 
-from airflow.operators.bash_operator import BashOperator
 from airflow.operators.postgres_operator import PostgresOperator
+from airflow.operators.bash_operator import BashOperator
 from airflow.sensors.sql_sensor import SqlSensor
 from airflow.hooks.base_hook import BaseHook
 from airflow.configuration import conf
@@ -116,7 +116,7 @@ def dbt_dags_factory(
             'DBT_ROLE': analytics_conn_extra.get('role'),
             'DBT_DB': analytics_conn_extra.get('database'),
             'DBT_WH': analytics_conn_extra.get('warehouse'),
-            'DBT_PROFILES_DIR': folder + DBTC.PROFILES_DIR,
+            'DBT_PROFILES_DIR': folder,
         }
     else:
         raise ValueError('DWH type not implemented!')

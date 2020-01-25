@@ -1,24 +1,52 @@
 from airflow.operators.postgres_operator import PostgresOperator as PGO
 from airflow.operators.python_operator import PythonOperator as PO
-from airflow.models import Variable
+from airflow.hooks.base_hook import BaseHook
 
-from ewah.ewah_dwhooks.ewah_dwhook_snowflake import EWAHDWHookSnowflake
+from ewah.dwhooks.dwhook_snowflake import EWAHDWHookSnowflake
 from ewah.constants import EWAHConstants as EC
 
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
+from copy import deepcopy
 import re
 
-def datetime_from_string(datetime_string):
-    try:
-        return datetime.strptime(
-            datetime_string.split('+')[0].split('.')[0],
-            '%Y-%m-%dT%H:%M:%S',
+def airflow_datetime_adjustments(datetime_raw):
+    if type(datetime_raw) == str:
+        datetime_string = datetime_raw
+        if '-' in datetime_string[10:]:
+            tz_sign = '-'
+        else:
+            tz_sign = '+'
+        datetime_strings = datetime_string.split(tz_sign)
+
+        if 'T' in datetime_string:
+            format_string = '%Y-%m-%dT%H:%M:%S'
+        else:
+            format_string = '%Y-%m-%d %H:%M:%S'
+
+        if '.' in datetime_string:
+            format_string += '.%f'
+
+        if len(datetime_strings) == 2:
+            if ':' in datetime_strings[1]:
+                datetime_strings[1] = datetime_strings[1].replace(':', '')
+            datetime_string = tz_sign.join(datetime_strings)
+            format_string += '%z'
+        elif 'Z' in datetime_string:
+            format_string += 'Z'
+        datetime_raw = datetime.strptime(
+            datetime_string,
+            format_string,
         )
-    except ValueError:
-        return datetime.strptime(
-            datetime_string.split('+')[0].split('.')[0],
-            '%Y-%m-%d %H:%M:%S',
-        )
+    elif not (type(datetime_raw) in (type(None), datetime)):
+        raise Exception('Invalid datetime type supplied! Supply either string' \
+            + ' or datetime.datetime! supplied: {0}'.format(
+                str(type(datetime_raw))
+            ))
+
+    if datetime_raw and datetime_raw.tzinfo is None:
+        datetime_raw = datetime_raw.replace(tzinfo=timezone.utc)
+
+    return datetime_raw
 
 def etl_schema_tasks(
         dag,
@@ -28,6 +56,8 @@ def etl_schema_tasks(
         target_schema_suffix='_next',
         target_database_name=None,
         copy_schema=False,
+        read_right_users=None, # Only for PostgreSQL
+        **additional_task_args
     ):
 
     if dwh_engine == EC.DWH_ENGINE_POSTGRES:
@@ -102,40 +132,37 @@ def etl_schema_tasks(
                 'schema_suffix': target_schema_suffix,
             })
 
-        try:
-            read_right_users = Variable.get('global_dwh_read_rights')
-        except KeyError:
-            read_right_users = None
-
         if read_right_users:
-            list_of_read_right_users = read_right_users.split(',')
-            i = 0
-            for user in list_of_read_right_users:
-                i += 1
-                if re.search(r"\s", user):
-                    raise ValueError('No whitespace allowed in usernames!')
+            if not type(read_right_users) == list:
+                raise Exception('Arg read_right_users must be of type List!')
+            for user in read_right_users:
+                if re.search(r"\s", user) or (';' in user):
+                    raise ValueError('No whitespace or semicolons allowed in usernames!')
                 sql_final += f'\nGRANT USAGE ON SCHEMA "{target_schema_name}" TO {user};'
                 sql_final += f'\nGRANT SELECT ON ALL TABLES IN SCHEMA "{target_schema_name}" TO {user};'
 
-        return (
-                PGO(
-                    sql=sql_kickoff,
-                    task_id='kickoff_'+target_schema_name,
-                    dag=dag,
-                    postgres_conn_id=dwh_conn_id,
-                    retries=1,
-                    retry_delay=timedelta(minutes=1),
-                ),
-                PGO(
-                    sql=sql_final,
-                    task_id='final_'+target_schema_name,
-                    dag=dag,
-                    postgres_conn_id=dwh_conn_id,
-                    retries=1,
-                    retry_delay=timedelta(minutes=1),
-                ),
-        )
+        task_1_args = deepcopy(additional_task_args)
+        task_2_args = deepcopy(additional_task_args)
+        task_1_args.update({
+            'sql': sql_kickoff,
+            'task_id': 'kickoff_{0}'.format(target_schema_name),
+            'dag': dag,
+            'postgres_conn_id': dwh_conn_id,
+            # 'retries': 1,
+            # 'retry_delay': timedelta(minutes=1),
+        })
+        task_2_args.update({
+            'sql': sql_final,
+            'task_id': 'final_{0}'.format(target_schema_name),
+            'dag': dag,
+            'postgres_conn_id': dwh_conn_id,
+            # 'retries': 1,
+            # 'retry_delay': timedelta(minutes=1),
+        })
+        return (PGO(**task_1_args), PGO(**task_2_args))
     elif dwh_engine == EC.DWH_ENGINE_SNOWFLAKE:
+        target_database_name = target_database_name or (BaseHook \
+                .get_connection(dwh_conn_id).extra_dejson.get('database'))
         if copy_schema:
             sql_kickoff = '''
                 /*Make sure there is something to clone in step 2*/
@@ -171,27 +198,28 @@ def etl_schema_tasks(
             hook.execute(sql)
             hook.close()
 
-        return (
-            PO(
-                task_id='kickoff_'+target_schema_name,
-                python_callable=execute_snowflake,
-                op_kwargs={
-                    'sql': sql_kickoff,
-                    'conn_id': dwh_conn_id,
-                },
-                provide_context=True,
-                dag=dag,
-            ),
-            PO(
-                task_id='final_'+target_schema_name,
-                python_callable=execute_snowflake,
-                op_kwargs={
-                    'sql': sql_final,
-                    'conn_id': dwh_conn_id,
-                },
-                provide_context=True,
-                dag=dag,
-            ),
-        )
+        task_1_args = deepcopy(additional_task_args)
+        task_2_args = deepcopy(additional_task_args)
+        task_1_args.update({
+            'task_id': 'kickoff_{0}'.format(target_schema_name),
+            'python_callable': execute_snowflake,
+            'op_kwargs': {
+                'sql': sql_kickoff,
+                'conn_id': dwh_conn_id,
+            },
+            'provide_context': True,
+            'dag': dag,
+        })
+        task_2_args.update({
+            'task_id': 'final_{0}'.format(target_schema_name),
+            'python_callable': execute_snowflake,
+            'op_kwargs': {
+                'sql': sql_final,
+                'conn_id': dwh_conn_id,
+            },
+            'provide_context': True,
+            'dag': dag,
+        })
+        return (PO(**task_1_args), PO(**task_2_args))
     else:
         raise ValueError('Feature not implemented!')

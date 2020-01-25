@@ -1,7 +1,8 @@
 from airflow.models import BaseOperator
+from airflow.hooks.base_hook import BaseHook
 
-from ewah.ewah_dwhooks.ewah_dwhook_snowflake import EWAHDWHookSnowflake
-from ewah.ewah_dwhooks.ewah_dwhook_postgres import EWAHDWHookPostgres
+from ewah.dwhooks.dwhook_snowflake import EWAHDWHookSnowflake
+from ewah.dwhooks.dwhook_postgres import EWAHDWHookPostgres
 from ewah.constants import EWAHConstants as EC
 
 
@@ -51,10 +52,16 @@ class EWAHBaseOperator(BaseOperator):
     - Redshift
     """
 
+    _IS_INCREMENTAL = False # Child class must update these values accordingly.
+    _IS_FULL_REFRESH = False # Defines whether operator is usable in factories.
+
+    _REQUIRES_COLUMN_DEFINITION = False # raise error if true an none supplied
+
     upload_call_count = 0
 
     def __init__(
         self,
+        source_conn_id,
         dwh_engine,
         dwh_conn_id,
         target_table_name,
@@ -76,15 +83,25 @@ class EWAHBaseOperator(BaseOperator):
 
         if dwh_engine == EC.DWH_ENGINE_SNOWFLAKE:
             if not target_database_name:
-                raise Exception('If using DWH Engine {0}, must provide {1}!'
-                    .format(
-                        dwh_engine,
-                        '"target_database_name" to specify the Database',
+                conn_db_name = BaseHook.get_connection(dwh_conn_id)
+                conn_db_name = conn_db_name.extra_dejson.get('database')
+                if conn_db_name:
+                    target_database_name = conn_db_name
+                else:
+                    raise Exception('If using DWH Engine {0}, must provide {1}!'
+                        .format(
+                            dwh_engine,
+                            '"target_database_name" to specify the Database',
+                        )
                     )
-                )
         else:
             if target_database_name:
                 raise Exception('Received argument for "target_database_name"!')
+
+        if self._REQUIRES_COLUMN_DEFINITION:
+            if not columns_definition:
+                raise Exception('This operator requires the argument ' \
+                    + 'columns_definition!')
 
         if not drop_and_replace:
             if not (
@@ -106,6 +123,7 @@ class EWAHBaseOperator(BaseOperator):
 
         super().__init__(*args, **kwargs)
 
+        self.source_conn_id = source_conn_id
         self.dwh_engine = dwh_engine
         self.dwh_conn_id = dwh_conn_id
         self.target_table_name = target_table_name
@@ -236,3 +254,13 @@ class EWAHBaseOperator(BaseOperator):
         )
         #hook.commit()
         hook.close()
+
+class EWAHEmptyOperator(EWAHBaseOperator):
+    _IS_INCREMENTAL = True
+    _IS_FULL_REFRESH = True
+    def __init__(self, *args, **kwargs):
+        raise Exception('Failed to load operator! Probably missing' \
+            + ' requirements for the operator in question.\n\nSupplied args:' \
+            + '\n\t' + '\n\t'.join(args) + '\n\nSupplied kwargs:\n\t' \
+            + '\n\t'.join(['{0}: {1}'.format(k, v) for k, v in kwargs.items()])
+        )
