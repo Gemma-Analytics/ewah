@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name='ewah',
-    version='0.1.2',
+    version='0.1.3',
     description='An ELT with airflow helper module: Ewah',
     url='https://github.com/soltanianalytics/ewah',
     author='Bijan Soltani',
