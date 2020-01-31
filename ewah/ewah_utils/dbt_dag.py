@@ -18,6 +18,7 @@ def dbt_dags_factory(
     project_name,
     dbt_schema_name,
     airflow_conn_id,
+    dag_base_name='DBT_run',
     analytics_reader=None, # list of users of DWH who are read-only
     schedule_interval=timedelta(hours=1),
     start_date=datetime(2019,1,1),
@@ -45,7 +46,7 @@ def dbt_dags_factory(
 
 
     dag = DAG(
-        'DBT_run',
+        dag_base_name,
         catchup=False,
         max_active_runs=1,
         schedule_interval=schedule_interval,
@@ -54,7 +55,7 @@ def dbt_dags_factory(
     )
 
     dag_full_refresh = DAG(
-        'DBT_run_full_refresh',
+        dag_base_name + '_full_refresh',
         catchup=False,
         max_active_runs=1,
         schedule_interval=None,
