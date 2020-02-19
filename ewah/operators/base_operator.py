@@ -180,7 +180,7 @@ class EWAHBaseOperator(BaseOperator):
         for datum in data:
             for field in datum.keys():
                 if not (result.get(field, {}).get(EC.QBC_FIELD_TYPE) \
-                    == inconsistent_data_type) and datum[field]:
+                    == inconsistent_data_type):
                     if result.get(field):
                         # column has been added in a previous iteration.
                         # If not default column: check if new and old column
