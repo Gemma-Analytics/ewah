@@ -158,6 +158,7 @@ def dags_from_dict(
         'default_view',
         'orientation',
         'access_control',
+        'concurrency'
     ]
 
     allowed_task_args = [
