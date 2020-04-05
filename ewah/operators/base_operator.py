@@ -72,6 +72,7 @@ class EWAHBaseOperator(BaseOperator):
         drop_and_replace=True,
         update_on_columns=None,
         primary_key_column_name=None,
+        clean_data_before_upload=True,
     *args, **kwargs):
 
         if not dwh_engine or not dwh_engine in EC.DWH_ENGINES:
@@ -135,6 +136,7 @@ class EWAHBaseOperator(BaseOperator):
         if (not update_on_columns) and primary_key_column_name:
             update_on_columns = [primary_key_column_name]
         self.update_on_columns = update_on_columns
+        self.clean_data_before_upload = clean_data_before_upload
         self.primary_key_column_name = primary_key_column_name # may be used ...
         #   ... by a child class at execution!
 
@@ -251,6 +253,7 @@ class EWAHBaseOperator(BaseOperator):
             update_on_columns=self.update_on_columns,
             commit=True,
             logging_function=self.log.info,
+            clean_data_before_upload=self.clean_data_before_upload,
         )
         #hook.commit()
         hook.close()
