@@ -244,19 +244,20 @@ class EWAHBaseDWHook(BaseHook):
                     elif not (value == '\0'):
                         row[column_name] = value
                 upload_data += [row]
+            data_len = len(upload_data)
         else:
-            upload_data = data
-        del data
+            data_len = len(data)
+            upload_data = None
 
         logging_function('Uploading {0} rows of data...'.format(
-            str(len(upload_data)),
+            str(data_len),
         ))
         if database_name:
             kwargs = {'database_name': database_name}
         else:
             kwargs = {}
         kwargs.update({
-            'data': upload_data,
+            'data': upload_data or data,
             'table_name': table_name,
             'schema_name': schema_name,
             'columns_definition': columns_definition,
