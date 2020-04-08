@@ -54,8 +54,8 @@ class EWAHBaseDWHook(BaseHook):
     def close(self):
         if hasattr(self, 'cur') and self.cur:
             self.cur.close()
-        if hasattr(self, 'dcur') and self.dcur:
-            self.cur.close()
+        if hasattr(self, 'dict_cur') and self.dict_cur:
+            self.dict_cur.close()
         if self.conn:
             self.conn.close()
 
