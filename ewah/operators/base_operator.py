@@ -134,7 +134,10 @@ class EWAHBaseOperator(BaseOperator):
         self.columns_definition = columns_definition
         self.drop_and_replace = drop_and_replace
         if (not update_on_columns) and primary_key_column_name:
-            update_on_columns = [primary_key_column_name]
+            if type(primary_key_column_name) == str:
+                update_on_columns = [primary_key_column_name]
+            elif type(primary_key_column_name) in (list, tuple):
+                update_on_columns = primary_key_column_name
         self.update_on_columns = update_on_columns
         self.clean_data_before_upload = clean_data_before_upload
         self.primary_key_column_name = primary_key_column_name # may be used ...
