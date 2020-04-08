@@ -52,6 +52,7 @@ class EWAHDWHookPostgres(EWAHBaseDWHook):
         update_on_columns,
         drop_and_replace,
         logging_function,
+        upload_chunking=100000,
     ):
         logging_function('Preparing DWH Tables...')
         if drop_and_replace or (not self.test_if_table_exists(
@@ -111,12 +112,16 @@ class EWAHDWHookPostgres(EWAHBaseDWHook):
             ),
         })
         logging_function('Now Uploading!')
-        execute_values(
-            cur=self.get_cursor(),
-            sql=sql,
-            argslist=data,
-            template='(%('+')s, %('.join(list(columns_definition.keys()))+')s)',
-        )
+        template = '(%('+')s, %('.join(list(columns_definition.keys()))+')s)'
+        while data:
+            upload_data = data[:upload_chunking]
+            data = [upload_chunking:]
+            execute_values(
+                cur=self.get_cursor(),
+                sql=sql,
+                argslist=data,
+                template=template,
+            )
         logging_function('Upload done.')
 
         self.execute(
