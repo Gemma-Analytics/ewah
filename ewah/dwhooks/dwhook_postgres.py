@@ -113,13 +113,14 @@ class EWAHDWHookPostgres(EWAHBaseDWHook):
         })
         logging_function('Now Uploading!')
         template = '(%('+')s, %('.join(list(columns_definition.keys()))+')s)'
+        cur = self.get_cursor()
         while data:
             upload_data = data[:upload_chunking]
-            data = [upload_chunking:]
+            data = data[upload_chunking:]
             execute_values(
-                cur=self.get_cursor(),
+                cur=cur,
                 sql=sql,
-                argslist=data,
+                argslist=upload_data,
                 template=template,
             )
         logging_function('Upload done.')
