@@ -55,7 +55,7 @@ class EWAHBaseOperator(BaseOperator):
     _IS_INCREMENTAL = False # Child class must update these values accordingly.
     _IS_FULL_REFRESH = False # Defines whether operator is usable in factories.
 
-    _REQUIRES_COLUMN_DEFINITION = False # raise error if true an none supplied
+    _REQUIRES_COLUMNS_DEFINITION = False # raise error if true an none supplied
 
     upload_call_count = 0
 
@@ -99,7 +99,7 @@ class EWAHBaseOperator(BaseOperator):
             if target_database_name:
                 raise Exception('Received argument for "target_database_name"!')
 
-        if self._REQUIRES_COLUMN_DEFINITION:
+        if self._REQUIRES_COLUMNS_DEFINITION:
             if not columns_definition:
                 raise Exception('This operator requires the argument ' \
                     + 'columns_definition!')

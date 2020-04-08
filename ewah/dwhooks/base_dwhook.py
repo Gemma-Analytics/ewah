@@ -42,8 +42,8 @@ class EWAHBaseDWHook(BaseHook):
         if self.dwh_engine == EC.DWH_ENGINE_SNOWFLAKE:
             self.cur.execute("BEGIN;")
 
-    def _get_column_type(self, column_definition):
-        return column_definition.get(
+    def _get_column_type(self, columns_definition):
+        return columns_definition.get(
             EC.QBC_FIELD_TYPE,
             EC.QBC_TYPE_MAPPING[self.dwh_engine].get(
                 EC.QBC_TYPE_MAPPING_DEFAULT,
