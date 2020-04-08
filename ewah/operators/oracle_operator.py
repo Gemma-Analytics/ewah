@@ -10,7 +10,7 @@ class EWAHOracleSQLOperator(EWAHSQLBaseOperator):
         _SQL_BASE_COLUMNS = 'SELECT\n"{columns}"\nFROM "{table}"\nWHERE {{0}};'
         _SQL_BASE_ALL = 'SELECT * FROM "{table}"\nWHERE {{0}};'
         _SQL_COLUMN_QUOTE = '"'
-        _SQL_MINMAX_CHUNKS = 'SELECT MIN({column}), MAX({column}) FROM "{table}";'
+        _SQL_MINMAX_CHUNKS = 'SELECT MIN({column}), MAX({column}) FROM "{table}" WHERE {where_clause};'
         _SQL_CHUNKING_CLAUSE = 'AND {column} >= :from_value AND {column} <{equal_sign} :until_value'
         _SQL_PARAMS = ':{0}'
 

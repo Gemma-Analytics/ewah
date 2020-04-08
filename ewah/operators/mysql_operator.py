@@ -10,7 +10,7 @@ class EWAHMySQLOperator(EWAHSQLBaseOperator):
     _SQL_BASE_COLUMNS = 'SELECT\n`{columns}`\nFROM `{schema}`.`{table}`\nWHERE {{0}};'
     _SQL_BASE_ALL = 'SELECT * FROM `{schema}`.`{table}`\nWHERE {{0}};'
     _SQL_COLUMN_QUOTE = '`'
-    _SQL_MINMAX_CHUNKS = 'SELECT MIN({column}), MAX({column}) FROM `{schema}`.`{table}`;'
+    _SQL_MINMAX_CHUNKS = 'SELECT MIN({column}), MAX({column}) FROM `{schema}`.`{table}` WHERE {where_clause};'
     _SQL_CHUNKING_CLAUSE = 'AND {column} >= %(from_value)s AND {column} <{equal_sign} %(until_value)s'
     _SQL_PARAMS = '%({0})s'
 

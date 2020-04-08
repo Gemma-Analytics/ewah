@@ -29,6 +29,7 @@ class EWAHSQLBaseOperator(EWAHBaseOperator):
         reload_data_from=None, # If a new table is added in production, and
         #   it is loading incrementally, where to start loading data? datetime
         reload_data_chunking=None, # must be timedelta
+        where_clause=None,
     *args, **kwargs):
 
         source_table_name = source_table_name or kwargs.get('target_table_name')
@@ -101,6 +102,7 @@ class EWAHSQLBaseOperator(EWAHBaseOperator):
         self.chunking_interval = chunking_interval
         self.reload_data_from = reload_data_from
         self.reload_data_chunking = reload_data_chunking or chunking_interval
+        self.where_clause = where_clause or '1 = 1'
 
     def execute(self, context):
         str_format = '%Y-%m-%dT%H:%M:%SZ'
@@ -156,13 +158,14 @@ class EWAHSQLBaseOperator(EWAHBaseOperator):
                     self._SQL_PARAMS.format('data_until'),
                 ))
                 params.update({'data_until': self.data_from})
-            sql_base = sql_base.format('1 = 1 {0}')
+            sql_base = sql_base.format('{0} {{0}}'.format(self.where_clause))
         else:
-            sql_base = sql_base.format('{0} >= {1} AND {0} < {2} {{0}}'
+            sql_base = sql_base.format('{0} >= {1} AND {0} < {2} AND {3} {{0}}'
                 .format(
                     self.timestamp_column,
                     self._SQL_PARAMS.format('data_from'),
                     self._SQL_PARAMS.format('data_until'),
+                    self.where_clause,
             ))
             params.update({'data_from': self.data_from})
             params.update({'data_until': self.data_until})
@@ -180,6 +183,7 @@ class EWAHSQLBaseOperator(EWAHBaseOperator):
                         'column': chunking_column,
                         'schema': self.source_schema_name,
                         'table': self.source_table_name,
+                        'where_clause': self.where_clause,
                     }),
                     return_dict=False,
                 )[0]
