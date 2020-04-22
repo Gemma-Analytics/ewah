@@ -1,8 +1,7 @@
 from airflow.models import BaseOperator
 from airflow.hooks.base_hook import BaseHook
 
-from ewah.dwhooks.dwhook_snowflake import EWAHDWHookSnowflake
-from ewah.dwhooks.dwhook_postgres import EWAHDWHookPostgres
+from ewah.dwhooks import get_dwhook
 from ewah.constants import EWAHConstants as EC
 
 
@@ -143,12 +142,7 @@ class EWAHBaseOperator(BaseOperator):
         self.primary_key_column_name = primary_key_column_name # may be used ...
         #   ... by a child class at execution!
 
-        self.hook = {
-            EC.DWH_ENGINE_POSTGRES: EWAHDWHookPostgres,
-            EC.DWH_ENGINE_SNOWFLAKE: EWAHDWHookSnowflake,
-            # DWH_ENGINE_BIGQUERY: bq_hook,
-            # DWH_ENGINE_REDSHIFT: rs_hook,
-        }[self.dwh_engine]
+        self.hook = get_dwhook(self.dwh_engine)
 
     def test_if_target_table_exists(self):
         hook = self.hook(self.dwh_conn_id)
