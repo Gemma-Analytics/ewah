@@ -25,6 +25,7 @@ class EWAHDWHookPostgres(EWAHBaseDWHook):
         ALTER TABLE "{schema_name}"."{table_name}"
         ADD COLUMN "{column_name}" {column_type};
     """
+    _QUERY_TABLE = 'SELECT * FROM "{schema_name}"."{table_name}"'
 
     def __init__(self, *args, **kwargs):
         super().__init__(EC.DWH_ENGINE_POSTGRES, *args, **kwargs)
