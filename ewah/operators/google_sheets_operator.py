@@ -13,7 +13,7 @@ class EWAHGSpreadOperator(EWAHBaseOperator):
     _IS_INCREMENTAL = False
     _IS_FULL_REFRESH = True
 
-    _REQUIRES_COLUMN_DEFINITION = True
+    _REQUIRES_COLUMNS_DEFINITION = True
 
     def _translate_alphanumeric_column(self, column_identifier):
         if type(column_identifier) == str:

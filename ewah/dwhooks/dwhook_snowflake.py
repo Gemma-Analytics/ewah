@@ -52,6 +52,9 @@ class EWAHDWHookSnowflake(EWAHBaseDWHook):
         ALTER TABLE "{database_name}"."{schema_name}"."{table_name}"
         ADD COLUMN "{column_name}" {column_type};
     """
+    _QUERY_TABLE = """
+        SELECT * FROM "{database_name}"."{schema_name}"."{table_name}"
+    """
 
     def __init__(self, *args, database=None, **kwargs):
         self.database = database

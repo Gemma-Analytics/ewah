@@ -1,14 +1,34 @@
-from setuptools import setup, find_packages
+import setuptools
 
-setup(
-    name='ewah',
-    version='0.1.2',
-    description='An ELT with airflow helper module: Ewah',
-    url='https://github.com/soltanianalytics/ewah',
-    author='Bijan Soltani',
-    author_email='me+ewah@bijansoltani.com',
-    license='MIT',
-    packages=['ewah'],
-    zip_safe=False,
-    python_requires=">=3.7",
+with open("README.md", "r") as fh:
+    long_description = fh.read()
+
+setuptools.setup(
+    name="ewah", # Replace with your own username
+    version="0.1.8",
+    author="Bijan Soltani",
+    author_email="bijan.soltani+ewah@gemmaanalytics.com",
+    description="An ELT with airflow helper module: Ewah",
+    long_description=long_description,
+    long_description_content_type="text/markdown",
+    url="https://gemmaanalytics.com/",
+    packages=setuptools.find_packages(),
+    classifiers=[
+        "Programming Language :: Python :: 3",
+        "License :: OSI Approved :: MIT License",
+    ],
+    python_requires='>=3.6',
+    install_requires=[            # I get to this in a second
+          'pyyaml',
+          'psycopg2',
+          'gspread',
+          'pytz',
+          'yahoofinancials',
+          'google-api-python-client',
+          'oauth2client',
+          'cx_Oracle',
+          'facebook_business',
+          'mysql-connector-python',
+          'snowflake-connector-python',
+      ],
 )

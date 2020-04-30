@@ -25,6 +25,7 @@ class EWAHDWHookPostgres(EWAHBaseDWHook):
         ALTER TABLE "{schema_name}"."{table_name}"
         ADD COLUMN "{column_name}" {column_type};
     """
+    _QUERY_TABLE = 'SELECT * FROM "{schema_name}"."{table_name}"'
 
     def __init__(self, *args, **kwargs):
         super().__init__(EC.DWH_ENGINE_POSTGRES, *args, **kwargs)
@@ -52,6 +53,7 @@ class EWAHDWHookPostgres(EWAHBaseDWHook):
         update_on_columns,
         drop_and_replace,
         logging_function,
+        upload_chunking=100000,
     ):
         logging_function('Preparing DWH Tables...')
         if drop_and_replace or (not self.test_if_table_exists(
@@ -111,12 +113,17 @@ class EWAHDWHookPostgres(EWAHBaseDWHook):
             ),
         })
         logging_function('Now Uploading!')
-        execute_values(
-            cur=self.get_cursor(),
-            sql=sql,
-            argslist=data,
-            template='(%('+')s, %('.join(list(columns_definition.keys()))+')s)',
-        )
+        template = '(%('+')s, %('.join(list(columns_definition.keys()))+')s)'
+        cur = self.get_cursor()
+        while data:
+            upload_data = data[:upload_chunking]
+            data = data[upload_chunking:]
+            execute_values(
+                cur=cur,
+                sql=sql,
+                argslist=upload_data,
+                template=template,
+            )
         logging_function('Upload done.')
 
         self.execute(

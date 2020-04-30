@@ -1,5 +1,6 @@
 from ewah.constants import EWAHConstants as EC
 from ewah.operators import *
+from ewah.operators.base_operator import EWAHBaseOperator as EBO
 
 from .dag_factory_full_refresh import dag_factory_drop_and_replace
 from .dag_factory_incremental import dag_factory_incremental_loading
@@ -157,6 +158,7 @@ def dags_from_dict(
         'default_view',
         'orientation',
         'access_control',
+        'concurrency'
     ]
 
     allowed_task_args = [
@@ -245,9 +247,16 @@ def dags_from_dict(
                 '\n\t'.join(list(dwh_engines.keys())),
             ))
         try:
-            config.update({
-                'el_operator': operators[config['el_operator'].lower()],
-            })
+            if type(config['el_operator']) == type \
+                and issubclass(config['el_operator'], EBO):
+                # custom operator was defined in yml file, use it
+                config.update({
+                    'el_operator': config['el_operator'],
+                })
+            else:
+                config.update({
+                    'el_operator': operators[config['el_operator'].lower()],
+                })
         except KeyError:
             raise Exception('Invalid el_operator {0}\nAllowed:\n\t{1}'.format(
                 str(config.get('el_operator', None)),

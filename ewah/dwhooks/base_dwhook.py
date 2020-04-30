@@ -42,8 +42,8 @@ class EWAHBaseDWHook(BaseHook):
         if self.dwh_engine == EC.DWH_ENGINE_SNOWFLAKE:
             self.cur.execute("BEGIN;")
 
-    def _get_column_type(self, column_definition):
-        return column_definition.get(
+    def _get_column_type(self, columns_definition):
+        return columns_definition.get(
             EC.QBC_FIELD_TYPE,
             EC.QBC_TYPE_MAPPING[self.dwh_engine].get(
                 EC.QBC_TYPE_MAPPING_DEFAULT,
@@ -54,8 +54,8 @@ class EWAHBaseDWHook(BaseHook):
     def close(self):
         if hasattr(self, 'cur') and self.cur:
             self.cur.close()
-        if hasattr(self, 'dcur') and self.dcur:
-            self.cur.close()
+        if hasattr(self, 'dict_cur') and self.dict_cur:
+            self.dict_cur.close()
         if self.conn:
             self.conn.close()
 
@@ -190,6 +190,7 @@ class EWAHBaseDWHook(BaseHook):
         update_on_columns=None,
         commit=False,
         logging_function=None,
+        clean_data_before_upload=True,
     ):
         logging_function = logging_function or (lambda *args: None)
         database_name = database_name or \
@@ -228,35 +229,35 @@ class EWAHBaseDWHook(BaseHook):
                 update_on_columns += [column_name]
         sql_part_columns = ',\n\t'.join(sql_part_columns)
 
-        logging_function('Cleaning data for upload...')
-        upload_data = []
-        for _ in range(len(data)):
-            datum = data.pop(0)
-            for column_name in datum.keys():
-                if datum[column_name] == '\0':
-                    datum[column_name] = None
-                elif column_name in jsonb_columns:
-                    if datum[column_name]:
-                        datum[column_name] = json.dumps(datum[column_name])
-                    else:
-                        datum[column_name] = None
-                elif type(datum[column_name]) in [type({}), OrderedDict]:
-                    datum[column_name] = json.dumps(datum[column_name])
-
-            # Make sure that each dict in upload_data has all keys, even if None
-            row = deepcopy(raw_row)
-            row.update(datum)
-            upload_data += [row]
+        if clean_data_before_upload:
+            logging_function('Cleaning data for upload...')
+            upload_data = []
+            while data:
+                datum = data.pop(0)
+                # Make sure that each dict in upload_data has all keys
+                row = deepcopy(raw_row)
+                for column_name, value in datum.items():
+                    if column_name in jsonb_columns and value:
+                        row[column_name] = json.dumps(value)
+                    elif type(value) in [dict, OrderedDict]:
+                        row[column_name] = json.dumps(value)
+                    elif not (value == '\0'):
+                        row[column_name] = value
+                upload_data += [row]
+            data_len = len(upload_data)
+        else:
+            data_len = len(data)
+            upload_data = None
 
         logging_function('Uploading {0} rows of data...'.format(
-            str(len(upload_data)),
+            str(data_len),
         ))
         if database_name:
             kwargs = {'database_name': database_name}
         else:
             kwargs = {}
         kwargs.update({
-            'data': upload_data,
+            'data': upload_data or data,
             'table_name': table_name,
             'schema_name': schema_name,
             'columns_definition': columns_definition,

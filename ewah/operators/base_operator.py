@@ -1,8 +1,7 @@
 from airflow.models import BaseOperator
 from airflow.hooks.base_hook import BaseHook
 
-from ewah.dwhooks.dwhook_snowflake import EWAHDWHookSnowflake
-from ewah.dwhooks.dwhook_postgres import EWAHDWHookPostgres
+from ewah.dwhooks import get_dwhook
 from ewah.constants import EWAHConstants as EC
 
 
@@ -55,7 +54,7 @@ class EWAHBaseOperator(BaseOperator):
     _IS_INCREMENTAL = False # Child class must update these values accordingly.
     _IS_FULL_REFRESH = False # Defines whether operator is usable in factories.
 
-    _REQUIRES_COLUMN_DEFINITION = False # raise error if true an none supplied
+    _REQUIRES_COLUMNS_DEFINITION = False # raise error if true an none supplied
 
     upload_call_count = 0
 
@@ -72,6 +71,7 @@ class EWAHBaseOperator(BaseOperator):
         drop_and_replace=True,
         update_on_columns=None,
         primary_key_column_name=None,
+        clean_data_before_upload=True,
     *args, **kwargs):
 
         if not dwh_engine or not dwh_engine in EC.DWH_ENGINES:
@@ -98,7 +98,7 @@ class EWAHBaseOperator(BaseOperator):
             if target_database_name:
                 raise Exception('Received argument for "target_database_name"!')
 
-        if self._REQUIRES_COLUMN_DEFINITION:
+        if self._REQUIRES_COLUMNS_DEFINITION:
             if not columns_definition:
                 raise Exception('This operator requires the argument ' \
                     + 'columns_definition!')
@@ -133,17 +133,16 @@ class EWAHBaseOperator(BaseOperator):
         self.columns_definition = columns_definition
         self.drop_and_replace = drop_and_replace
         if (not update_on_columns) and primary_key_column_name:
-            update_on_columns = [primary_key_column_name]
+            if type(primary_key_column_name) == str:
+                update_on_columns = [primary_key_column_name]
+            elif type(primary_key_column_name) in (list, tuple):
+                update_on_columns = primary_key_column_name
         self.update_on_columns = update_on_columns
+        self.clean_data_before_upload = clean_data_before_upload
         self.primary_key_column_name = primary_key_column_name # may be used ...
         #   ... by a child class at execution!
 
-        self.hook = {
-            EC.DWH_ENGINE_POSTGRES: EWAHDWHookPostgres,
-            EC.DWH_ENGINE_SNOWFLAKE: EWAHDWHookSnowflake,
-            # DWH_ENGINE_BIGQUERY: bq_hook,
-            # DWH_ENGINE_REDSHIFT: rs_hook,
-        }[self.dwh_engine]
+        self.hook = get_dwhook(self.dwh_engine)
 
     def test_if_target_table_exists(self):
         hook = self.hook(self.dwh_conn_id)
@@ -180,7 +179,7 @@ class EWAHBaseOperator(BaseOperator):
         for datum in data:
             for field in datum.keys():
                 if not (result.get(field, {}).get(EC.QBC_FIELD_TYPE) \
-                    == inconsistent_data_type) and datum[field]:
+                    == inconsistent_data_type) and (not datum[field] is None):
                     if result.get(field):
                         # column has been added in a previous iteration.
                         # If not default column: check if new and old column
@@ -251,6 +250,7 @@ class EWAHBaseOperator(BaseOperator):
             update_on_columns=self.update_on_columns,
             commit=True,
             logging_function=self.log.info,
+            clean_data_before_upload=self.clean_data_before_upload,
         )
         #hook.commit()
         hook.close()
