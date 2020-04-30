@@ -11,9 +11,9 @@ setup(
   author = 'Bijan Soltani',
   author_email = 'bijan.soltani+ewah@gemmaanalytics.com',
   url = 'https://gemmaanalytics.com/',
-  download_url = 'https://github.com/user/reponame/archive/v_01.tar.gz',    # I explain this later on
+  download_url = 'https://github.com/Gemma-Analytics/ewah/archive/0.1.4.tar.gz',
   keywords = ['airflow', 'ELT', 'ETL'],
-  install_requires=[            # I get to this in a second
+  install_requires=[
           'pyyaml',
           'psycopg2',
           'gspread',
