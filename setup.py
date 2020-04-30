@@ -5,7 +5,7 @@ with open("README.md", "r") as fh:
 
 setuptools.setup(
     name="bijansoltani", # Replace with your own username
-    version="0.1.4",
+    version="0.1.5",
     author="Bijan Soltani",
     author_email="bijan.soltani+ewah@gemmaanalytics.com",
     description="An ELT with airflow helper module: Ewah",
