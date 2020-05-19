@@ -24,6 +24,8 @@ def dbt_dags_factory(
     start_date=datetime(2019,1,1),
     default_args=None,
     folder=None,
+    models=None,
+    exclude=None,
 ):
 
     if analytics_reader:
@@ -43,7 +45,17 @@ def dbt_dags_factory(
             analytics_reader_sql.format(i) for i in analytics_reader
         ])
 
+    if models and not (type(models) == str):
+        models = ' --models ' + ' '.join(models)
+    else:
+        models = ''
 
+    if exclude and not (type(exclude) == str):
+        exclude = ' --exclude ' + ' '.join(exclude)
+    else:
+        exclude = ''
+
+    flags = models + exclude
 
     dag = DAG(
         dag_base_name,
@@ -140,14 +152,14 @@ def dbt_dags_factory(
 
     dbt_run = BashOperator(
         task_id='run_dbt',
-        bash_command=bash_command.format('run'),
+        bash_command=bash_command.format('run' + flags),
         env=env,
         dag=dag,
     )
 
     dbt_test = BashOperator(
         task_id='test_dbt',
-        bash_command=bash_command.format('test'),
+        bash_command=bash_command.format('test' + flags),
         env=env,
         dag=dag,
     )
@@ -191,14 +203,14 @@ def dbt_dags_factory(
 
     dbt_run = BashOperator(
         task_id='run_dbt',
-        bash_command=bash_command.format('run --full-refresh'),
+        bash_command=bash_command.format('run --full-refresh' + flags),
         env=env,
         dag=dag_full_refresh,
     )
 
     dbt_test = BashOperator(
         task_id='test_dbt',
-        bash_command=bash_command.format('test'),
+        bash_command=bash_command.format('test' + flags),
         env=env,
         dag=dag_full_refresh,
     )
