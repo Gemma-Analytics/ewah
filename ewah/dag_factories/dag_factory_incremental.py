@@ -8,6 +8,7 @@ from ewah.dwhooks.dwhook_snowflake import SnowflakeOperator
 from ewah.constants import EWAHConstants as EC
 
 from datetime import datetime, timedelta
+from collections.abc import Iterable
 from copy import deepcopy
 import time
 
@@ -88,6 +89,7 @@ def dag_factory_incremental_loading(
         #   to move from backfill DAG to normal DAG? Defaults to minuts half
         #   of schedule_interval_future (which is recommended in most cases)
         end_date=None,
+        read_right_users=None,
         additional_dag_args={},
         additional_task_args={},
     ):
@@ -110,6 +112,12 @@ def dag_factory_incremental_loading(
     if not (switch_relative_timedelta is None \
         or type(switch_relative_timedelta) == timedelta):
         raise Exception('switch_relative_timedelta must be timedelta or None!')
+    if not read_right_users is None:
+        if type(read_right_users) == str:
+            read_right_users = read_right_users.split(',')
+        if not isinstance(read_right_users, Iterable):
+            raise Exception('read_right_users must be an iterable or string!')
+
 
     if not switch_absolute_date:
         if switch_relative_timedelta is None:
@@ -259,6 +267,7 @@ def dag_factory_incremental_loading(
         target_schema_name=target_schema_name,
         target_schema_suffix=target_schema_suffix,
         dwh_conn_id=dwh_conn_id,
+        read_right_users=read_right_users,
         **additional_task_args
     )
 
@@ -270,6 +279,7 @@ def dag_factory_incremental_loading(
         target_schema_name=target_schema_name,
         target_schema_suffix=target_schema_suffix,
         dwh_conn_id=dwh_conn_id,
+        read_right_users=read_right_users,
         **additional_task_args
     )
 

@@ -46,6 +46,8 @@ def dags_from_dict(
             oracle, postgres, s3
         - start_date    DAG start date
         - end_date      DAG end date
+        - read_right_users  comma-separated string or list of users or roles
+            to receive read rights on the created schemas and tables.
         - target_schema_name    name of the schema to load data into (attn:
             only one schema per DAG! Is not automatically checked!)
         - target_schema_suffix  optional, temporary suffix for replacement

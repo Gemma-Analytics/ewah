@@ -11,7 +11,6 @@ Goal: Have functions to create all DAGs required for ELT using only a simple con
 
 ## DWHs Planned
 - Bigquery
-- Redshift
 
 ## Operators Implemented
 - PostgreSQL
@@ -84,7 +83,7 @@ dag = dag_factory_drop_and_replace(
             'table_name':{},
             # ...
             # Additional optional kwargs at the table level:
-            #   columns_definition  
+            #   columns_definition
             #   update_on_columns
             #   primary_key_column_name
             #   + any operator specific arguments
@@ -181,3 +180,12 @@ el_dags:
             - gender
 ...
 ```
+
+## Using EWAH with Astronomer
+
+To avoid all devops troubles, it is particularly easy to use EWAH with astronomer.
+Your astronomer project requires the following:
+- add `ewah` to the `requirements.txt`
+- add `libstdc++` to the `packages.txt`
+- have a `dags.py` file and a `dags.yml` file in your dags folder
+- in production, you may need to request your airflow metadata postgres database password from the support for incremental loading DAGs

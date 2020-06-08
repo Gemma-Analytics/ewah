@@ -3,6 +3,8 @@ from airflow import DAG
 from ewah.ewah_utils.airflow_utils import etl_schema_tasks
 
 from datetime import datetime, timedelta
+from datetime import datetime, timedelta
+
 from copy import deepcopy
 
 def dag_factory_drop_and_replace(
@@ -18,6 +20,7 @@ def dag_factory_drop_and_replace(
         start_date=datetime(2019, 1, 1),
         schedule_interval=timedelta(days=1),
         end_date=None,
+        read_right_users=None,
         additional_dag_args={},
         additional_task_args={},
     ):
@@ -26,6 +29,11 @@ def dag_factory_drop_and_replace(
         raise Exception('Invalid operator supplied!')
     if not el_operator._IS_FULL_REFRESH:
         raise Exception('Operator does not support full refreshs!')
+    if not read_right_users is None:
+        if type(read_right_users) == str:
+            read_right_users = read_right_users.split(',')
+        if not isinstance(read_right_users, Iterable):
+            raise Exception('read_right_users must be an iterable or string!')
 
     dag = DAG(
         dag_name,
@@ -46,6 +54,7 @@ def dag_factory_drop_and_replace(
         target_schema_suffix=target_schema_suffix,
         target_database_name=target_database_name,
         copy_schema=False,
+        read_right_users=read_right_users,
         **additional_task_args
     )
 
