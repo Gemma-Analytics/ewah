@@ -3,8 +3,7 @@ from airflow import DAG
 from ewah.ewah_utils.airflow_utils import etl_schema_tasks
 
 from datetime import datetime, timedelta
-from datetime import datetime, timedelta
-
+from collections.abc import Iterable
 from copy import deepcopy
 
 def dag_factory_drop_and_replace(
