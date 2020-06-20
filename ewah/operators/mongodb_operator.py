@@ -8,6 +8,7 @@ import json
 from datetime import timedelta
 from pymongo import MongoClient
 from bson.json_util import dumps
+from copy import deepcopy
 
 class EWAHMongoDBOperator(EWAHBaseOperator):
 
@@ -53,9 +54,12 @@ class EWAHMongoDBOperator(EWAHBaseOperator):
         self.chunking_interval = chunking_interval
         self.chunking_field = chunking_field
 
+        super().__init__(*args, **kwargs)
+
     def execute(self, context):
-        if not self.drop_and_replace and not self.test_if_table_exists():
+        if not self.drop_and_replace and not self.test_if_target_table_exists():
             self.data_from = self.reload_data_from
+            self.log.info('Reloading data from {0}'.format(str(self.data_from)))
         self.data_from = airflow_datetime_adjustments(self.data_from)
         self.data_until = airflow_datetime_adjustments(self.data_until)
 
@@ -81,13 +85,47 @@ class EWAHMongoDBOperator(EWAHBaseOperator):
         db = database[self.source_collection_name]
         if self.chunking_interval:
             # get data in chunks
-            minmax = list(db.aggregate([{"$group":{
-                "_id": None,
-                "min": {"$min": self.chunking_field},
-                "max": {"$max": self.chunking_field},
-            }}]))[0]
+            if base_filters:
+                match_filters = {}
+                for filter in base_filters:
+                    for key, value in filter.items():
+                        if match_filters.get(key):
+                            match_filters[key].update(value)
+                        else:
+                            match_filters[key] = value
+                aggregation_statement = [
+                    {"$match": match_filters},
+                    {"$group": {
+                        "_id": None,
+                        "min": {"$min": "$" + self.chunking_field},
+                        "max": {"$max": "$" + self.chunking_field},
+                    }},
+                ]
+            else:
+                aggregation_statement = [{
+                    "$group": {
+                        "_id": None,
+                        "min": {"$min": "$" + self.chunking_field},
+                        "max": {"$max": "$" + self.chunking_field},
+                    },
+                }]
+            self.log.info('Getting data range using:\n{0}'.format(
+                str(aggregation_statement)
+            ))
+            minmax = list(db.aggregate(aggregation_statement))
+            if len(minmax) == 0:
+                self.log.info('There appears to be no relevant data!')
+                self.upload_data([]) # Upload nothing!
+                return
+            if not len(minmax) == 1:
+                raise Exception('Unexpected error occurred')
+            minmax = minmax[0]
             current_val = minmax['min'] # == min_val
             max_val = minmax['max']
+            self.log.info('loading data from {0} to {1}.'.format(
+                str(current_val),
+                str(max_val),
+            ))
             while current_val < max_val:
                 next_val = min(max_val, current_val + self.chunking_interval)
                 self.log.info('Getting data from {0} to {1}...'.format(
@@ -95,8 +133,8 @@ class EWAHMongoDBOperator(EWAHBaseOperator):
                     str(next_val),
                 ))
 
-                filter_expressions = base_filters
-                lt_or_lte = 'lte' if next_val = max_val else 'lt'
+                filter_expressions = deepcopy(base_filters)
+                lt_or_lte = '$lte' if next_val == max_val else '$lt'
                 filter_expressions += [{self.chunking_field:{
                     '$gte': current_val,
                     lt_or_lte: next_val,
@@ -110,7 +148,7 @@ class EWAHMongoDBOperator(EWAHBaseOperator):
                 data = json.loads(dumps(data))
 
                 self.log.info('Uploading chunk...')
-                self.upload(data)
+                self.upload_data(data)
 
                 current_val = next_val
         else:
@@ -119,6 +157,9 @@ class EWAHMongoDBOperator(EWAHBaseOperator):
                 filter_expressions = {'$and': base_filters}
             else:
                 filter_expressions = None
+            self.log.info(
+                'Filter expression: {0}'.format(str(filter_expressions))
+            )
             data = db.find(filter_expressions)
             data = json.loads(dumps(data))
 
