@@ -21,6 +21,7 @@ Goal: Have functions to create all DAGs required for ELT using only a simple con
 - FX Rates (from Yahoo Finance)
 - Facebook (partially, so far: ads insights; incremental only)
 - Google Sheets
+- MongoDB
 
 ## Philosophy
 

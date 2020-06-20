@@ -146,12 +146,15 @@ def dags_from_dict(
         'oracle': EWAHOracleSQLOperator,
         'postgres': EWAHPostgresOperator,
         'postgresql': EWAHPostgresOperator,
+        'pgsql': EWAHPostgresOperator,
         's3': EWAHS3Operator,
         'fb': EWAHFBOperator,
         'facebook': EWAHFBOperator,
         'gsheets': EWAHGSpreadOperator,
         'google_sheets': EWAHGSpreadOperator,
         'gs': EWAHGSpreadOperator,
+        'mongo': EWAHMongoDBOperator,
+        'mongodb': EWAHMongoDBOperator,
     }
 
     allowed_dag_args = [

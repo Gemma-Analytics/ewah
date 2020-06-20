@@ -30,3 +30,7 @@ try:
     from ewah.operators.google_sheets_operator import EWAHGSpreadOperator
 except ImportError:
     from ewah.operators.base_operator import EWAHEmptyOperator as EWAHGSpreadOperator
+try:
+    from ewah.operators.mongodb_operator import EWAHMongoDBOperator
+except ImportError:
+    from ewah.operators.base_operator import EWAHEmptyOperator as EWAHGSpreadOperator
