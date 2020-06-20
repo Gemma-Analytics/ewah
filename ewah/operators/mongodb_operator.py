@@ -81,9 +81,13 @@ class EWAHMongoDBOperator(EWAHBaseOperator):
         db = database[self.source_collection_name]
         if self.chunking_interval:
             # get data in chunks
-            min_val =
-            max_val =
-            current_val = min_val
+            minmax = list(db.aggregate([{"$group":{
+                "_id": None,
+                "min": {"$min": self.chunking_field},
+                "max": {"$max": self.chunking_field},
+            }}]))[0]
+            current_val = minmax['min'] # == min_val
+            max_val = minmax['max']
             while current_val < max_val:
                 next_val = min(max_val, current_val + self.chunking_interval)
                 self.log.info('Getting data from {0} to {1}...'.format(
@@ -111,8 +115,6 @@ class EWAHMongoDBOperator(EWAHBaseOperator):
                 current_val = next_val
         else:
             # Just get all data in one go
-
-
             if base_filters:
                 filter_expressions = {'$and': base_filters}
             else:
