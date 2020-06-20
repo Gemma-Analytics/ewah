@@ -30,5 +30,6 @@ setuptools.setup(
           'facebook_business',
           'mysql-connector-python',
           'snowflake-connector-python',
+          'pymongo',
       ],
 )
