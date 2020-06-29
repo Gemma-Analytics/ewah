@@ -94,6 +94,7 @@ class EWAHDWHookPostgres(EWAHBaseDWHook):
             if not (column in update_on_columns):
                 set_columns += [column]
 
+        cols_list = list(columns_definition.keys())
         sql="""
             INSERT INTO "{schema_name}"."{table_name}"
             ("{column_names}") VALUES %s
@@ -101,7 +102,7 @@ class EWAHDWHookPostgres(EWAHBaseDWHook):
         """.format(**{
             'schema_name': schema_name,
             'table_name': table_name,
-            'column_names': '", "'.join(list(columns_definition.keys())),
+            'column_names': '", "'.join(cols_list),
             'do_on_conflict': 'DO NOTHING' if drop_and_replace else """
                 ("{update_columns}") DO UPDATE SET\n\t{sets}
             """.format(
@@ -113,11 +114,20 @@ class EWAHDWHookPostgres(EWAHBaseDWHook):
             ),
         })
         logging_function('Now Uploading!')
-        template = '(%('+')s, %('.join(list(columns_definition.keys()))+')s)'
+        # escape crappy column names by using aliases in the psycopg2 template
+        cols_map = {cols_list[i]:'col_'+str(i) for i in range(len(cols_list))}
+        template = '(%('
+        template += ')s, %('.join([value for key, value in cols_map.items()])
+        template += ')s)'
         cur = self.get_cursor()
         while data:
-            upload_data = data[:upload_chunking]
+            temp_data = data[:upload_chunking]
             data = data[upload_chunking:]
+            upload_data = []
+            while temp_data:
+                upload_data += [{
+                    cols_map[key]:val for key, val in temp_data.pop(0).items()
+                }]
             execute_values(
                 cur=cur,
                 sql=sql,
