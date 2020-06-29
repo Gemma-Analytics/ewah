@@ -82,31 +82,31 @@ class EWAHMongoDBOperator(EWAHBaseOperator):
             return
 
         # pagination!
+        fe = deepcopy(filter_expressions)
         if last_id:
             # get next page
-            fe = deepcopy(filter_expressions)
             fe.update({self.primary_key_column_name:{'$gt':last_id}})
-            data = [x for x in collection.find(fe) \
-                            .sort(self.primary_key_column_name, asc) \
-                            .limit(page_size)
-            ]
-        else:
-            # first page!
-            data = [x for x in collection.find(filter_expressions) \
-                            .sort(self.primary_key_column_name, asc) \
-                            .limit(page_size)
-            ]
+        next_id_data = [x for x in collection.find(fe) \
+                        .sort(self.primary_key_column_name, asc) \
+                        .skip(page_size - 1)
+                        .limit(1)
+        ]
+        data = json.loads(dumps(collection.find(fe)
+                                    .sort(self.primary_key_column_name, asc) \
+                                    .limit(page_size)
+        ))
 
         if not len(data) == 0:
-            last_id = data[-1][self.primary_key_column_name]
             self.upload_data(data)
-            # call recursively!
-            self.extract_and_load_paginated(
-                collection=collection,
-                filter_expressions=filter_expressions,
-                page_size=page_size,
-                last_id=last_id,
-            )
+            if not len(next_id_data) == 0:
+                last_id = next_id_data[0][self.primary_key_column_name]
+                # call recursively!
+                self.extract_and_load_paginated(
+                    collection=collection,
+                    filter_expressions=filter_expressions,
+                    page_size=page_size,
+                    last_id=last_id,
+                )
 
     def execute(self, context):
         if not self.drop_and_replace and not self.test_if_target_table_exists():
