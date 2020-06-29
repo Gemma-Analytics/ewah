@@ -7,6 +7,7 @@ from airflow.hooks.base_hook import BaseHook
 import json
 from datetime import timedelta
 from pymongo import MongoClient
+from pymongo import ASCENDING as asc
 from bson.json_util import dumps
 from copy import deepcopy
 
@@ -28,6 +29,7 @@ class EWAHMongoDBOperator(EWAHBaseOperator):
         chunking_field=None, # defaults to timestamp_field if None
         chunking_interval=None, # timedelta or integer
         reload_data_from=None, # string (can be templated), datetime or None
+        pagination_limit=None, # integer
     *args, **kwargs):
 
         src = source_collection_name or kwargs.get('target_table_name')
@@ -54,7 +56,59 @@ class EWAHMongoDBOperator(EWAHBaseOperator):
         self.chunking_interval = chunking_interval
         self.chunking_field = chunking_field
 
+        if pagination_limit:
+            if not type(pagination_limit) == int:
+                raise Exception('pagination_limit must be an integer!')
+            if not kwargs.get('primary_key_column_name'):
+                raise Exception('pagination_limit must be used with ' \
+                    + 'primary_key_column_name!')
+
+        self.pagination_limit = pagination_limit
+
         super().__init__(*args, **kwargs)
+
+    def extract_and_load_paginated(self,
+        collection,
+        filter_expressions=None,
+        page_size=None,
+        last_id=None,
+    ):
+        # adapted from https://www.codementor.io/@arpitbhayani/fast-and-efficient-pagination-in-mongodb-9095flbqr
+        if page_size is None:
+            # just get all data at once without pagination
+            self.upload_data(
+                json.loads(dumps(collection.find(filter_expressions)))
+            )
+            return
+
+        # pagination!
+        if last_id:
+            # get next page
+            fe = deepcopy(filter_expressions)
+            fe.update({self.primary_key_column_name:{'$gt':last_id}})
+            data = json.loads(dumps(
+                collection.find(fe) \
+                            .sort(self.primary_key_column_name, asc) \
+                            .limit(page_size)
+            ))
+        else:
+            # first page!
+            data = json.loads(dumps(
+                collection.find(filter_expressions) \
+                            .sort(self.primary_key_column_name, asc) \
+                            .limit(page_size)
+            ))
+
+        if not len(data) == 0:
+            last_id = data[-1][self.primary_key_column_name]
+            self.upload(data)
+            # call recursively!
+            self.extract_and_load_paginated(
+                collection=collection,
+                filter_expressions=filter_expressions,
+                page_size=page_size,
+                last_id=last_id,
+            )
 
     def execute(self, context):
         if not self.drop_and_replace and not self.test_if_target_table_exists():
@@ -82,7 +136,7 @@ class EWAHMongoDBOperator(EWAHBaseOperator):
         database = MongoClient(uri).get_database(name=self.source_database_name)
 
         self.log.info('Getting data...')
-        db = database[self.source_collection_name]
+        collection = database[self.source_collection_name]
         if self.chunking_interval:
             # get data in chunks
             if base_filters:
@@ -112,7 +166,7 @@ class EWAHMongoDBOperator(EWAHBaseOperator):
             self.log.info('Getting data range using:\n{0}'.format(
                 str(aggregation_statement)
             ))
-            minmax = list(db.aggregate(aggregation_statement))
+            minmax = list(collection.aggregate(aggregation_statement))
             if len(minmax) == 0:
                 self.log.info('There appears to be no relevant data!')
                 self.upload_data([]) # Upload nothing!
@@ -144,11 +198,14 @@ class EWAHMongoDBOperator(EWAHBaseOperator):
                 self.log.info('Filter expression: {0}'.format(
                     str(filter_expressions)
                 ))
-                data = db.find(filter_expressions)
-                data = json.loads(dumps(data))
 
                 self.log.info('Uploading chunk...')
-                self.upload_data(data)
+                self.extract_and_load_paginated(
+                    collection=collection,
+                    filter_expressions=filter_expressions,
+                    page_size=self.pagination_limit,
+                    last_id=None,
+                )
 
                 current_val = next_val
         else:
@@ -160,8 +217,10 @@ class EWAHMongoDBOperator(EWAHBaseOperator):
             self.log.info(
                 'Filter expression: {0}'.format(str(filter_expressions))
             )
-            data = db.find(filter_expressions)
-            data = json.loads(dumps(data))
-
             # Upload data
-            self.upload_data(data)
+            self.extract_and_load_paginated(
+                collection=collection,
+                filter_expressions=filter_expressions,
+                page_size=self.pagination_limit,
+                last_id=None,
+            )
