@@ -101,7 +101,7 @@ class EWAHMongoDBOperator(EWAHBaseOperator):
 
         if not len(data) == 0:
             last_id = data[-1][self.primary_key_column_name]
-            self.upload(data)
+            self.upload_data(data)
             # call recursively!
             self.extract_and_load_paginated(
                 collection=collection,
