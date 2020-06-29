@@ -86,18 +86,16 @@ class EWAHMongoDBOperator(EWAHBaseOperator):
             # get next page
             fe = deepcopy(filter_expressions)
             fe.update({self.primary_key_column_name:{'$gt':last_id}})
-            data = json.loads(dumps(
-                collection.find(fe) \
+            data = [x for x in collection.find(fe) \
                             .sort(self.primary_key_column_name, asc) \
                             .limit(page_size)
-            ))
+            ]
         else:
             # first page!
-            data = json.loads(dumps(
-                collection.find(filter_expressions) \
+            data = [x for x in collection.find(filter_expressions) \
                             .sort(self.primary_key_column_name, asc) \
                             .limit(page_size)
-            ))
+            ]
 
         if not len(data) == 0:
             last_id = data[-1][self.primary_key_column_name]
