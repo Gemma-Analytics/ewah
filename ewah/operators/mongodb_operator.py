@@ -30,6 +30,7 @@ class EWAHMongoDBOperator(EWAHBaseOperator):
         chunking_interval=None, # timedelta or integer
         reload_data_from=None, # string (can be templated), datetime or None
         pagination_limit=None, # integer
+        single_column_mode=False, # If True, throw all data as json into one col
     *args, **kwargs):
 
         src = source_collection_name or kwargs.get('target_table_name')
@@ -65,7 +66,22 @@ class EWAHMongoDBOperator(EWAHBaseOperator):
 
         self.pagination_limit = pagination_limit
 
+        if single_column_mode:
+            if kwargs.get('columns_definition'):
+                raise Exception('single_column_mode is not compatible with '\
+                    + 'columns_definition!')
+        self.single_column_mode = single_column_mode
+
         super().__init__(*args, **kwargs)
+
+    def upload_data(self, data):
+        if self.single_column_mode:
+            # load all data into a single column called 'document'
+            data = [{'document':x} for x in data]
+            super().upload(data)
+        else:
+            # normal data loading mode
+            super().upload_data(data)
 
     def extract_and_load_paginated(self,
         collection,
