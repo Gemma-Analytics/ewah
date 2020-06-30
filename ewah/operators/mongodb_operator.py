@@ -78,7 +78,7 @@ class EWAHMongoDBOperator(EWAHBaseOperator):
         if self.single_column_mode:
             # load all data into a single column called 'document'
             data = [{'document':x} for x in data]
-            super().upload(data)
+            super().upload_data(data)
         else:
             # normal data loading mode
             super().upload_data(data)
