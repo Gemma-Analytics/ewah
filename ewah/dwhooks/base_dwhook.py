@@ -237,12 +237,16 @@ class EWAHBaseDWHook(BaseHook):
                 # Make sure that each dict in upload_data has all keys
                 row = deepcopy(raw_row)
                 for column_name, value in datum.items():
+                    value_type = type(value)
                     if column_name in jsonb_columns and value:
                         row[column_name] = json.dumps(value)
-                    elif type(value) in [dict, OrderedDict]:
+                    elif value_type in [dict, OrderedDict]:
                         row[column_name] = json.dumps(value)
                     elif not (value == '\0'):
-                        row[column_name] = value
+                        if value_type == str:
+                            row[column_name] = value.replace('\x00', '')
+                        else:
+                            row[column_name] = value
                 upload_data += [row]
             data_len = len(upload_data)
         else:
