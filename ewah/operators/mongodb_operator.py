@@ -70,6 +70,15 @@ class EWAHMongoDBOperator(EWAHBaseOperator):
             if kwargs.get('columns_definition'):
                 raise Exception('single_column_mode is not compatible with '\
                     + 'columns_definition!')
+            if not kwargs.get('drop_and_replace', True):
+                raise Exception('single_column_mode is only compatible with ' \
+                    + 'drop_and_replace!')
+            if kwargs.get('update_on_columns'):
+                raise Exception('single_column_mode is not compatible with ' \
+                    + 'update_on_columns!')
+            if kwargs.get('primary_key_column_name'):
+                raise Exception('single_column_mode is not compatible with ' \
+                    + 'primary_key_column_name!')
         self.single_column_mode = single_column_mode
 
         super().__init__(*args, **kwargs)
