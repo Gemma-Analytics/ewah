@@ -232,21 +232,26 @@ class EWAHBaseDWHook(BaseHook):
         if clean_data_before_upload:
             logging_function('Cleaning data for upload...')
             upload_data = []
+            cols_list = list(raw_row.keys())
             while data:
                 datum = data.pop(0)
                 # Make sure that each dict in upload_data has all keys
                 row = deepcopy(raw_row)
                 for column_name, value in datum.items():
-                    value_type = type(value)
-                    if column_name in jsonb_columns and value:
-                        row[column_name] = json.dumps(value)
-                    elif value_type in [dict, OrderedDict]:
-                        row[column_name] = json.dumps(value)
-                    elif not (value == '\0'):
-                        if value_type == str:
-                            row[column_name] = value.replace('\x00', '')
-                        else:
-                            row[column_name] = value
+                    if column_name in cols_list:
+                        # avoid edge case of data where all instances of a field
+                        #   are None, thus having data for a field missing
+                        #   in the columns_definition!
+                        value_type = type(value)
+                        if column_name in jsonb_columns and value:
+                            row[column_name] = json.dumps(value)
+                        elif value_type in [dict, OrderedDict]:
+                            row[column_name] = json.dumps(value)
+                        elif not (value == '\0'):
+                            if value_type == str:
+                                row[column_name] = value.replace('\x00', '')
+                            else:
+                                row[column_name] = value
                 upload_data += [row]
             data_len = len(upload_data)
         else:
