@@ -105,7 +105,7 @@ class EWAHGAOperator(EWAHBaseOperator):
             'TIME': 'time'
         }
 
-        if chunking_interval and not (type(chunking_interval) == timdelta):
+        if chunking_interval and not (type(chunking_interval) == timedelta):
             raise Exception('If supplied, chunking_interval must be timedelta!')
 
 
