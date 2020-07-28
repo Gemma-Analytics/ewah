@@ -7,11 +7,21 @@ import cx_Oracle
 
 class EWAHOracleSQLOperator(EWAHSQLBaseOperator):
 
-        _SQL_BASE_COLUMNS = 'SELECT\n"{columns}"\nFROM "{table}"\nWHERE {{0}};'
-        _SQL_BASE_ALL = 'SELECT * FROM "{table}"\nWHERE {{0}};'
+        _SQL_BASE_COLUMNS = \
+            'SELECT\n"{columns}"\nFROM "{table}"\nWHERE {where_clause};'
+        _SQL_BASE_ALL = 'SELECT * FROM "{table}"\nWHERE {where_clause};'
+        _SQL_BASE_STATEMENT = \
+            'WITH raw AS ({select_sql}) SELECT * FROM raw WHERE {{0}};'
         _SQL_COLUMN_QUOTE = '"'
-        _SQL_MINMAX_CHUNKS = 'SELECT MIN({column}), MAX({column}) FROM "{table}" WHERE {where_clause};'
-        _SQL_CHUNKING_CLAUSE = 'AND {column} >= :from_value AND {column} <{equal_sign} :until_value'
+        _SQL_MINMAX_CHUNKS = '''
+            WITH base AS ({base})
+            SELECT MIN({column}), MAX({column})
+            FROM base;
+        '''
+        _SQL_CHUNKING_CLAUSE = '''
+            AND {column} >= :from_value
+            AND {column} <{equal_sign} :until_value
+        '''
         _SQL_PARAMS = ':{0}'
 
         def __init__(self, *args, **kwargs):

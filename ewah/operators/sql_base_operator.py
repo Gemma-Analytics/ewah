@@ -20,6 +20,7 @@ class EWAHSQLBaseOperator(EWAHBaseOperator):
     def __init__(self,
         source_schema_name=None, # string
         source_table_name=None, # string, defaults to same as target_table_name
+        sql_select_statement=None, # SQL as alternative to source_table_name
         data_from=None, # datetime, ISO datetime string, or airflow JINJA macro
         data_until=None, # datetime, ISO datetime string, or airflow JINJA macro
         timestamp_column=None, # name of column to increment and/or chunk by
@@ -32,7 +33,7 @@ class EWAHSQLBaseOperator(EWAHBaseOperator):
         where_clause=None,
     *args, **kwargs):
 
-        source_table_name = source_table_name or kwargs.get('target_table_name')
+        target_table_name = kwargs.get('target_table_name')
 
         if not hasattr(self, 'sql_engine'):
             raise Exception('Operator invalid: need attribute sql_engine!')
@@ -93,16 +94,46 @@ class EWAHSQLBaseOperator(EWAHBaseOperator):
                 raise Exception('For incremental loading, you must specify ' \
                     + 'both data_from and data_until!')
 
+        # self.base_select is a SELECT statement (i.e. a string) ending in a
+        #   WHERE {0} -> the extract process can add conditions!
+        # self.base_sql is a pure SELECT statement ready to be executed
+        if sql_select_statement:
+            err_msg = 'sql_select_statement and {0} cannot' \
+                ' be used in combination!'
+            if where_clause:
+                raise Exception(err_msg.format('where_clause'))
+            if source_schema_name:
+                raise Exception(err_msg.format('source_schema_name'))
+            if source_table_name:
+                raise Exception(err_msg.format('source_table_name'))
+            self.base_sql = sql_select_statement
+        else:
+            source_table_name = source_table_name or target_table_name
 
-        self.source_schema_name = source_schema_name
-        self.source_table_name = source_table_name
+            if self.columns_definition:
+                self.base_sql = self._SQL_BASE_COLUMNS.format(**{
+                    'columns': ('{0}\n, {0}'.format(self._SQL_COLUMN_QUOTE)
+                        .join(self.columns_definition.keys())),
+                    'schema': source_schema_name,
+                    'table': source_table_name,
+                    'where_clause': where_clause or '1 = 1'
+                })
+            else:
+                self.base_sql = self._SQL_BASE_ALL.format(**{
+                    'schema': source_schema_name,
+                    'table': source_table_name,
+                    'where_clause': where_clause or '1 = 1'
+                })
+        self.base_select = self._SQL_BASE_SELECT.format({
+            'select_sql': self.base_sql,
+        })
+
         self.data_from = data_from
         self.data_until = data_until
         self.timestamp_column = timestamp_column
         self.chunking_interval = chunking_interval
         self.reload_data_from = reload_data_from
         self.reload_data_chunking = reload_data_chunking or chunking_interval
-        self.where_clause = where_clause or '1 = 1'
 
     def execute(self, context):
         str_format = '%Y-%m-%dT%H:%M:%SZ'
@@ -129,43 +160,27 @@ class EWAHSQLBaseOperator(EWAHBaseOperator):
                 self.data_until.strftime(str_format),
             ))
 
-
-        if self.columns_definition:
-            sql_base = self._SQL_BASE_COLUMNS.format(**{
-                'columns': ('{0}\n, {0}'.format(self._SQL_COLUMN_QUOTE)
-                    .join(self.columns_definition.keys())),
-                'schema': self.source_schema_name,
-                'table': self.source_table_name,
-            })
-        else:
-            sql_base = self._SQL_BASE_ALL.format(**{
-                'schema': self.source_schema_name,
-                'table': self.source_table_name,
-            })
-
         params = {}
         # _SQL_PARAMS
         if self.drop_and_replace:
             if self.data_from:
-                sql_base = sql_base.format('{0} >= {1} AND {{0}}'.format(
+                sql_base = self.base_select.format('{0} >= {1} AND {{0}}'.format(
                     self.timestamp_column,
                     self._SQL_PARAMS.format('data_from'),
                 ))
                 params.update({'data_from': self.data_from})
             if self.data_until:
-                sql_base = sql_base.format('{0} <= {1} AND {{0}}'.format(
+                sql_base = self.base_select.format('{0} <= {1} AND {{0}}'.format(
                     self.timestamp_column,
                     self._SQL_PARAMS.format('data_until'),
                 ))
                 params.update({'data_until': self.data_from})
-            sql_base = sql_base.format('{0} {{0}}'.format(self.where_clause))
         else:
-            sql_base = sql_base.format('{0} >= {1} AND {0} < {2} AND {3} {{0}}'
+            sql_base = self.base_select.format('{0} >= {1} AND {0} < {2} {{0}}'
                 .format(
                     self.timestamp_column,
                     self._SQL_PARAMS.format('data_from'),
                     self._SQL_PARAMS.format('data_until'),
-                    self.where_clause,
             ))
             params.update({'data_from': self.data_from})
             params.update({'data_until': self.data_until})
@@ -181,9 +196,7 @@ class EWAHSQLBaseOperator(EWAHBaseOperator):
                 previous_chunk, max_chunk = self._get_data_from_sql(
                     sql=self._SQL_MINMAX_CHUNKS.format(**{
                         'column': chunking_column,
-                        'schema': self.source_schema_name,
-                        'table': self.source_table_name,
-                        'where_clause': self.where_clause,
+                        'base': self.base_sql
                     }),
                     return_dict=False,
                 )[0]
