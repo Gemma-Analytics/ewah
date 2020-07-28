@@ -124,7 +124,7 @@ class EWAHSQLBaseOperator(EWAHBaseOperator):
                     'table': source_table_name,
                     'where_clause': where_clause or '1 = 1'
                 })
-        self.base_select = self._SQL_BASE_SELECT.format({
+        self.base_select = self._SQL_BASE_SELECT.format(**{
             'select_sql': self.base_sql,
         })
 
