@@ -163,14 +163,15 @@ class EWAHSQLBaseOperator(EWAHBaseOperator):
         params = {}
         # _SQL_PARAMS
         if self.drop_and_replace:
+            sql_base = self.base_select
             if self.data_from:
-                sql_base = self.base_select.format('{0} >= {1} AND {{0}}'.format(
+                sql_base = sql_base.format('{0} >= {1} AND {{0}}'.format(
                     self.timestamp_column,
                     self._SQL_PARAMS.format('data_from'),
                 ))
                 params.update({'data_from': self.data_from})
             if self.data_until:
-                sql_base = self.base_select.format('{0} <= {1} AND {{0}}'.format(
+                sql_base = sql_base.base_select.format('{0} <= {1} AND {{0}}'.format(
                     self.timestamp_column,
                     self._SQL_PARAMS.format('data_until'),
                 ))
