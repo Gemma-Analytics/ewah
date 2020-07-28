@@ -18,12 +18,12 @@ class Loader(base_loader):
 
     def scalar_from_file(self, node):
         filename = os.path.join(self._root, self.construct_scalar(node))
-        with open(filename, 'r') AS f:
+        with open(filename, 'r') as f:
             return f.read()
 
     def include_other_yml(self, node):
         filename = os.path.join(self._root, self.construct_scalar(node))
-        with open(filename, 'r') AS f:
+        with open(filename, 'r') as f:
             return yaml.load(f, base_loader)
 
 Loader.add_constructor('!text_from_file', Loader.scalar_from_file)
