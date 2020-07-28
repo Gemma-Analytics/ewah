@@ -176,6 +176,7 @@ class EWAHSQLBaseOperator(EWAHBaseOperator):
                     self._SQL_PARAMS.format('data_until'),
                 ))
                 params.update({'data_until': self.data_from})
+            sql_base = sql_base.format('1 = 1 {0}')
         else:
             sql_base = self.base_select.format('{0} >= {1} AND {0} < {2} {{0}}'
                 .format(
