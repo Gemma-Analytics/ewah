@@ -24,7 +24,7 @@ class Loader(base_loader):
     def include_other_yml(self, node):
         filename = os.path.join(self._root, self.construct_scalar(node))
         with open(filename, 'r') as f:
-            return yaml.load(f, base_loader)
+            return yaml.load(f, Loader)
 
 Loader.add_constructor('!text_from_file', Loader.scalar_from_file)
 Loader.add_constructor('!yml_from_file', Loader.include_other_yml)
