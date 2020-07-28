@@ -11,7 +11,7 @@ class EWAHOracleSQLOperator(EWAHSQLBaseOperator):
             'SELECT\n"{columns}"\nFROM "{table}"\nWHERE {where_clause}'
         _SQL_BASE_ALL = 'SELECT * FROM "{table}"\nWHERE {where_clause}'
         _SQL_BASE_SELECT = \
-            'WITH raw AS ({select_sql}) SELECT * FROM raw WHERE {{0}}'
+            'WITH raw AS ({select_sql}) SELECT * FROM raw WHERE {{0}};'
         _SQL_COLUMN_QUOTE = '"'
         _SQL_MINMAX_CHUNKS = '''
             WITH base AS ({base})
