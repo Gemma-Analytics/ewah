@@ -111,18 +111,27 @@ class EWAHSQLBaseOperator(EWAHBaseOperator):
             source_table_name = source_table_name or target_table_name
 
             if self.columns_definition:
-                self.base_sql = self._SQL_BASE_COLUMNS.format(**{
-                    'columns': ('{0}\n, {0}'.format(self._SQL_COLUMN_QUOTE)
-                        .join(self.columns_definition.keys())),
+                self.base_sql = self._SQL_BASE.format(**{
+                    'columns': (
+                        '\t'
+                        + self._SQL_COLUMN_QUOTE
+                        + (
+                            '{0}\n,\t{0}'
+                            .format(self._SQL_COLUMN_QUOTE)
+                            .join(self.columns_definition.keys())
+                        )
+                        + self._SQL_COLUMN_QUOTE
+                    ),
                     'schema': source_schema_name,
                     'table': source_table_name,
-                    'where_clause': where_clause or '1 = 1'
+                    'where_clause': where_clause or '1 = 1',
                 })
             else:
-                self.base_sql = self._SQL_BASE_ALL.format(**{
+                self.base_sql = self._SQL_BASE.format(**{
+                    'columns': '\t*',
                     'schema': source_schema_name,
                     'table': source_table_name,
-                    'where_clause': where_clause or '1 = 1'
+                    'where_clause': where_clause or '1 = 1',
                 })
         self.base_select = self._SQL_BASE_SELECT.format(**{
             'select_sql': self.base_sql,
@@ -171,7 +180,7 @@ class EWAHSQLBaseOperator(EWAHBaseOperator):
                 ))
                 params.update({'data_from': self.data_from})
             if self.data_until:
-                sql_base = sql_base.base_select.format('{0} <= {1} AND {{0}}'.format(
+                sql_base = sql_base.format('{0} <= {1} AND {{0}}'.format(
                     self.timestamp_column,
                     self._SQL_PARAMS.format('data_until'),
                 ))
@@ -198,7 +207,7 @@ class EWAHSQLBaseOperator(EWAHBaseOperator):
                 previous_chunk, max_chunk = self._get_data_from_sql(
                     sql=self._SQL_MINMAX_CHUNKS.format(**{
                         'column': chunking_column,
-                        'base': self.base_sql
+                        'base': sql_base,
                     }),
                     return_dict=False,
                 )[0]
