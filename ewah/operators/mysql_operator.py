@@ -8,10 +8,10 @@ from mysql.connector import connect
 class EWAHMySQLOperator(EWAHSQLBaseOperator):
 
     _SQL_BASE_COLUMNS = \
-        'SELECT\n`{columns}`\nFROM `{schema}`.`{table}`\nWHERE {where_clause};'
-    _SQL_BASE_ALL = 'SELECT * FROM `{schema}`.`{table}`\nWHERE {where_clause};'
+        'SELECT\n`{columns}`\nFROM `{schema}`.`{table}`\nWHERE {where_clause}'
+    _SQL_BASE_ALL = 'SELECT * FROM `{schema}`.`{table}`\nWHERE {where_clause}'
     _SQL_BASE_SELECT = \
-        'SELECT * FROM ({select_sql}) t WHERE {{0}};'
+        'SELECT * FROM ({select_sql}) t WHERE {{0}}'
     _SQL_COLUMN_QUOTE = '`'
     _SQL_MINMAX_CHUNKS = 'SELECT MIN({column}), MAX({column}) FROM ({base}) t;'
     _SQL_CHUNKING_CLAUSE = '''
