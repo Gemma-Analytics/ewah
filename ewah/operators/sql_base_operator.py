@@ -207,7 +207,7 @@ class EWAHSQLBaseOperator(EWAHBaseOperator):
                 previous_chunk, max_chunk = self._get_data_from_sql(
                     sql=self._SQL_MINMAX_CHUNKS.format(**{
                         'column': chunking_column,
-                        'base': sql_base,
+                        'base': sql_base.format(''),
                     }),
                     return_dict=False,
                 )[0]
