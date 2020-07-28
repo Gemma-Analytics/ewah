@@ -43,8 +43,3 @@ class EWAHMySQLOperator(EWAHSQLBaseOperator):
         cursor.close()
         database_conn.close()
         return data
-
-    def execute(self, context):
-        self.source_schema_name = self.source_schema_name or \
-            BaseHook.get_connection(self.source_conn_id).schema
-        super().execute(context=context)
