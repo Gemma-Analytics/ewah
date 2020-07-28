@@ -8,10 +8,7 @@ from .dag_factory_incremental import dag_factory_incremental_loading
 from copy import deepcopy
 
 import yaml
-try:
-    from yaml import CLoader as Loader, CDumper as Dumper
-except ImportError:
-    from yaml import Loader, Dumper
+from ewah.ewah_utils.yml_loader import Loader, Dumper
 
 def dags_from_dict(
     dag_definition,
