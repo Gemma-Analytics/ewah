@@ -209,6 +209,7 @@ class EWAHSQLBaseOperator(EWAHBaseOperator):
                         'column': chunking_column,
                         'base': sql_base.format(''),
                     }),
+                    params=params,
                     return_dict=False,
                 )[0]
                 if chunking_column == self.timestamp_column:
