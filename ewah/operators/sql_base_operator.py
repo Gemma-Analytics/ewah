@@ -30,7 +30,7 @@ class EWAHSQLBaseOperator(EWAHBaseOperator):
         reload_data_from=None, # If a new table is added in production, and
         #   it is loading incrementally, where to start loading data? datetime
         reload_data_chunking=None, # must be timedelta
-        where_clause=None,
+        where_clause='1 = 1',
     *args, **kwargs):
 
         target_table_name = kwargs.get('target_table_name')
@@ -124,14 +124,14 @@ class EWAHSQLBaseOperator(EWAHBaseOperator):
                     ),
                     'schema': source_schema_name,
                     'table': source_table_name,
-                    'where_clause': where_clause or '1 = 1',
+                    'where_clause': where_clause,
                 })
             else:
                 self.base_sql = self._SQL_BASE.format(**{
                     'columns': '\t*',
                     'schema': source_schema_name,
                     'table': source_table_name,
-                    'where_clause': where_clause or '1 = 1',
+                    'where_clause': where_clause,
                 })
         self.base_select = self._SQL_BASE_SELECT.format(**{
             'select_sql': self.base_sql,

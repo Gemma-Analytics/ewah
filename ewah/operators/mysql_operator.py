@@ -1,8 +1,6 @@
 from ewah.operators.sql_base_operator import EWAHSQLBaseOperator
 from ewah.constants import EWAHConstants as EC
 
-from airflow.hooks.base_hook import BaseHook
-
 from mysql.connector import connect
 
 class EWAHMySQLOperator(EWAHSQLBaseOperator):
