@@ -84,7 +84,7 @@ class EWAHSQLBaseOperator(EWAHBaseOperator):
                         if columns[key].get(EC.QBC_FIELD_PK):
                             kwargs['primary_key_column_name'] = key
                             break
-                self.chunking_column = chunking_column \
+                chunking_column = chunking_column \
                                         or kwargs['primary_key_column_name']
 
             else:
@@ -138,6 +138,7 @@ class EWAHSQLBaseOperator(EWAHBaseOperator):
         self.data_until = data_until
         self.timestamp_column = timestamp_column
         self.chunking_interval = chunking_interval
+        self.chunking_column = chunking_column
         self.reload_data_from = reload_data_from
         self.reload_data_chunking = reload_data_chunking or chunking_interval
 
