@@ -152,6 +152,8 @@ def dags_from_dict(
         'gs': EWAHGSpreadOperator,
         'mongo': EWAHMongoDBOperator,
         'mongodb': EWAHMongoDBOperator,
+        'shopify': EWAHShopifyOperator,
+        'zendesk': EWAHZendeskOperator,
     }
 
     allowed_dag_args = [

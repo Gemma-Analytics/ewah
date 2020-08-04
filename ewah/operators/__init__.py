@@ -34,3 +34,11 @@ try:
     from ewah.operators.mongodb_operator import EWAHMongoDBOperator
 except ImportError:
     from ewah.operators.base_operator import EWAHEmptyOperator as EWAHGSpreadOperator
+try:
+    from ewah.operators.shopify_operator import EWAHShopifyOperator
+except ImportError:
+    from ewah.operators.base_operator import EWAHEmptyOperator as EWAHShopifyOperator
+try:
+    from ewah.operators.zendesk_operator import EWAHZendeskOperator
+except ImportError:
+    from ewah.operators.base_operator import EWAHEmptyOperator as EWAHZendeskOperator

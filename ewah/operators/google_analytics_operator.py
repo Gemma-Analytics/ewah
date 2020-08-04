@@ -37,10 +37,10 @@ class EWAHGAOperator(EWAHBaseOperator):
         self,
         api, # one of _API_CORE_V3, _API_CORE_V4, _API_MULTI
         view_id,
-        data_from,
-        data_until,
         dimensions,
         metrics,
+        data_from=None,
+        data_until=None,
         page_size=10000,
         include_empty_rows=True,
         sampling_level=None,
@@ -148,6 +148,9 @@ class EWAHGAOperator(EWAHBaseOperator):
         self.data_from = airflow_datetime_adjustments(self.data_from)
         self.reload_data_from = \
             airflow_datetime_adjustments(self.reload_data_from)
+
+        self.data_until = self.data_until or context['next_execution_date']
+        self.data_from = self.data_from or context['execution_date']
 
         if self.drop_and_replace or (not self.test_if_target_table_exists()):
             self.chunking_interval = self.reload_data_chunking \
