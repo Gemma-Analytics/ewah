@@ -3,6 +3,8 @@ from ewah.constants import EWAHConstants as EC
 
 from mysql.connector import connect
 
+from airflow.hooks.base_hook import BaseHook
+
 class EWAHMySQLOperator(EWAHSQLBaseOperator):
 
     _SQL_BASE = \
