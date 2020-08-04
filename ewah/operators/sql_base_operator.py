@@ -201,7 +201,7 @@ class EWAHSQLBaseOperator(EWAHBaseOperator):
 
 
         if self.chunking_interval:
-            if type(self.chunking_interval) in [timedelta, Duration, Period]:
+            if isinstance(self.chunking_interval, timedelta):
                 chunking_column = self.timestamp_column or self.chunking_column
             else:
                 chunking_column = self.chunking_column
