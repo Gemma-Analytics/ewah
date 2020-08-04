@@ -152,11 +152,10 @@ class EWAHSQLBaseOperator(EWAHBaseOperator):
         if self.drop_and_replace:
             self.log.info('Loading data as full refresh.')
         else:
-            if self.test_if_target_table_exists():
-                self.data_from = self.data_from or context['execution_date']
-                n_e_d = context['next_execution_date']
-                self.data_until = self.data_until or n_e_d
-            else:
+            self.data_from = self.data_from or context['execution_date']
+            n_e_d = context['next_execution_date']
+            self.data_until = self.data_until or n_e_d
+            if not self.test_if_target_table_exists():
                 self.chunking_interval = self.reload_data_chunking \
                     or self.chunking_interval \
                     or (self.data_from - self.data_until)
