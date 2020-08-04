@@ -33,6 +33,10 @@ class EWAHSQLBaseOperator(EWAHBaseOperator):
         where_clause='1 = 1',
     *args, **kwargs):
 
+        # allow setting schema in general config w/out throwing an error
+        if sql_select_statement:
+            source_schema_name = None
+
         target_table_name = kwargs.get('target_table_name')
 
         if not hasattr(self, 'sql_engine'):
@@ -97,8 +101,6 @@ class EWAHSQLBaseOperator(EWAHBaseOperator):
                 ' be used in combination!'
             if not where_clause == '1 = 1':
                 raise Exception(err_msg.format('where_clause'))
-            if source_schema_name:
-                raise Exception(err_msg.format('source_schema_name'))
             if source_table_name:
                 raise Exception(err_msg.format('source_table_name'))
             self.base_sql = sql_select_statement
