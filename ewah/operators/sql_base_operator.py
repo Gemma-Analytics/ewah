@@ -95,7 +95,7 @@ class EWAHSQLBaseOperator(EWAHBaseOperator):
         if sql_select_statement:
             err_msg = 'sql_select_statement and {0} cannot' \
                 ' be used in combination!'
-            if where_clause:
+            if not where_clause == '1 = 1':
                 raise Exception(err_msg.format('where_clause'))
             if source_schema_name:
                 raise Exception(err_msg.format('source_schema_name'))
