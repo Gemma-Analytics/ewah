@@ -5,8 +5,6 @@ from ewah.constants import EWAHConstants as EC
 from datetime import timedelta
 from pytz import timezone
 
-from pendulum import Duration, Period
-
 class EWAHSQLBaseOperator(EWAHBaseOperator):
 
     template_fields = ('data_from', 'data_until', 'reload_data_from')
