@@ -5,6 +5,8 @@ from ewah.constants import EWAHConstants as EC
 from datetime import timedelta
 from pytz import timezone
 
+from pendulum import Duration, Period
+
 class EWAHSQLBaseOperator(EWAHBaseOperator):
 
     template_fields = ('data_from', 'data_until', 'reload_data_from')
@@ -199,8 +201,8 @@ class EWAHSQLBaseOperator(EWAHBaseOperator):
 
 
         if self.chunking_interval:
-            if type(self.chunking_interval) == timedelta:
-                chunking_column = self.timestamp_column
+            if type(self.chunking_interval) in [timedelta, Duration, Period]:
+                chunking_column = self.timestamp_column or self.chunking_column
             else:
                 chunking_column = self.chunking_column
 
