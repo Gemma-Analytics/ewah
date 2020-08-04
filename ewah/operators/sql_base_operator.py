@@ -89,11 +89,6 @@ class EWAHSQLBaseOperator(EWAHBaseOperator):
 
         super().__init__(*args, **kwargs)
 
-        if not self.drop_and_replace:
-            if not (data_from and data_until):
-                raise Exception('For incremental loading, you must specify ' \
-                    + 'both data_from and data_until!')
-
         # self.base_select is a SELECT statement (i.e. a string) ending in a
         #   WHERE {0} -> the extract process can add conditions!
         # self.base_sql is a pure SELECT statement ready to be executed
@@ -155,7 +150,11 @@ class EWAHSQLBaseOperator(EWAHBaseOperator):
         if self.drop_and_replace:
             self.log.info('Loading data as full refresh.')
         else:
-            if not self.test_if_target_table_exists():
+            if self.test_if_target_table_exists():
+                self.data_from = self.data_from or context['execution_date']
+                n_e_d = context['next_execution_date']
+                self.data_until = self.data_until or n_e_d
+            else:
                 self.chunking_interval = self.reload_data_chunking \
                     or self.chunking_interval \
                     or (self.data_from - self.data_until)
