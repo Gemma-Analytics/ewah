@@ -159,7 +159,7 @@ class EWAHSQLBaseOperator(EWAHBaseOperator):
             if not self.test_if_target_table_exists():
                 self.chunking_interval = self.reload_data_chunking \
                     or self.chunking_interval \
-                    or (self.data_from - self.data_until)
+                    or (self.data_until - self.data_from)
                 self.data_from = self.reload_data_from \
                     or context['dag'].start_date
                 if type(self.data_from) == str:
