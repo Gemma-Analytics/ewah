@@ -58,6 +58,8 @@ class EWAHBaseOperator(BaseOperator):
 
     upload_call_count = 0
 
+    _metadata = {} # to be updated by operator, if applicable
+
     def __init__(
         self,
         source_conn_id,
@@ -72,6 +74,9 @@ class EWAHBaseOperator(BaseOperator):
         update_on_columns=None,
         primary_key_column_name=None,
         clean_data_before_upload=True,
+        add_metadata=True, # adds columns with metadata to all rows
+        # Note: that metadata is specified by a dict on operator level!
+        # metadata can only be added if no columns definition is given
     *args, **kwargs):
 
         if not dwh_engine or not dwh_engine in EC.DWH_ENGINES:
@@ -141,6 +146,7 @@ class EWAHBaseOperator(BaseOperator):
         self.clean_data_before_upload = clean_data_before_upload
         self.primary_key_column_name = primary_key_column_name # may be used ...
         #   ... by a child class at execution!
+        self.add_metadata = add_metadata
 
         self.hook = get_dwhook(self.dwh_engine)
 
@@ -177,6 +183,8 @@ class EWAHBaseOperator(BaseOperator):
 
         result = {}
         for datum in data:
+            if self.add_metadata and self._metadata:
+                datum.update(self._metadata)
             for field in datum.keys():
                 if not (result.get(field, {}).get(EC.QBC_FIELD_TYPE) \
                     == inconsistent_data_type) and (not datum[field] is None):
@@ -217,6 +225,7 @@ class EWAHBaseOperator(BaseOperator):
         columns_definition = columns_definition or self.columns_definition
         if not columns_definition:
             self.log.info('Creating table schema on the fly based on data.')
+            # Note: This is also where metadata is added, if applicable
             columns_definition = self._create_columns_definition(data)
 
         hook = self.hook(self.dwh_conn_id)
