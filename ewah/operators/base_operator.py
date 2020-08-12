@@ -150,6 +150,21 @@ class EWAHBaseOperator(BaseOperator):
 
         self.hook = get_dwhook(self.dwh_engine)
 
+        # wrap stuff around the final execute function, including the commit
+        self.execute = self.wrap_exec(self.execute)
+
+    def wrap_exec(self, exec_func):
+        def callable_func(self=self, *args, **kwargs):
+            self.upload_hook = self.hook(self.dwh_conn_id)
+            # execute operator
+            result = exec_func(*args, **kwargs)
+            self.log.info('Now committing changes!')
+            # commit only at the end, when all has worked out!
+            self.upload_hook.commit()
+            self.upload_hook.close()
+            return result
+        return callable_func
+
     def test_if_target_table_exists(self):
         hook = self.hook(self.dwh_conn_id)
         if self.dwh_engine == EC.DWH_ENGINE_POSTGRES:
@@ -228,7 +243,7 @@ class EWAHBaseOperator(BaseOperator):
             # Note: This is also where metadata is added, if applicable
             columns_definition = self._create_columns_definition(data)
 
-        hook = self.hook(self.dwh_conn_id)
+        hook = self.upload_hook
 
         if (not self.drop_and_replace) or (self.upload_call_count > 1):
             self.log.info('Checking for, and applying schema changes.')
@@ -257,12 +272,13 @@ class EWAHBaseOperator(BaseOperator):
             drop_and_replace=self.drop_and_replace and \
                 (self.upload_call_count == 1), # In case of chunking of uploads
             update_on_columns=self.update_on_columns,
-            commit=True,
+            commit=False,
             logging_function=self.log.info,
             clean_data_before_upload=self.clean_data_before_upload,
         )
+
         #hook.commit()
-        hook.close()
+        #hook.close() conn is committed closed at the end by the wrapper func!
 
 class EWAHEmptyOperator(EWAHBaseOperator):
     _IS_INCREMENTAL = True
