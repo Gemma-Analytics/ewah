@@ -1,5 +1,6 @@
 from ewah.operators.base_operator import EWAHBaseOperator
 from ewah.ewah_utils.airflow_utils import airflow_datetime_adjustments
+from ewah.ewah_utils.python_utils import is_iterable_not_string
 from ewah.constants import EWAHConstants as EC
 
 from airflow.hooks.base_hook import BaseHook
@@ -72,7 +73,7 @@ class EWAHShopifyOperator(EWAHBaseOperator):
         auth_type,
         filter_fields={},
         api_version=None,
-        page_limit=250,
+        page_limit=250, # API Call pagination limit
     *args, **kwargs):
 
         if not shopify_object in self._accepted_objects.keys():
@@ -113,6 +114,9 @@ class EWAHShopifyOperator(EWAHBaseOperator):
         kwargs['primary_key_column_name'] = \
             kwargs.get('primary_key_column_name', 'id')
 
+        # source conn id is not required on operator call level! avoid error
+        kwargs['source_conn_id'] = kwargs.get('source_conn_id', '__none__')
+
         super().__init__(*args, **kwargs)
 
         self.shop_id = shop_id
@@ -123,16 +127,8 @@ class EWAHShopifyOperator(EWAHBaseOperator):
         self.page_limit = page_limit
 
     def execute(self, context):
-        # Get data from shopify via REST API
-
-        url = self._base_url.format(**{
-            'shop': self.shop_id,
-            'version': self.api_version,
-            'object': self.shopify_object,
-        })
-
+        # can supply a list of shops - need to run for all shops individually!
         object_metadata = self._accepted_objects[self.shopify_object]
-
         params = {
             key: val
             for key, val in object_metadata.items()
@@ -154,22 +150,66 @@ class EWAHShopifyOperator(EWAHBaseOperator):
                     timestamp_fields[0]: str(context['execution_date']),
                 })
 
-        conn = BaseHook.get_connection(self.source_conn_id)
-        if self.auth_type == 'access_token':
+        source_conn_id = self.source_conn_id
+        auth_type = self.auth_type
+        if is_iterable_not_string(self.shop_id):
+            # multiple shops to iterate - loop through!
+            self.log.info('iterating through multiple shops!')
+            for shop_id in self.shop_id:
+                # metadata: shop id
+                self.log.info('getting data for: {0}'.format(shop_id))
+                if hasattr(self.shop_id, 'get') \
+                    and hasattr(self.shop_id[shop_id], 'get'):
+                    # dict, not list! check for conn details!
+                    shop_dict = self.shop_id[shop_id]
+                    sci = shop_dict.get('source_conn_id', source_conn_id)
+                    at = shop_dict.get('auth_type', auth_type)
+                else:
+                    sci = source_conn_id
+                    at = auth_type
+                self._metadata.update({'shop_id': shop_id})
+                self.execute_for_shop(context, shop_id, params, sci, at)
+        else:
+            self._metadata.update({'shop_id': shop_id})
+            sci = self.source_conn_id
+            at = self.auth_type
+            self.execute_for_shop(context, self.shop_id, params, sci, at)
+
+    def execute_for_shop(self,
+        context,
+        shop_id,
+        params,
+        source_conn_id,
+        auth_type,
+    ):
+        # Get data from shopify via REST API
+
+        url = self._base_url.format(**{
+            'shop': shop_id,
+            'version': self.api_version,
+            'object': self.shopify_object,
+        })
+
+        # get connection for the applicable shop
+        conn = BaseHook.get_connection(source_conn_id)
+        login = conn.login
+        password = conn.password
+
+        if auth_type == 'access_token':
             headers = {
-                'X-Shopify-Access-Token': conn.password,
+                'X-Shopify-Access-Token': password,
             }
             kwargs_init = {
                 'headers': headers,
                 'params': params,
             }
             kwargs_links = {'headers': headers}
-        elif self.auth_type == 'basic_auth':
+        elif auth_type == 'basic_auth':
             kwargs_init = {
-                    'params': params,
-                'auth': HTTPBasicAuth(conn.login, conn.password),
+                'params': params,
+                'auth': HTTPBasicAuth(login, password),
             }
-            kwargs_links = {'auth': HTTPBasicAuth(conn.login, conn.password)}
+            kwargs_links = {'auth': HTTPBasicAuth(login, password)}
         else:
             raise Exception('Authentication type not accepted!')
 
