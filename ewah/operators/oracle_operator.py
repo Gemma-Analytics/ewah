@@ -36,7 +36,7 @@ class EWAHOracleSQLOperator(EWAHSQLBaseOperator):
             ):
             '''In Oracle, params are passed to the execute() function as kwargs
             https://cx-oracle.readthedocs.io/en/latest/user_guide/bind.html
-            Params are then referenced like to:
+            Params are then referenced like so:
                 SELECT * FROM table WHERE field1 = :val1 AND field2 = :val2
             with a params dict structured like so: {'val1': 1, 'val2': 3}
             Also see here: https://stackoverflow.com/questions/35045879/cx-oracle-how-can-i-receive-each-row-as-a-dictionary
