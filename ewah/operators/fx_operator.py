@@ -9,14 +9,14 @@ class EWAHFXOperator(EWAHBaseOperator):
 
     template_fields = ('data_from', 'data_until')
 
-    _IS_INCREMENTAL = True
+    _IS_INCREMENTAL = False
     _IS_FULL_REFRESH = True
 
     def __init__(
         self,
         currency_pair, # iterable of length 2
-        data_from, # data_from is required
-        data_until=None, # data_until defaults to current date
+        data_from=None, # data_from defaults to start_date
+        data_until=None, # data_until defaults to now
         frequency='daily', # daily, weekly, or monthly
     *args, **kwargs):
 
@@ -52,6 +52,9 @@ class EWAHFXOperator(EWAHBaseOperator):
         self.frequency = frequency
 
     def execute(self, context):
+        self.data_from = self.data_from or context['dag'].start_date
+        self.data_until = self.data_until or datetime.now()
+
         self.data_from = airflow_datetime_adjustments(self.data_from)
         self.data_until = airflow_datetime_adjustments(self.data_until)
 
@@ -59,7 +62,7 @@ class EWAHFXOperator(EWAHBaseOperator):
         currency_str = '{0}{1}=X'.format(*self.currency_pair)
         data = YahooFinancials([currency_str]).get_historical_price_data(
             self.data_from.strftime(format_str),
-            (self.data_until or datetime.now()).strftime(format_str),
+            self.data_until.strftime(format_str),
             self.frequency,
         )
         self.upload_data(data[currency_str]['prices'])

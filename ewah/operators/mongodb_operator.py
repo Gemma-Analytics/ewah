@@ -30,6 +30,7 @@ class EWAHMongoDBOperator(EWAHBaseOperator):
         chunking_interval=None, # timedelta or integer
         reload_data_from=None, # string (can be templated), datetime or None
         pagination_limit=None, # integer
+        single_column_mode=False, # If True, throw all data as json into one col
     *args, **kwargs):
 
         src = source_collection_name or kwargs.get('target_table_name')
@@ -65,7 +66,31 @@ class EWAHMongoDBOperator(EWAHBaseOperator):
 
         self.pagination_limit = pagination_limit
 
+        if single_column_mode:
+            if kwargs.get('columns_definition'):
+                raise Exception('single_column_mode is not compatible with '\
+                    + 'columns_definition!')
+            if not kwargs.get('drop_and_replace', True):
+                raise Exception('single_column_mode is only compatible with ' \
+                    + 'drop_and_replace!')
+            if kwargs.get('update_on_columns'):
+                raise Exception('single_column_mode is not compatible with ' \
+                    + 'update_on_columns!')
+            if kwargs.get('primary_key_column_name'):
+                raise Exception('single_column_mode is not compatible with ' \
+                    + 'primary_key_column_name!')
+        self.single_column_mode = single_column_mode
+
         super().__init__(*args, **kwargs)
+
+    def upload_data(self, data):
+        if self.single_column_mode:
+            # load all data into a single column called 'document'
+            data = [{'document':x} for x in data]
+            super().upload_data(data)
+        else:
+            # normal data loading mode
+            super().upload_data(data)
 
     def extract_and_load_paginated(self,
         collection,
@@ -82,33 +107,31 @@ class EWAHMongoDBOperator(EWAHBaseOperator):
             return
 
         # pagination!
+        fe = deepcopy(filter_expressions)
         if last_id:
             # get next page
-            fe = deepcopy(filter_expressions)
             fe.update({self.primary_key_column_name:{'$gt':last_id}})
-            data = json.loads(dumps(
-                collection.find(fe) \
-                            .sort(self.primary_key_column_name, asc) \
-                            .limit(page_size)
-            ))
-        else:
-            # first page!
-            data = json.loads(dumps(
-                collection.find(filter_expressions) \
-                            .sort(self.primary_key_column_name, asc) \
-                            .limit(page_size)
-            ))
+        next_id_data = [x for x in collection.find(fe) \
+                        .sort(self.primary_key_column_name, asc) \
+                        .skip(page_size - 1)
+                        .limit(1)
+        ]
+        data = json.loads(dumps(collection.find(fe)
+                                    .sort(self.primary_key_column_name, asc) \
+                                    .limit(page_size)
+        ))
 
         if not len(data) == 0:
-            last_id = data[-1][self.primary_key_column_name]
             self.upload_data(data)
-            # call recursively!
-            self.extract_and_load_paginated(
-                collection=collection,
-                filter_expressions=filter_expressions,
-                page_size=page_size,
-                last_id=last_id,
-            )
+            if not len(next_id_data) == 0:
+                last_id = next_id_data[0][self.primary_key_column_name]
+                # call recursively!
+                self.extract_and_load_paginated(
+                    collection=collection,
+                    filter_expressions=filter_expressions,
+                    page_size=page_size,
+                    last_id=last_id,
+                )
 
     def execute(self, context):
         if not self.drop_and_replace and not self.test_if_target_table_exists():

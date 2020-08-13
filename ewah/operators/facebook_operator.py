@@ -27,12 +27,12 @@ class EWAHFBOperator(EWAHBaseOperator):
         self,
         account_ids,
         insight_fields,
-        data_from,
-        data_until,
         level,
+        data_from=None,
+        data_until=None,
         time_increment=1,
         breakdowns=None,
-        execution_waittime_seconds=60, # wait for a while before execution
+        execution_waittime_seconds=15, # wait for a while before execution
         #   between account_ids to avoid hitting rate limits during backfill
         pagination_limit=1000,
         async_job_read_frequency_seconds=5,
@@ -97,10 +97,9 @@ class EWAHFBOperator(EWAHBaseOperator):
         credentials = BaseHook.get_connection(self.source_conn_id)
         extra = credentials.extra_dejson
 
+        # Note: app_secret is not always required!
         if not extra.get('app_id'):
             raise Exception('Connection extra must contain an "app_id"!')
-        if not extra.get('app_secret'):
-            raise Exception('Connection extra must contain an "app_secret"')
         if not extra.get('access_token', credentials.password):
             raise Exception('Connection extra must contain an "access_token" ' \
                 + 'if it is not saved as the connection password!')
@@ -134,6 +133,9 @@ class EWAHFBOperator(EWAHBaseOperator):
         self.data_from = airflow_datetime_adjustments(self.data_from)
         self.data_until = airflow_datetime_adjustments(self.data_until)
 
+        self.data_from = self.data_from or context['execution_date']
+        self.data_until = self.data_until or context['next_execution_date']
+
         time_range = {
             'since': self.data_from.strftime('%Y-%m-%d'),
             'until': self.data_until.strftime('%Y-%m-%d'),
@@ -141,7 +143,6 @@ class EWAHFBOperator(EWAHBaseOperator):
 
         FacebookAdsApi.init(**self.credentials)
         params = {
-            'fields': ','.join(self.insight_fields),
             'time_range': time_range,
             'time_increment': self.time_increment,
             'level': self.level,
@@ -159,7 +160,7 @@ class EWAHFBOperator(EWAHBaseOperator):
                 while datetime.now() < \
                     (now + timedelta(seconds=self.execution_waittime_seconds)):
                     time.sleep(1)
-                    
+
             account_object = AdAccount('act_{0}'.format(str(account_id)))
             self.log.info((
                 'Requesting data for account_id={0} between {1} and {2}.'

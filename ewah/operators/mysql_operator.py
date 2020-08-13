@@ -1,17 +1,22 @@
 from ewah.operators.sql_base_operator import EWAHSQLBaseOperator
 from ewah.constants import EWAHConstants as EC
 
-from airflow.hooks.base_hook import BaseHook
-
 from mysql.connector import connect
+
+from airflow.hooks.base_hook import BaseHook
 
 class EWAHMySQLOperator(EWAHSQLBaseOperator):
 
-    _SQL_BASE_COLUMNS = 'SELECT\n`{columns}`\nFROM `{schema}`.`{table}`\nWHERE {{0}};'
-    _SQL_BASE_ALL = 'SELECT * FROM `{schema}`.`{table}`\nWHERE {{0}};'
+    _SQL_BASE = \
+        'SELECT\n{columns}\nFROM `{schema}`.`{table}`\nWHERE {where_clause}'
+    _SQL_BASE_SELECT = \
+        'SELECT * FROM ({select_sql}) t WHERE {{0}}'
     _SQL_COLUMN_QUOTE = '`'
-    _SQL_MINMAX_CHUNKS = 'SELECT MIN({column}), MAX({column}) FROM `{schema}`.`{table}` WHERE {where_clause};'
-    _SQL_CHUNKING_CLAUSE = 'AND {column} >= %(from_value)s AND {column} <{equal_sign} %(until_value)s'
+    _SQL_MINMAX_CHUNKS = 'SELECT MIN({column}), MAX({column}) FROM ({base}) t;'
+    _SQL_CHUNKING_CLAUSE = '''
+        AND {column} >= %(from_value)s
+        AND {column} <{equal_sign} %(until_value)s
+    '''
     _SQL_PARAMS = '%({0})s'
 
     def __init__(self, *args, **kwargs):
@@ -37,8 +42,3 @@ class EWAHMySQLOperator(EWAHSQLBaseOperator):
         cursor.close()
         database_conn.close()
         return data
-
-    def execute(self, context):
-        self.source_schema_name = self.source_schema_name or \
-            BaseHook.get_connection(self.source_conn_id).schema
-        super().execute(context=context)

@@ -97,11 +97,12 @@ class EWAHDWHookPostgres(EWAHBaseDWHook):
         cols_list = list(columns_definition.keys())
         sql="""
             INSERT INTO "{schema_name}"."{table_name}"
-            ("{column_names}") VALUES %s
+            ("{column_names}") VALUES {placeholder}
             ON CONFLICT {do_on_conflict};
         """.format(**{
             'schema_name': schema_name,
             'table_name': table_name,
+            'placeholder': '{placeholder}',
             'column_names': '", "'.join(cols_list),
             'do_on_conflict': 'DO NOTHING' if drop_and_replace else """
                 ("{update_columns}") DO UPDATE SET\n\t{sets}
@@ -112,6 +113,8 @@ class EWAHDWHookPostgres(EWAHBaseDWHook):
                     for column in set_columns
                 ]),
             ),
+        }).replace('%', '%%').format(**{
+            'placeholder': '%s',
         })
         logging_function('Now Uploading!')
         # escape crappy column names by using aliases in the psycopg2 template

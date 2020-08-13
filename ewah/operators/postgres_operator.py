@@ -4,11 +4,20 @@ from ewah.dwhooks.dwhook_postgres import EWAHDWHookPostgres
 
 class EWAHPostgresOperator(EWAHSQLBaseOperator):
 
-    _SQL_BASE_COLUMNS = 'SELECT\n"{columns}"\nFROM "{schema}"."{table}"\nWHERE {{0}};'
-    _SQL_BASE_ALL = 'SELECT * FROM "{schema}"."{table}"\nWHERE {{0}};'
+    _SQL_BASE = \
+        'SELECT\n{columns}\nFROM "{schema}"."{table}"\nWHERE {where_clause}'
+    _SQL_BASE_SELECT = \
+        'WITH raw AS ({select_sql}) SELECT * FROM raw WHERE {{0}}'
     _SQL_COLUMN_QUOTE = '"'
-    _SQL_MINMAX_CHUNKS = 'SELECT MIN({column}), MAX({column}) FROM "{schema}"."{table}" WHERE {where_clause};'
-    _SQL_CHUNKING_CLAUSE = 'AND {column} >= %(from_value)s AND {column} <{equal_sign} %(until_value)s'
+    _SQL_MINMAX_CHUNKS = '''
+        WITH base AS ({base})
+        SELECT MIN({column}), MAX({column})
+        FROM base;
+    '''
+    _SQL_CHUNKING_CLAUSE = '''
+        AND {column} >= %(from_value)s
+        AND {column} <{equal_sign} %(until_value)s
+    '''
     _SQL_PARAMS = '%({0})s'
 
     def __init__(self, *args, **kwargs):

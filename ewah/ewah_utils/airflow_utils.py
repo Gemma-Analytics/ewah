@@ -37,7 +37,7 @@ def airflow_datetime_adjustments(datetime_raw):
             datetime_string,
             format_string,
         )
-    elif not (type(datetime_raw) in (type(None), datetime)):
+    elif not (datetime_raw is None or isinstance(datetime_raw, datetime)):
         raise Exception('Invalid datetime type supplied! Supply either string' \
             + ' or datetime.datetime! supplied: {0}'.format(
                 str(type(datetime_raw))
