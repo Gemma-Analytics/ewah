@@ -15,7 +15,7 @@ Functions to create all DAGs required for ELT using only a simple config file.
 - MySQL
 - OracleSQL
 - Google Analytics (incremental only)
-- S3 (for JSON files stored in an S3 bucket, e.g. from Kinesis Firehose)
+- S3 (for CSV or JSON files stored in an S3 bucket, e.g. from Kinesis Firehose)
 - FX Rates (from Yahoo Finance)
 - Facebook (partially, so far: ads insights; incremental only)
 - Google Sheets
