@@ -29,7 +29,7 @@ setuptools.setup(
           'cx_Oracle',
           'facebook_business',
           'mysql-connector-python',
-          'snowflake-connector-python',
+          'snowflake-connector-python==2.0.2',
           'pymongo',
       ],
 )
