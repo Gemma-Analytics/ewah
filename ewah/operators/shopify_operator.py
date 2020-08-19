@@ -73,8 +73,12 @@ class EWAHShopifyOperator(EWAHBaseOperator):
         auth_type,
         filter_fields={},
         api_version=None,
+        get_transactions_with_orders=False,
         page_limit=250, # API Call pagination limit
     *args, **kwargs):
+
+        if get_transactions_with_orders and not shopify_object == 'orders':
+            raise Exception('transactions can only be pulled for orders!')
 
         if not shopify_object in self._accepted_objects.keys():
             raise Exception('{0} is not in the list of accepted objects!' + \
@@ -125,6 +129,7 @@ class EWAHShopifyOperator(EWAHBaseOperator):
         self.filter_fields = filter_fields
         self.api_version = api_version
         self.page_limit = page_limit
+        self.get_transactions_with_orders = get_transactions_with_orders
 
     def execute(self, context):
         # can supply a list of shops - need to run for all shops individually!
@@ -183,6 +188,29 @@ class EWAHShopifyOperator(EWAHBaseOperator):
         auth_type,
     ):
         # Get data from shopify via REST API
+        def add_get_transactions(data, shop, version, req_kwargs):
+            # workaround to add transactions to orders
+            self.log.info('Requesting transactions of orders...')
+            base_url = "https://{shop}.myshopify.com/admin/api/{version}/orders/{id}/transactions.json"
+            base_url = base_url.format(**{
+                'shop': shop,
+                'version': version,
+                'id': '{id}',
+            })
+
+            for datum in data:
+                id = datum['id']
+                # self.log.info('getting transactions for order {0}'.format(id))
+                url = base_url.format(id=id)
+                req = requests.get(url, **req_kwargs)
+                if not req.status_code == 200:
+                    self.log.info('request text: ' + req.text)
+                    raise Exception('non-200 response!')
+                transactions = json.loads(req.text).get('transactions', [])
+                datum['transactions'] = transactions
+
+            return data
+
 
         url = self._base_url.format(**{
             'shop': shop_id,
@@ -216,19 +244,30 @@ class EWAHShopifyOperator(EWAHBaseOperator):
         # get and upload data
         self.log.info('Requesting data from REST API - url: {0}, params: {1}' \
             .format(url, str(params)))
-        r = requests.get(url, **kwargs_init)
-        while r.status_code == 200 \
-            and r.headers.get('Link') \
-            and r.headers['Link'][-10:] == 'rel="next"':
-            self.upload_data(json.loads(r.text)[self.shopify_object])
+        req_kwargs = kwargs_init
+        is_first = True
+        while is_first or (r.status_code == 200 and url):
+            r = requests.get(url, **req_kwargs)
+            if is_first:
+                is_first = False
+                req_kwargs = kwargs_links
+            data = json.loads(r.text)[self.shopify_object]
+            if self.get_transactions_with_orders:
+                data = add_get_transactions(
+                    data=data,
+                    shop=shop_id,
+                    version=self.api_version,
+                    req_kwargs=kwargs_links
+                )
+            self.upload_data(data)
             self.log.info('Requesting next page of data...')
-            r = requests.get(r.headers.get('Link')[1:-13], **kwargs_links)
+            if r.headers.get('Link') and r.headers['Link'][-9:] == 'el="next"':
+                url = r.headers['Link'][1:-13]
+            else:
+                url = None
 
         if not r.status_code == 200:
             raise Exception('Shopify request returned an error {1}: {0}'.format(
                 r.text,
                 str(r.status_code),
             ))
-
-        # The last page is not uploaded within the while loop!
-        self.upload_data(json.loads(r.text)[self.shopify_object])
