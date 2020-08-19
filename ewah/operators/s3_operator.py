@@ -26,10 +26,12 @@ class EWAHS3Operator(EWAHBaseOperator):
     def __init__(self,
         bucket_name,
         file_format,
+        prefix=None, # use for subfolder structures
         key_name=None, # if not specified, uses data_from and data_until
         data_from=None,
         data_until=None,
         csv_format_options={},
+        has_bom=False, # bye order mark - special characters in csv files
     *args, **kwargs):
 
         if not file_format in self._IMPLEMENTED_FORMATS:
@@ -54,11 +56,13 @@ class EWAHS3Operator(EWAHBaseOperator):
         #   to execution dates!
 
         self.bucket_name = bucket_name
+        self.prefix = prefix
         self.key_name = key_name
         self.data_from = data_from
         self.data_until = data_until
         self.file_format = file_format
         self.csv_format_options = csv_format_options
+        self.has_bom = has_bom
 
         super().__init__(*args, **kwargs)
 
@@ -96,7 +100,7 @@ class EWAHS3Operator(EWAHBaseOperator):
             data = hook.read_key(self.key_name, self.bucket_name)
         else:
             bucket = hook.get_bucket(self.bucket_name)
-            for obj in bucket.objects.all():
+            for obj in bucket.objects.filter(Prefix=self.prefix):
                 # skip all files outside of loading scope
                 if self.data_from and obj.last_modified < self.data_from:
                     continue
@@ -104,9 +108,17 @@ class EWAHS3Operator(EWAHBaseOperator):
                     continue
 
                 self.log.info('Loading data from file {0}'.format(obj.key))
-                raw_data = hook.read_key(obj.key, self.bucket_name).splitlines()
+                raw_data = hook.read_key(obj.key, self.bucket_name)
+                if self.has_bom:
+                    raw_data = raw_data.replace('\ufeff', '')
+                raw_data = raw_data.splitlines()
                 reader = csv.DictReader(raw_data, **self.csv_format_options)
                 data = list(reader)
+                self._metadata.update({
+                    'bucket_name': self.bucket_name,
+                    'file_name': obj.key,
+                    'file_last_modified': str(obj.last_modified),
+                })
                 self.upload_data(data=data)
 
     def execute_json(self, context, f_get_data):
@@ -124,7 +136,7 @@ class EWAHS3Operator(EWAHBaseOperator):
         else:
             data = []
             bucket = hook.get_bucket(self.bucket_name)
-            for obj in bucket.objects.all():
+            for obj in bucket.objects.filter(Prefix=self.prefix):
                 if self.data_from and obj.last_modified < self.data_from:
                     continue
                 if self.data_until and obj.last_modified >= self.data_until:
@@ -133,11 +145,14 @@ class EWAHS3Operator(EWAHBaseOperator):
                 self.log.info('Loading data from file {0}'.format(
                     obj.key,
                 ))
-                data += f_get_data(
+                self._metadata.update({
+                    'bucket_name': self.bucket_name,
+                    'file_name': obj.key,
+                    'file_last_modified': str(obj.last_modified),
+                })
+                data = f_get_data(
                     hook=hook,
                     key=obj.key,
                     bucket=self.bucket_name,
                 )
-
-        print(self.columns_definition)
-        self.upload_data(data=data)
+                self.upload_data(data=data)
