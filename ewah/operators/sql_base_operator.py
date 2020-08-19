@@ -91,6 +91,15 @@ class EWAHSQLBaseOperator(EWAHBaseOperator):
                 raise Exception("Arg chunking_interval must be integer or "\
                     + "datetime.timedelta!")
 
+        self.data_from = data_from
+        self.data_until = data_until
+        self.timestamp_column = timestamp_column
+        self.chunking_interval = chunking_interval
+        self.chunking_column = chunking_column
+        self.reload_data_from = reload_data_from
+        self.reload_data_chunking = reload_data_chunking or chunking_interval
+
+        # run after setting class properties for templating
         super().__init__(*args, **kwargs)
 
         # self.base_select is a SELECT statement (i.e. a string) ending in a
@@ -133,14 +142,6 @@ class EWAHSQLBaseOperator(EWAHBaseOperator):
         self.base_select = self._SQL_BASE_SELECT.format(**{
             'select_sql': self.base_sql,
         })
-
-        self.data_from = data_from
-        self.data_until = data_until
-        self.timestamp_column = timestamp_column
-        self.chunking_interval = chunking_interval
-        self.chunking_column = chunking_column
-        self.reload_data_from = reload_data_from
-        self.reload_data_chunking = reload_data_chunking or chunking_interval
 
     def execute(self, context):
         str_format = '%Y-%m-%dT%H:%M:%SZ'
