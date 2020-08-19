@@ -72,7 +72,7 @@ class EWAHDWHookPostgres(EWAHBaseDWHook):
                 commit=False,
             )
 
-        if not drop_and_replace:
+        if not drop_and_replace and update_on_columns:
             # make sure there is a unique constraint for update_on_columns
             self.execute(
                 sql="""
@@ -104,7 +104,8 @@ class EWAHDWHookPostgres(EWAHBaseDWHook):
             'table_name': table_name,
             'placeholder': '{placeholder}',
             'column_names': '", "'.join(cols_list),
-            'do_on_conflict': 'DO NOTHING' if drop_and_replace else """
+            'do_on_conflict': 'DO NOTHING' \
+                if drop_and_replace or not update_on_columns else """
                 ("{update_columns}") DO UPDATE SET\n\t{sets}
             """.format(
                 update_columns='", "'.join(update_on_columns),
