@@ -3,6 +3,10 @@ Ewah: ELT With Airflow Helper - Classes and functions to make apache airflow lif
 
 Functions to create all DAGs required for ELT using only a simple config file.
 
+## Resources
+
+- [Setting up airflow with `LocalExecutor`](resources/setting_up_airflow.md)
+
 ## DWHs Implemented
 - Snowflake
 - PostgreSQL
@@ -10,10 +14,14 @@ Functions to create all DAGs required for ELT using only a simple config file.
 ## DWHs Planned
 - Bigquery
 
-## Operators Implemented
+## Operators
+
+EWAH currently supports the following operators:
+
 - PostgreSQL
 - MySQL
 - OracleSQL
+- Google Ads
 - Google Analytics (incremental only)
 - S3 (for CSV or JSON files stored in an S3 bucket, e.g. from Kinesis Firehose)
 - FX Rates (from Yahoo Finance)
@@ -22,6 +30,102 @@ Functions to create all DAGs required for ELT using only a simple config file.
 - MongoDB
 - Shopify
 - Zendesk
+
+### Universal operator arguments
+
+The following arguments are accepted by all operators, unless explicitly stated otherwise:
+
+| argument | required | type | default | description |
+| --- | --- | --- | --- | --- |
+| source_conn_id | yes | string | n.a. | name of the airflow connection with source credentials |
+| dwh_engine | yes | string | n.a. | DWH type - e.g. postgres - usually |
+| dwh_conn_id | yes | string | n.a. | name of the airflow connection of the DWH |
+| target_table_name | implicit | string | n.a. | name of the table in the DWH; the target table name is the name given in the table config |
+| target_schema_name | yes | string | name of the schema in the DWH where the table will live  |
+| target_schema_name_suffix | no | string | `_next` | when loading new data, how to suffix the schema name during the loading process |
+| target_database_name | yes for Snowflake DWH | string | n.a. | name of the database (only for Snowflake, illegal argument for non-Snowflake DWHs) |
+| columns_definition | operator-dependent | dict | n.a. | usually not required; dictionary definition of the columns to get from a data source and their data types; if left blank, all data will be pulled and data types inferred |
+| drop_and_replace | no | boolean | same as DAG-level setting | whether a table is loading as full refresh or incrementally. Normally set by the DAG level config. Incremental loads can overwrite this setting to fully refresh some small tables (e.g. if they are small and have no `updated_at` column) |
+| update_on_columns | operator-dependent | list of strings | n.a. | for incremental loading, update data on what set columns? (effectively, the list of columns comprising the composite primary key); usually not required |
+| primary_key_column_name | operator-dependent | string | n.a. | name of the primary key column; if given, EWAH will set the column as primary key in the DWH; may also use this as alternatively of update_on_columns for some operators |
+| clean_data_before_upload | no | boolean | True | Some minor clean up before data upload. Slows performance, but avoids some weird errors in special cases. |
+| add_metadata | no | boolean | True | some operators may add metadata to the tables; this behavior can be turned off (e.g. shop name for the shopify operator) |
+
+### Operator: Google Ads
+
+These arguments are specific to the Google Ads operator. In addition, the Google Ads operator ignores any `update_on_columns` argument given, as it overwrites it with the the list of non-metric fields.
+
+| argument | required | type | default | description |
+| --- | --- | --- | --- | --- |
+| fields | yes | dict | n.a. | most important argument; excludes metrics; detailed below |
+| metrics | yes | list of strings | n.a. | list of all metrics to load, must load at least one metric |
+| resource | yes | string | n.a. | name of the report, e.g. `keyword_view` |
+| client_id | yes | string | n.a. | 10-digit number, often written with hyphens, e.g. `123-123-1234` (acceptable with or without hyphens) |
+| conditions | no | list of strings | n.a. | list of strings of condition to include in the query, all conditions will be combined using `AND` operator |
+| data_from | no | datetime, timedelta or airflow-template-string | execution_date of task instance | start date of particular airflow task instance OR timedelta -> calculate delta from data_until |
+| data_until | no | datetime or airflow-template-string | next_execution_date of task instance | get data from google_ads until this point |
+
+#### arguments: fields and metrics
+
+the `fields` and `metrics` arguments are the most important for this operator. The `metrics` are separated from `fields` because the `fields` are simultaneously the updated_on_columns. When creating the google ads query, they are combined. The `metrics` argument is simply a list of metrics to be requested from Google Ads. The `fields` argument is a bit more complex, due to the nature of Google Ad's API. It is essentially a nested json.
+
+Because the query may look something like this:
+```sql
+SELECT
+    campaign.id
+  , campaign.name
+  , ad_group_criterion.criterion_id
+  , ad_group_criterion.keyword.text
+  , ad_group_criterion.keyword.match_type
+  , segments.date
+  , metrics.impressions
+  , metrics.clicks
+  , metrics.cost_micros
+FROM keyword_view
+WHERE segments.date BETWEEN 2020-08-01 AND 2020-08-08
+```
+
+i.e., there are nested object structures, the `fields` structure must reflect the same. Take a look at the example config for the correct configuration of abovementioned Google Ads query. Note in addition, that the fields will be uploaded with the same names to the DWH, excepts that the periods will be replaced by underscored. i.e., the table `keyword_view_data` in the example below will have the columns `campaign_id`, `ad_group_criterion_keyword_text`, etc.
+
+Finally, note that `segments.date` is always required in the `fields` argument.
+
+#### Example
+
+Sample configuration in `dags.yaml` file:
+```yaml
+EL_Google_Ads:
+  incremental: True
+  el_operator: google_ads
+  target_schema_name: raw_google_ads
+  operator_config:
+    general_config:
+      source_conn_id: google_ads
+      client_id: "123-123-1234"
+      # conditions: none
+    incremental_config:
+      data_from: !!python/object/apply:datetime.timedelta
+        - 3 # days as time interval before the execution date of the DAG
+        # only use this for normal runs! backfills: use execution date context instead
+    tables:
+      keyword_view_data:
+        resource: keyword_view
+        fields:
+          campaign:
+            - id
+            - name
+          ad_group_criterion:
+            - keyword:
+              - text
+              - match_type
+            - criterion_id
+          segments:
+            - date
+        metrics:
+          - impressions
+          - clicks
+          - cost_micros
+```
+
 
 ## Philosophy
 
