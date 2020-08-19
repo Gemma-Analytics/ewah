@@ -139,6 +139,8 @@ def dags_from_dict(
         'fx': EWAHFXOperator,
         'ga': EWAHGAOperator,
         'google_analytics': EWAHGAOperator,
+        'gads': EWAHGoogleAdsOperator,
+        'google_ads': EWAHGoogleAdsOperator,
         'mysql': EWAHMySQLOperator,
         'oracle': EWAHOracleSQLOperator,
         'postgres': EWAHPostgresOperator,

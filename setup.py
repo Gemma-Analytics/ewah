@@ -5,7 +5,7 @@ with open("README.md", "r") as fh:
 
 setuptools.setup(
     name="ewah", # Replace with your own username
-    version="0.1.23",
+    version="0.1.24",
     author="Bijan Soltani",
     author_email="bijan.soltani+ewah@gemmaanalytics.com",
     description="An ELT with airflow helper module: Ewah",
@@ -31,5 +31,6 @@ setuptools.setup(
           'mysql-connector-python',
           'snowflake-connector-python==2.0.2',
           'pymongo',
+          'apache-airflow-backport-providers-google',
       ],
 )
