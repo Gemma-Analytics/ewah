@@ -257,7 +257,7 @@ class EWAHShopifyOperator(EWAHBaseOperator):
                     data=data,
                     shop=shop_id,
                     version=self.api_version,
-                    req_kwargs=kwargs_links
+                    req_kwargs=kwargs_links,
                 )
             self.upload_data(data)
             self.log.info('Requesting next page of data...')

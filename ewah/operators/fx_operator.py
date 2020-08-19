@@ -44,12 +44,13 @@ class EWAHFXOperator(EWAHBaseOperator):
             self.log.info('update_on_columns is fixed for this operator. ' \
                 + 'Using the default.')
         kwargs['update_on_columns'] = ['date']
-        super().__init__(*args, **kwargs)
 
         self.currency_pair = currency_pair
         self.data_from = data_from
         self.data_until = data_until
         self.frequency = frequency
+
+        super().__init__(*args, **kwargs)
 
     def execute(self, context):
         self.data_from = self.data_from or context['dag'].start_date

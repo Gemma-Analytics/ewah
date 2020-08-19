@@ -126,8 +126,6 @@ class EWAHBaseOperator(BaseOperator):
                     + " the primary key(s)"
                 )
 
-        super().__init__(*args, **kwargs)
-
         self.source_conn_id = source_conn_id
         self.dwh_engine = dwh_engine
         self.dwh_conn_id = dwh_conn_id
@@ -152,6 +150,8 @@ class EWAHBaseOperator(BaseOperator):
 
         # wrap stuff around the final execute function, including the commit
         self.execute = self.wrap_exec(self.execute)
+
+        super().__init__(*args, **kwargs)
 
     def wrap_exec(self, exec_func):
         def callable_func(self=self, *args, **kwargs):

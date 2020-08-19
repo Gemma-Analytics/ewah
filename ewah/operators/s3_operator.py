@@ -44,7 +44,7 @@ class EWAHS3Operator(EWAHBaseOperator):
         if not file_format == 'CSV' and csv_format_options:
             raise Exception('csv_format_options is only valid for CSV files!')
 
-        super().__init__(*args, **kwargs)
+
 
         #if not self.drop_and_replace:
         #    if not (data_from and data_until):
@@ -59,6 +59,8 @@ class EWAHS3Operator(EWAHBaseOperator):
         self.data_until = data_until
         self.file_format = file_format
         self.csv_format_options = csv_format_options
+
+        super().__init__(*args, **kwargs)
 
     def execute(self, context):
         if not self.drop_and_replace and not self.key_name:

@@ -79,8 +79,6 @@ class EWAHGAOperator(EWAHBaseOperator):
 
         kwargs.update({'update_on_columns': [dim[3:] for dim in dimensions]})
 
-        super().__init__(*args, **kwargs)
-
         self.credentials = BaseHook.get_connection(self.source_conn_id)
         self.credentials = self.credentials.extra_dejson
         self.api = api
@@ -104,6 +102,8 @@ class EWAHGAOperator(EWAHBaseOperator):
             'PERCENT': 'decimal(20,5)',
             'TIME': 'time'
         }
+
+        super().__init__(*args, **kwargs)
 
         if chunking_interval and not (type(chunking_interval) == timedelta):
             raise Exception('If supplied, chunking_interval must be timedelta!')

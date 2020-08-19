@@ -42,8 +42,6 @@ class EWAHGoogleAdsOperator(EWAHBaseOperator):
         ]
         fields.update({'metrics': metrics})
 
-        super().__init__(*args, **kwargs)
-
         if conditions and not is_iterable_not_string(conditions):
             raise Exception('Argument "conditions" must be a list!')
 
@@ -57,6 +55,8 @@ class EWAHGoogleAdsOperator(EWAHBaseOperator):
         self.conditions = conditions
         self.data_from = data_from
         self.data_until = data_until
+
+        super().__init__(*args, **kwargs)
 
     def get_select_statement(self, dict_format, prefix=None):
         # create the list of fields for the SELECT statement
