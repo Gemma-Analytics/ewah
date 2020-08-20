@@ -244,7 +244,7 @@ class EWAHShopifyOperator(EWAHBaseOperator):
             for datum in data:
                 id = datum['id']
                 # self.log.info('getting transactions for order {0}'.format(id))
-                time.wait(1) # avoid hitting api call requested per second limit
+                time.sleep(1) # avoid hitting api call requested per second limit
                 url = base_url.format(id=id)
                 req = requests.get(url, **req_kwargs)
                 if not req.status_code == 200:
