@@ -297,10 +297,10 @@ class EWAHShopifyOperator(EWAHBaseOperator):
             if is_first:
                 is_first = False
                 req_kwargs = kwargs_links
-            data = json.loads(r.text)[self.object_metadata.get(
+            data = json.loads(r.text or '{}').get(self.object_metadata.get(
                 '_name_in_request_data',
                 self.shopify_object,
-            )]
+            ))
             if self.get_transactions_with_orders:
                 data = add_get_transactions(
                     data=data,
