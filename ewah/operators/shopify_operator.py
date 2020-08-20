@@ -6,6 +6,7 @@ from ewah.constants import EWAHConstants as EC
 from airflow.hooks.base_hook import BaseHook
 
 from datetime import datetime, timedelta
+from pytz import timezone
 
 from requests.auth import HTTPBasicAuth
 import requests
@@ -30,13 +31,25 @@ class EWAHShopifyOperator(EWAHBaseOperator):
     #   the key _is_drop_and_replace indicates objects that are only able
     #   to load with a full refresh
     _default_timestamp_fields = ('updated_at_min', 'updated_at_max')
+    _default_datetime_format = '%Y-%m-%d %H:%M:%S%z'
     _accepted_objects = {
+        'balance_transactions': {
+            '_is_drop_and_replace': True,
+            '_object_url': 'shopify_payments/balance/transactions',
+            '_name_in_request_data': 'transactions',
+            'since_id': None,
+            'last_id': None,
+            'test': None,
+            'payout_id': None,
+            'payout_status': None,
+        },
         'customers': {
             'ids': None,
             'since_id': None,
         },
-        'discount_codes': {
+        'disputes': {
             '_is_drop_and_replace': True,
+            '_object_url': 'shopify_payments/disputes',
         },
         'events': {
             '_timestamp_fields': ('created_at_min', 'created_at_max'),
@@ -52,8 +65,13 @@ class EWAHShopifyOperator(EWAHBaseOperator):
             'fulfillment_status': None,
             'fields': None,
         },
-        'price_rules': {
+        'payouts': {
+            '_timestamp_fields': ('date_min', 'date_max'),
+            '_datetime_format': '%Y-%m-%d',
+            '_object_url': 'shopify_payments/payouts',
             'since_id': None,
+            'last_id': None,
+            'status': None,
         },
         'products': {
             'ids': None,
@@ -133,7 +151,22 @@ class EWAHShopifyOperator(EWAHBaseOperator):
 
     def execute(self, context):
         # can supply a list of shops - need to run for all shops individually!
+        def datetime_to_string(dt, format):
+            # check if tz aware; set to utc if so
+            if dt.tzinfo:
+                dt = dt.astimezone(timezone('UTC'))
+            else:
+                dt = dt.replace(tzinfo=timezone('UTC'))
+            # check if format_string contains timezone
+            if '%z' in format:
+                # add colon!
+                dt_string = dt.strftime(format)
+                return dt_string[:-2] + ':' + dt_string[-2:]
+            else:
+                return dt.strftime(format)
+
         object_metadata = self._accepted_objects[self.shopify_object]
+        self.object_metadata = object_metadata
         params = {
             key: val
             for key, val in object_metadata.items()
@@ -146,13 +179,23 @@ class EWAHShopifyOperator(EWAHBaseOperator):
                 '_timestamp_fields',
                 self._default_timestamp_fields,
             )
+            timestamp_format_string = object_metadata.get(
+                '_datetime_format',
+                self._default_datetime_format,
+            )
             params.update({
                 # Pendulum by coincidence converts to the correct string format
-                timestamp_fields[1]: str(context['next_execution_date']),
+                timestamp_fields[1]: datetime_to_string(
+                        context['next_execution_date'],
+                        timestamp_format_string,
+                    ),
             })
             if self.test_if_target_table_exists():
                 params.update({
-                    timestamp_fields[0]: str(context['execution_date']),
+                    timestamp_fields[0]: datetime_to_string(
+                        context['execution_date'],
+                        timestamp_format_string,
+                    ),
                 })
 
         source_conn_id = self.source_conn_id
@@ -215,7 +258,10 @@ class EWAHShopifyOperator(EWAHBaseOperator):
         url = self._base_url.format(**{
             'shop': shop_id,
             'version': self.api_version,
-            'object': self.shopify_object,
+            'object': self.object_metadata.get(
+                '_object_url',
+                self.shopify_object,
+            ),
         })
 
         # get connection for the applicable shop
@@ -251,7 +297,10 @@ class EWAHShopifyOperator(EWAHBaseOperator):
             if is_first:
                 is_first = False
                 req_kwargs = kwargs_links
-            data = json.loads(r.text)[self.shopify_object]
+            data = json.loads(r.text)[self.object_metadata.get(
+                '_name_in_request_data',
+                self.shopify_object,
+            )]
             if self.get_transactions_with_orders:
                 data = add_get_transactions(
                     data=data,
