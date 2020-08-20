@@ -196,7 +196,7 @@ class EWAHZendeskOperator(EWAHBaseOperator):
             and data.get('end_time') <= int(self.data_until):
             self.upload_data(data[self.resource]) # uploads previous request
             self.log.info('Requesting next page of data...')
-            r = requests.get(data['next_page'], auth=auth) # new request
+            r = requests.get(data['next_page'], auth=self.auth) # new request
             data = json.loads(r.text)
 
         if not r.status_code == 200:
