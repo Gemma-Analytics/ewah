@@ -36,11 +36,9 @@ class EWAHGoogleAdsOperator(EWAHBaseOperator):
             recommendation: leave data_until=None and use a timedelta for
             data_from.
         """
-
         kwargs['update_on_columns'] = [
             col.replace('.', '_') for col in self.get_select_statement(fields)
         ]
-        fields.update({'metrics': metrics})
 
         if conditions and not is_iterable_not_string(conditions):
             raise Exception('Argument "conditions" must be a list!')
@@ -48,8 +46,12 @@ class EWAHGoogleAdsOperator(EWAHBaseOperator):
         if not (fields.get('segments') and ('date' in fields['segments'])):
             raise Exception('fields list MUST contain segments.date!')
 
-        self.fields_list = self.get_select_statement(fields)
-        self.fields_dict = fields
+        # must use deepcopy due to airflow calling field by reference
+        # and the update in the following row adding the metrics to the field,
+        # which in turn screws with the update_on_columns definition above
+        self.fields_dict = deepcopy(fields)
+        self.fields_dict.update({'metrics': deepcopy(metrics)})
+        self.fields_list = self.get_select_statement(self.fields_dict)
         self.resource = resource
         self.client_id = str(client_id)
         self.conditions = conditions
