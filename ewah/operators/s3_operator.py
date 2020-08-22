@@ -26,7 +26,7 @@ class EWAHS3Operator(EWAHBaseOperator):
     def __init__(self,
         bucket_name,
         file_format,
-        prefix=None, # use for subfolder structures
+        prefix='', # use for subfolder structures
         key_name=None, # if not specified, uses data_from and data_until
         data_from=None,
         data_until=None,
