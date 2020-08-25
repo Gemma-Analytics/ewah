@@ -1,5 +1,6 @@
 from airflow.models import BaseOperator
 from airflow.hooks.base_hook import BaseHook
+from airflow.utils.decorators import apply_defaults
 
 from ewah.dwhooks import get_dwhook
 from ewah.constants import EWAHConstants as EC
@@ -60,6 +61,7 @@ class EWAHBaseOperator(BaseOperator):
 
     _metadata = {} # to be updated by operator, if applicable
 
+    @apply_defaults
     def __init__(
         self,
         source_conn_id,
