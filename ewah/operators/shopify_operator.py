@@ -95,6 +95,9 @@ class EWAHShopifyOperator(EWAHBaseOperator):
         page_limit=250, # API Call pagination limit
     *args, **kwargs):
 
+        if is_iterable_not_string(shop_id):
+            raise Exception('Multiple shops in one DAG is deprecated!')
+
         if get_transactions_with_orders and not shopify_object == 'orders':
             raise Exception('transactions can only be pulled for orders!')
 
@@ -202,6 +205,8 @@ class EWAHShopifyOperator(EWAHBaseOperator):
         auth_type = self.auth_type
         if is_iterable_not_string(self.shop_id):
             # multiple shops to iterate - loop through!
+            # deprecated feature - don't use!
+            raise Exception('Multiple Shops in one DAG is deactivated!')
             self.log.info('iterating through multiple shops!')
             for shop_id in self.shop_id:
                 # metadata: shop id
@@ -218,7 +223,7 @@ class EWAHShopifyOperator(EWAHBaseOperator):
                 self._metadata.update({'shop_id': shop_id})
                 self.execute_for_shop(context, shop_id, params, sci, at)
         else:
-            self._metadata.update({'shop_id': shop_id})
+            self._metadata.update({'shop_id': self.shop_id})
             sci = self.source_conn_id
             at = self.auth_type
             self.execute_for_shop(context, self.shop_id, params, sci, at)
