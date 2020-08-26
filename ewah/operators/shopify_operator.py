@@ -83,6 +83,10 @@ class EWAHShopifyOperator(EWAHBaseOperator):
             'collection_id': None,
             'published_status': None,
         },
+        'tender_transactions': {
+            '_timestamp_fields': ('processed_at_min', 'processed_at_max'),
+            'since_id': None,
+        },
     }
 
     def __init__(self,
