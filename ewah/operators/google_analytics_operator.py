@@ -79,7 +79,7 @@ class EWAHGAOperator(EWAHBaseOperator):
 
         kwargs.update({'update_on_columns': [dim[3:] for dim in dimensions]})
 
-        self.credentials = BaseHook.get_connection(self.source_conn_id)
+        self.credentials = BaseHook.get_connection(kwargs['source_conn_id']) # dont commit this
         self.credentials = self.credentials.extra_dejson
         self.api = api
         self.view_id = view_id
@@ -107,7 +107,6 @@ class EWAHGAOperator(EWAHBaseOperator):
 
         if chunking_interval and not (type(chunking_interval) == timedelta):
             raise Exception('If supplied, chunking_interval must be timedelta!')
-
 
         if not self.credentials.get('client_secrets'):
             raise Exception('Google Analytics Credentials misspecified!' \

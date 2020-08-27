@@ -96,6 +96,7 @@ class EWAHShopifyOperator(EWAHBaseOperator):
         filter_fields={},
         api_version=None,
         get_transactions_with_orders=False,
+        get_events_with_orders=False,
         page_limit=250, # API Call pagination limit
     *args, **kwargs):
 
@@ -104,6 +105,9 @@ class EWAHShopifyOperator(EWAHBaseOperator):
 
         if get_transactions_with_orders and not shopify_object == 'orders':
             raise Exception('transactions can only be pulled for orders!')
+
+        if get_events_with_orders and not shopify_object == 'orders':
+            raise Exception('events can only be pulled for orders!')
 
         if not shopify_object in self._accepted_objects.keys():
             raise Exception('{0} is not in the list of accepted objects!' + \
@@ -155,6 +159,7 @@ class EWAHShopifyOperator(EWAHBaseOperator):
         self.api_version = api_version
         self.page_limit = page_limit
         self.get_transactions_with_orders = get_transactions_with_orders
+        self.get_events_with_orders = get_events_with_orders
 
     def execute(self, context):
         # can supply a list of shops - need to run for all shops individually!
@@ -257,10 +262,35 @@ class EWAHShopifyOperator(EWAHBaseOperator):
                 url = base_url.format(id=id)
                 req = requests.get(url, **req_kwargs)
                 if not req.status_code == 200:
+                    self.log.info('response: ' + str(req.status_code))
                     self.log.info('request text: ' + req.text)
                     raise Exception('non-200 response!')
                 transactions = json.loads(req.text).get('transactions', [])
                 datum['transactions'] = transactions
+
+            return data
+
+        def add_get_events(data, shop, version, req_kwargs):
+            # workaround to add events of an order to orders
+            self.log.info('Requesting events of orders...')
+            base_url = 'https://{shop}.myshopify.com/admin/api/{version}/orders/{id}/events.json'
+            base_url = base_url.format(
+                shop=shop,
+                version=version,
+                id='{id}',
+            )
+
+            for datum in data:
+                id = datum['id']
+                time.sleep(1)
+                url = base_url.format(id=id)
+                req = requests.get(url, **req_kwargs)
+                if not req.status_code == 200:
+                    self.log.info('response: ' + str(req.status_code))
+                    self.log.info('request text: ' + req.text)
+                    raise Exception('non-200 response!')
+                events = json.loads(req.text).get('events', [])
+                datum['events'] = events
 
             return data
 
@@ -313,6 +343,13 @@ class EWAHShopifyOperator(EWAHBaseOperator):
             ))
             if self.get_transactions_with_orders:
                 data = add_get_transactions(
+                    data=data,
+                    shop=shop_id,
+                    version=self.api_version,
+                    req_kwargs=kwargs_links,
+                )
+            if self.get_events_with_orders:
+                data = add_get_events(
                     data=data,
                     shop=shop_id,
                     version=self.api_version,
