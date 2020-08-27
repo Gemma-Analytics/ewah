@@ -23,6 +23,8 @@ class EWAHSQLBaseOperator(EWAHBaseOperator):
         sql_select_statement=None, # SQL as alternative to source_table_name
         data_from=None, # datetime, ISO datetime string, or airflow JINJA macro
         data_until=None, # datetime, ISO datetime string, or airflow JINJA macro
+        use_execution_date_for_incremental_loading=False, # use context instead
+        #   of data_from and data_until
         timestamp_column=None, # name of column to increment and/or chunk by
         chunking_interval=None, # can be datetime.timedelta or integer
         chunking_column=None, # defaults to primary key if integer
@@ -46,7 +48,8 @@ class EWAHSQLBaseOperator(EWAHBaseOperator):
             raise Exception('When setting reload_data_from, must also set ' \
                 + 'either reload_data_chunking or chunking_interval!')
 
-        if data_from or data_until:
+        if data_from or data_until or \
+            use_execution_date_for_incremental_loading:
             if not timestamp_column:
                 raise Exception("If you used data_from and/or data_until, you" \
                     + " must also use timestamp_column to specify the column" \
@@ -91,6 +94,17 @@ class EWAHSQLBaseOperator(EWAHBaseOperator):
                 raise Exception("Arg chunking_interval must be integer or "\
                     + "datetime.timedelta!")
 
+        self.data_from = data_from
+        self.data_until = data_until
+        self.use_execution_date_for_incremental_loading = \
+            use_execution_date_for_incremental_loading
+        self.timestamp_column = timestamp_column
+        self.chunking_interval = chunking_interval
+        self.chunking_column = chunking_column
+        self.reload_data_from = reload_data_from
+        self.reload_data_chunking = reload_data_chunking or chunking_interval
+
+        # run after setting class properties for templating
         super().__init__(*args, **kwargs)
 
         # self.base_select is a SELECT statement (i.e. a string) ending in a
@@ -134,21 +148,18 @@ class EWAHSQLBaseOperator(EWAHBaseOperator):
             'select_sql': self.base_sql,
         })
 
-        self.data_from = data_from
-        self.data_until = data_until
-        self.timestamp_column = timestamp_column
-        self.chunking_interval = chunking_interval
-        self.chunking_column = chunking_column
-        self.reload_data_from = reload_data_from
-        self.reload_data_chunking = reload_data_chunking or chunking_interval
-
     def execute(self, context):
         str_format = '%Y-%m-%dT%H:%M:%SZ'
 
-        self.data_from = airflow_datetime_adjustments(self.data_from)
-        self.data_until = airflow_datetime_adjustments(self.data_until)
+        if not self.drop_and_replace and \
+            self.use_execution_date_for_incremental_loading:
+            self.data_from = context['execution_date']
+            self.data_until = context['next_execution_date']
+        else:
+            self.data_from = airflow_datetime_adjustments(self.data_from)
+            self.data_until = airflow_datetime_adjustments(self.data_until)
         self.reload_data_from = \
-            airflow_datetime_adjustments(self.reload_data_from)
+                airflow_datetime_adjustments(self.reload_data_from)
 
         if self.drop_and_replace:
             self.log.info('Loading data as full refresh.')

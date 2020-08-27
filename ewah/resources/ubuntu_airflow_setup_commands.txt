@@ -1,0 +1,12 @@
+sudo apt-get update
+sudo apt-get -y dist-upgrade
+sudo apt-get install -y alien libaio1 openjdk-11-jre-headless build-essential libbz2-dev libssl-dev libreadline-dev libsqlite3-dev tk-dev libpng-dev libfreetype6-dev nginx libmysqlclient-dev python3-dev libevent-dev freetds-dev git-core libsasl2-dev gcc python-dev libkrb5-dev libffi-dev libpq-dev
+cd ~
+wget "https://www.python.org/ftp/python/3.7.9/Python-3.7.9.tgz"
+tar -xvzf Python-3.7.9.tgz
+cd Python-3.7.9
+./configure
+sudo make altinstall
+cd ..
+sudo rm -r -f /home/ubuntu/Python-3.7.9*
+pip3.7 install --upgrade --user pip virtualenv

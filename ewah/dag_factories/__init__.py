@@ -129,7 +129,14 @@ def dags_from_dict(
 
     dwh_engines = {
         'postgres': EC.DWH_ENGINE_POSTGRES,
+        'Postgres': EC.DWH_ENGINE_POSTGRES,
         'snowflake': EC.DWH_ENGINE_SNOWFLAKE,
+        'Snowflake': EC.DWH_ENGINE_SNOWFLAKE,
+        EC.DWH_ENGINE_POSTGRES: EC.DWH_ENGINE_POSTGRES,
+        EC.DWH_ENGINE_SNOWFLAKE: EC.DWH_ENGINE_SNOWFLAKE,
+        # EC.DWH_ENGINE_BIGQUERY: EC.DWH_ENGINE_BIGQUERY,
+        # EC.DWH_ENGINE_REDSHIFT: EC.DWH_ENGINE_REDSHIFT,
+        # EC.DWH_ENGINE_S3: EC.DWH_ENGINE_S3,
         # 'bigquery': EC.DWH_ENGINE_BIGQUERY,
         # 'redshift': EC.DWH_ENGINE_REDSHIFT,
         # 's3': EC.DWH_ENGINE_S3,
@@ -139,6 +146,8 @@ def dags_from_dict(
         'fx': EWAHFXOperator,
         'ga': EWAHGAOperator,
         'google_analytics': EWAHGAOperator,
+        'gads': EWAHGoogleAdsOperator,
+        'google_ads': EWAHGoogleAdsOperator,
         'mysql': EWAHMySQLOperator,
         'oracle': EWAHOracleSQLOperator,
         'postgres': EWAHPostgresOperator,

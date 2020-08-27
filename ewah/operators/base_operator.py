@@ -1,5 +1,6 @@
 from airflow.models import BaseOperator
 from airflow.hooks.base_hook import BaseHook
+from airflow.utils.decorators import apply_defaults
 
 from ewah.dwhooks import get_dwhook
 from ewah.constants import EWAHConstants as EC
@@ -60,6 +61,7 @@ class EWAHBaseOperator(BaseOperator):
 
     _metadata = {} # to be updated by operator, if applicable
 
+    @apply_defaults
     def __init__(
         self,
         source_conn_id,
@@ -126,8 +128,6 @@ class EWAHBaseOperator(BaseOperator):
                     + " the primary key(s)"
                 )
 
-        super().__init__(*args, **kwargs)
-
         self.source_conn_id = source_conn_id
         self.dwh_engine = dwh_engine
         self.dwh_conn_id = dwh_conn_id
@@ -152,6 +152,8 @@ class EWAHBaseOperator(BaseOperator):
 
         # wrap stuff around the final execute function, including the commit
         self.execute = self.wrap_exec(self.execute)
+
+        super().__init__(*args, **kwargs)
 
     def wrap_exec(self, exec_func):
         def callable_func(self=self, *args, **kwargs):

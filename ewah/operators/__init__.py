@@ -42,3 +42,7 @@ try:
     from ewah.operators.zendesk_operator import EWAHZendeskOperator
 except ImportError:
     from ewah.operators.base_operator import EWAHEmptyOperator as EWAHZendeskOperator
+try:
+    from ewah.operators.google_ads_operator import EWAHGoogleAdsOperator
+except ImportError:
+    from ewah.operators.base_operator import EWAHEmptyOperator as EWAHGoogleAdsOperator

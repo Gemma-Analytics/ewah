@@ -256,7 +256,9 @@ def dag_factory_incremental_loading(
             **additional_task_args
         )
     else:
-        raise ValueError('DWH not implemented for this task!')
+        raise ValueError('DWH "{0}" not implemented for this task!'.format(
+            dwh_engine,
+        ))
     reset_task >> drop_task
 
     # Incremental DAG schema tasks

@@ -92,6 +92,9 @@ class EWAHFBOperator(EWAHBaseOperator):
                     '\n\t'.join(allowed_insight_fields)
                 ))
 
+        self.data_from = data_from
+        self.data_until = data_until
+        
         super().__init__(*args, **kwargs)
 
         credentials = BaseHook.get_connection(self.source_conn_id)
@@ -112,8 +115,6 @@ class EWAHFBOperator(EWAHBaseOperator):
 
         self.account_ids = account_ids
         self.insight_fields = insight_fields
-        self.data_from = data_from
-        self.data_until = data_until
         self.level = level
         self.time_increment = time_increment
         self.breakdowns = breakdowns

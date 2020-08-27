@@ -6,6 +6,7 @@ from ewah.constants import EWAHConstants as EC
 from airflow.hooks.base_hook import BaseHook
 
 from datetime import datetime, timedelta
+from pytz import timezone
 
 from requests.auth import HTTPBasicAuth
 import requests
@@ -30,13 +31,25 @@ class EWAHShopifyOperator(EWAHBaseOperator):
     #   the key _is_drop_and_replace indicates objects that are only able
     #   to load with a full refresh
     _default_timestamp_fields = ('updated_at_min', 'updated_at_max')
+    _default_datetime_format = '%Y-%m-%d %H:%M:%S%z'
     _accepted_objects = {
+        'balance_transactions': {
+            '_is_drop_and_replace': True,
+            '_object_url': 'shopify_payments/balance/transactions',
+            '_name_in_request_data': 'transactions',
+            'since_id': None,
+            'last_id': None,
+            'test': None,
+            'payout_id': None,
+            'payout_status': None,
+        },
         'customers': {
             'ids': None,
             'since_id': None,
         },
-        'discount_codes': {
+        'disputes': {
             '_is_drop_and_replace': True,
+            '_object_url': 'shopify_payments/disputes',
         },
         'events': {
             '_timestamp_fields': ('created_at_min', 'created_at_max'),
@@ -52,8 +65,13 @@ class EWAHShopifyOperator(EWAHBaseOperator):
             'fulfillment_status': None,
             'fields': None,
         },
-        'price_rules': {
+        'payouts': {
+            '_timestamp_fields': ('date_min', 'date_max'),
+            '_datetime_format': '%Y-%m-%d',
+            '_object_url': 'shopify_payments/payouts',
             'since_id': None,
+            'last_id': None,
+            'status': None,
         },
         'products': {
             'ids': None,
@@ -65,6 +83,10 @@ class EWAHShopifyOperator(EWAHBaseOperator):
             'collection_id': None,
             'published_status': None,
         },
+        'tender_transactions': {
+            '_timestamp_fields': ('processed_at_min', 'processed_at_max'),
+            'since_id': None,
+        },
     }
 
     def __init__(self,
@@ -73,8 +95,15 @@ class EWAHShopifyOperator(EWAHBaseOperator):
         auth_type,
         filter_fields={},
         api_version=None,
+        get_transactions_with_orders=False,
         page_limit=250, # API Call pagination limit
     *args, **kwargs):
+
+        if is_iterable_not_string(shop_id):
+            raise Exception('Multiple shops in one DAG is deprecated!')
+
+        if get_transactions_with_orders and not shopify_object == 'orders':
+            raise Exception('transactions can only be pulled for orders!')
 
         if not shopify_object in self._accepted_objects.keys():
             raise Exception('{0} is not in the list of accepted objects!' + \
@@ -125,10 +154,26 @@ class EWAHShopifyOperator(EWAHBaseOperator):
         self.filter_fields = filter_fields
         self.api_version = api_version
         self.page_limit = page_limit
+        self.get_transactions_with_orders = get_transactions_with_orders
 
     def execute(self, context):
         # can supply a list of shops - need to run for all shops individually!
+        def datetime_to_string(dt, format):
+            # check if tz aware; set to utc if so
+            if dt.tzinfo:
+                dt = dt.astimezone(timezone('UTC'))
+            else:
+                dt = dt.replace(tzinfo=timezone('UTC'))
+            # check if format_string contains timezone
+            if '%z' in format:
+                # add colon!
+                dt_string = dt.strftime(format)
+                return dt_string[:-2] + ':' + dt_string[-2:]
+            else:
+                return dt.strftime(format)
+
         object_metadata = self._accepted_objects[self.shopify_object]
+        self.object_metadata = object_metadata
         params = {
             key: val
             for key, val in object_metadata.items()
@@ -141,19 +186,31 @@ class EWAHShopifyOperator(EWAHBaseOperator):
                 '_timestamp_fields',
                 self._default_timestamp_fields,
             )
+            timestamp_format_string = object_metadata.get(
+                '_datetime_format',
+                self._default_datetime_format,
+            )
             params.update({
                 # Pendulum by coincidence converts to the correct string format
-                timestamp_fields[1]: str(context['next_execution_date']),
+                timestamp_fields[1]: datetime_to_string(
+                        context['next_execution_date'],
+                        timestamp_format_string,
+                    ),
             })
             if self.test_if_target_table_exists():
                 params.update({
-                    timestamp_fields[0]: str(context['execution_date']),
+                    timestamp_fields[0]: datetime_to_string(
+                        context['execution_date'],
+                        timestamp_format_string,
+                    ),
                 })
 
         source_conn_id = self.source_conn_id
         auth_type = self.auth_type
         if is_iterable_not_string(self.shop_id):
             # multiple shops to iterate - loop through!
+            # deprecated feature - don't use!
+            raise Exception('Multiple Shops in one DAG is deactivated!')
             self.log.info('iterating through multiple shops!')
             for shop_id in self.shop_id:
                 # metadata: shop id
@@ -170,7 +227,7 @@ class EWAHShopifyOperator(EWAHBaseOperator):
                 self._metadata.update({'shop_id': shop_id})
                 self.execute_for_shop(context, shop_id, params, sci, at)
         else:
-            self._metadata.update({'shop_id': shop_id})
+            self._metadata.update({'shop_id': self.shop_id})
             sci = self.source_conn_id
             at = self.auth_type
             self.execute_for_shop(context, self.shop_id, params, sci, at)
@@ -183,11 +240,38 @@ class EWAHShopifyOperator(EWAHBaseOperator):
         auth_type,
     ):
         # Get data from shopify via REST API
+        def add_get_transactions(data, shop, version, req_kwargs):
+            # workaround to add transactions to orders
+            self.log.info('Requesting transactions of orders...')
+            base_url = "https://{shop}.myshopify.com/admin/api/{version}/orders/{id}/transactions.json"
+            base_url = base_url.format(**{
+                'shop': shop,
+                'version': version,
+                'id': '{id}',
+            })
+
+            for datum in data:
+                id = datum['id']
+                # self.log.info('getting transactions for order {0}'.format(id))
+                time.sleep(1) # avoid hitting api call requested per second limit
+                url = base_url.format(id=id)
+                req = requests.get(url, **req_kwargs)
+                if not req.status_code == 200:
+                    self.log.info('request text: ' + req.text)
+                    raise Exception('non-200 response!')
+                transactions = json.loads(req.text).get('transactions', [])
+                datum['transactions'] = transactions
+
+            return data
+
 
         url = self._base_url.format(**{
             'shop': shop_id,
             'version': self.api_version,
-            'object': self.shopify_object,
+            'object': self.object_metadata.get(
+                '_object_url',
+                self.shopify_object,
+            ),
         })
 
         # get connection for the applicable shop
@@ -216,19 +300,33 @@ class EWAHShopifyOperator(EWAHBaseOperator):
         # get and upload data
         self.log.info('Requesting data from REST API - url: {0}, params: {1}' \
             .format(url, str(params)))
-        r = requests.get(url, **kwargs_init)
-        while r.status_code == 200 \
-            and r.headers.get('Link') \
-            and r.headers['Link'][-10:] == 'rel="next"':
-            self.upload_data(json.loads(r.text)[self.shopify_object])
+        req_kwargs = kwargs_init
+        is_first = True
+        while is_first or (r.status_code == 200 and url):
+            r = requests.get(url, **req_kwargs)
+            if is_first:
+                is_first = False
+                req_kwargs = kwargs_links
+            data = json.loads(r.text or '{}').get(self.object_metadata.get(
+                '_name_in_request_data',
+                self.shopify_object,
+            ))
+            if self.get_transactions_with_orders:
+                data = add_get_transactions(
+                    data=data,
+                    shop=shop_id,
+                    version=self.api_version,
+                    req_kwargs=kwargs_links,
+                )
+            self.upload_data(data)
             self.log.info('Requesting next page of data...')
-            r = requests.get(r.headers.get('Link')[1:-13], **kwargs_links)
+            if r.headers.get('Link') and r.headers['Link'][-9:] == 'el="next"':
+                url = r.headers['Link'][1:-13]
+            else:
+                url = None
 
         if not r.status_code == 200:
             raise Exception('Shopify request returned an error {1}: {0}'.format(
                 r.text,
                 str(r.status_code),
             ))
-
-        # The last page is not uploaded within the while loop!
-        self.upload_data(json.loads(r.text)[self.shopify_object])

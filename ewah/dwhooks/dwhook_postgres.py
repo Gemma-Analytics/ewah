@@ -72,7 +72,7 @@ class EWAHDWHookPostgres(EWAHBaseDWHook):
                 commit=False,
             )
 
-        if not drop_and_replace:
+        if not drop_and_replace and update_on_columns:
             # make sure there is a unique constraint for update_on_columns
             self.execute(
                 sql="""
@@ -104,10 +104,11 @@ class EWAHDWHookPostgres(EWAHBaseDWHook):
             'table_name': table_name,
             'placeholder': '{placeholder}',
             'column_names': '", "'.join(cols_list),
-            'do_on_conflict': 'DO NOTHING' if drop_and_replace else """
-                ("{update_columns}") DO UPDATE SET\n\t{sets}
+            'do_on_conflict': 'DO NOTHING' \
+                if drop_and_replace or not update_on_columns else """
+                ("{update_on_columns}") DO UPDATE SET\n\t{sets}
             """.format(
-                update_columns='", "'.join(update_on_columns),
+                update_on_columns='", "'.join(update_on_columns),
                 sets='\n\t,'.join([
                     '"{column}" = EXCLUDED."{column}"'.format(column=column)
                     for column in set_columns
@@ -116,7 +117,7 @@ class EWAHDWHookPostgres(EWAHBaseDWHook):
         }).replace('%', '%%').format(**{
             'placeholder': '%s',
         })
-        logging_function('Now Uploading!')
+        logging_function('Now Uploading! Using SQL:\n\n{0}'.format(sql))
         # escape crappy column names by using aliases in the psycopg2 template
         cols_map = {cols_list[i]:'col_'+str(i) for i in range(len(cols_list))}
         template = '(%('
@@ -146,9 +147,11 @@ class EWAHDWHookPostgres(EWAHBaseDWHook):
 
 
     def commit(self):
+        self.logging_func('DWH Hook: Committing changes!')
         self.conn.commit()
 
     def rollback(self):
+        self.logging_func('DWH Hook: Rolling back changes!')
         self.conn.rollback()
 
     def test_if_table_exists(self, table_name, schema_name):

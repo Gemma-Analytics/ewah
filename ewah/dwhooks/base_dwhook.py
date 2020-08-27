@@ -15,10 +15,11 @@ class EWAHBaseDWHook(BaseHook):
     always a child of this class and contains logic that is DWH specific.
     """
 
-    def __init__(self, dwh_engine, *args, **kwargs):
+    def __init__(self, dwh_engine, *args, logging_func=None, **kwargs):
         super().__init__(*args, **kwargs)
         self.dwh_engine = dwh_engine
         self.credentials = self.get_connection(args[0])
+        self.logging_func = logging_func or print
         self._init_conn(first_call=True)
 
     def __del__(self, *args, **kwargs):
@@ -60,6 +61,7 @@ class EWAHBaseDWHook(BaseHook):
             self.conn.close()
 
     def execute(self, sql, params=None, commit=False, cursor=None):
+        self.logging_func('\nExecuting SQL:\n\n{0}'.format(sql))
         for statement in sql.split(';'):
             if statement.strip():
                 kwargs = {}
