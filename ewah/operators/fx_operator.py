@@ -52,7 +52,7 @@ class EWAHFXOperator(EWAHBaseOperator):
 
         super().__init__(*args, **kwargs)
 
-    def execute(self, context):
+    def ewah_execute(self, context):
         self.data_from = self.data_from or context['dag'].start_date
         self.data_until = self.data_until or datetime.now()
 

@@ -161,7 +161,7 @@ class EWAHShopifyOperator(EWAHBaseOperator):
         self.get_transactions_with_orders = get_transactions_with_orders
         self.get_events_with_orders = get_events_with_orders
 
-    def execute(self, context):
+    def ewah_execute(self, context):
         # can supply a list of shops - need to run for all shops individually!
         def datetime_to_string(dt, format):
             # check if tz aware; set to utc if so

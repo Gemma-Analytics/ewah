@@ -148,7 +148,7 @@ class EWAHSQLBaseOperator(EWAHBaseOperator):
             'select_sql': self.base_sql,
         })
 
-    def execute(self, context):
+    def ewah_execute(self, context):
         str_format = '%Y-%m-%dT%H:%M:%SZ'
 
         if not self.drop_and_replace and \

@@ -66,7 +66,7 @@ class EWAHS3Operator(EWAHBaseOperator):
 
         super().__init__(*args, **kwargs)
 
-    def execute(self, context):
+    def ewah_execute(self, context):
         if not self.drop_and_replace and not self.key_name:
             self.data_from = self.data_from or context['execution_date']
             self.data_until = self.data_until or context['next_execution_date']

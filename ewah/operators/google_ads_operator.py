@@ -75,7 +75,7 @@ class EWAHGoogleAdsOperator(EWAHBaseOperator):
                     fields += [prefix + key + '.' + item]
         return fields
 
-    def execute(self, context):
+    def ewah_execute(self, context):
         # Task execution happens here
         def get_data_from_ads_output(fields_dict, values, prefix=None):
             if prefix is None:

@@ -142,7 +142,7 @@ class EWAHGAOperator(EWAHBaseOperator):
                 'Please specify a page size equal to or lower than 10000.')
 
 
-    def execute(self, context):
+    def ewah_execute(self, context):
         self.data_until = airflow_datetime_adjustments(self.data_until)
         self.data_from = airflow_datetime_adjustments(self.data_from)
         self.reload_data_from = \
