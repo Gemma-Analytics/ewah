@@ -94,7 +94,7 @@ class EWAHFBOperator(EWAHBaseOperator):
 
         self.data_from = data_from
         self.data_until = data_until
-        
+
         super().__init__(*args, **kwargs)
 
         credentials = BaseHook.get_connection(self.source_conn_id)
@@ -126,7 +126,7 @@ class EWAHFBOperator(EWAHBaseOperator):
     def _clean_response_data(self, response):
         return [dict(datum) for datum in list(response)]
 
-    def execute(self, context):
+    def ewah_execute(self, context):
         if not self.test_if_target_table_exists():
             if self.reload_data_from:
                 self.data_from = self.reload_data_from

@@ -81,7 +81,7 @@ class EWAHGSpreadOperator(EWAHBaseOperator):
         self.start_row = start_row
         self.end_row = end_row
 
-    def execute(self, context):
+    def ewah_execute(self, context):
         client = gspread.authorize(
             SAC.from_json_keyfile_dict(
                 self.client_secrets,

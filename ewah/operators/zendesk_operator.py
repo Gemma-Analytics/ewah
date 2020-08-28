@@ -74,7 +74,7 @@ class EWAHZendeskOperator(EWAHBaseOperator):
         self.data_from = data_from
         #self.page_limit = page_limit
 
-    def execute(self, context):
+    def ewah_execute(self, context):
         # Make sure it is at least 70 seconds after next_execution_date!
         # Reason: Immediate execution may miss the latest tickets
         td70 = timedelta(seconds=70)

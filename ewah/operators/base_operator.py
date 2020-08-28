@@ -61,7 +61,6 @@ class EWAHBaseOperator(BaseOperator):
 
     _metadata = {} # to be updated by operator, if applicable
 
-    @apply_defaults
     def __init__(
         self,
         source_conn_id,
@@ -80,6 +79,7 @@ class EWAHBaseOperator(BaseOperator):
         # Note: that metadata is specified by a dict on operator level!
         # metadata can only be added if no columns definition is given
     *args, **kwargs):
+        super().__init__(*args, **kwargs)
 
         if not dwh_engine or not dwh_engine in EC.DWH_ENGINES:
             raise Exception('Invalid DWH Engine: {0}\n\nAccapted Engines:{1}'
@@ -150,22 +150,26 @@ class EWAHBaseOperator(BaseOperator):
 
         self.hook = get_dwhook(self.dwh_engine)
 
-        # wrap stuff around the final execute function, including the commit
-        self.execute = self.wrap_exec(self.execute)
-
-        super().__init__(*args, **kwargs)
-
-    def wrap_exec(self, exec_func):
-        def callable_func(self=self, *args, **kwargs):
-            self.upload_hook = self.hook(self.dwh_conn_id)
-            # execute operator
-            result = exec_func(*args, **kwargs)
-            self.log.info('Now committing changes!')
-            # commit only at the end, when all has worked out!
-            self.upload_hook.commit()
-            self.upload_hook.close()
-            return result
-        return callable_func
+    def execute(self, context):
+        """ Why this method is defined here:
+            When executing a task, airflow calls this method. Generally, this
+            method contains the "business logic" of the individual operator.
+            However, EWAH may want to do some actions for all operators. Thus,
+            the child operators shall have an ewah_execute() function which is
+            called by this general execute() method.
+        """
+        # the upload hook is used in the self.upload_data() function
+        # which is called by the child's ewah_execute function whenever there is
+        # data to upload.
+        self.upload_hook = self.hook(self.dwh_conn_id)
+        # execute operator
+        result = self.ewah_execute(context)
+        # commit only at the end, so that no data may be committed before an
+        # error occurs.
+        self.log.info('Now committing changes!')
+        self.upload_hook.commit()
+        self.upload_hook.close()
+        return result
 
     def test_if_target_table_exists(self):
         hook = self.hook(self.dwh_conn_id)
@@ -225,11 +229,10 @@ class EWAHBaseOperator(BaseOperator):
                         }})
         return result
 
-    def upload_data(
-        self,
-        data=None,
-        columns_definition=None,
-    ):
+    def upload_data(self, data=None, columns_definition=None):
+        """Upload data, no matter the source. Call this functions in the child
+            operator whenever data is available for upload, as often as needed.
+        """
         if not data:
             self.log.info('No data to upload!')
             return
@@ -278,9 +281,13 @@ class EWAHBaseOperator(BaseOperator):
             logging_function=self.log.info,
             clean_data_before_upload=self.clean_data_before_upload,
         )
-
-        #hook.commit()
-        #hook.close() conn is committed closed at the end by the wrapper func!
+        """ Note on commiting changes:
+            The hook used for data uploading is created at the beginning of the
+            execute function and automatically committed and closed at the end.
+            DO NOT commit in this function, as multiple uploads may be required,
+            and any intermediate commit may be subsequently followed by an
+            error, which would then result in incomplete data committed.
+        """
 
 class EWAHEmptyOperator(EWAHBaseOperator):
     _IS_INCREMENTAL = True

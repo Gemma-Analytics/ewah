@@ -133,7 +133,7 @@ class EWAHMongoDBOperator(EWAHBaseOperator):
                     last_id=last_id,
                 )
 
-    def execute(self, context):
+    def ewah_execute(self, context):
         if not self.drop_and_replace and not self.test_if_target_table_exists():
             self.data_from = self.reload_data_from
             self.log.info('Reloading data from {0}'.format(str(self.data_from)))
