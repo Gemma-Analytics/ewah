@@ -94,7 +94,7 @@ class EWAHZendeskOperator(EWAHBaseOperator):
         self._metadata.update({'support_url': self.support_url})
 
         # run correct execute function
-        return self._accepted_resources[self.resource]['function'](context)
+        return self._accepted_resources[self.resource]['function'](self,context)
 
     def get_data_from(self, context):
         if self.test_if_target_table_exists():
