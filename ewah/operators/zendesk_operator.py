@@ -94,7 +94,7 @@ class EWAHZendeskOperator(EWAHBaseOperator):
         self._metadata.update({'support_url': self.support_url})
 
         # run correct execute function
-        return self._accepted_resources[self.resource]['function'](self,context)
+        return self._accepted_resources[self.resource]['function'](context,self)
 
     def get_data_from(self, context):
         if self.test_if_target_table_exists():
@@ -105,7 +105,7 @@ class EWAHZendeskOperator(EWAHBaseOperator):
     def make_unix_datetime(self, dt):
         return str(int(time.mktime(dt.timetuple())))
 
-    def get_custom_ticket_fields(self, context):
+    def get_custom_ticket_fields(_, context, self):
         url = self._base_url.format(
             support_url=self.support_url,
             endpoint='api/v2/ticket_fields.json',
@@ -119,7 +119,7 @@ class EWAHZendeskOperator(EWAHBaseOperator):
         data = json.loads(req.text)['ticket_fields']
         self.upload_data(data)
 
-    def execute_incremental_cursor_based(self, context):
+    def execute_incremental_cursor_based(_, context, self):
         if not self.resource in ['tickets', 'ticket_audits']:
             raise Exception('cursor-based load not implemented!')
 
@@ -172,7 +172,7 @@ class EWAHZendeskOperator(EWAHBaseOperator):
             ))
 
 
-    def execute_incremental_time_based(self, context):
+    def execute_incremental_time_based(_, context, self):
 
         url = self._base_url.format(**{
             'support_url': self.support_url,
