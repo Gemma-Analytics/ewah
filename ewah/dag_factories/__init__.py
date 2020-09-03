@@ -163,6 +163,8 @@ def dags_from_dict(
         'mongodb': EWAHMongoDBOperator,
         'shopify': EWAHShopifyOperator,
         'zendesk': EWAHZendeskOperator,
+        'gmaps': EWAHGMapsOperator,
+        'googlemaps': EWAHGMapsOperator,
     }
 
     allowed_dag_args = [
