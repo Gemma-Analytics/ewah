@@ -89,6 +89,10 @@ i.e., there are nested object structures, the `fields` structure must reflect th
 
 Finally, note that `segments.date` is always required in the `fields` argument.
 
+### Oracle operator particularities
+
+The Oracle operator utilizes the `cx_Oracle` python library. To make it work, you need to install additional packages, see [here](https://cx-oracle.readthedocs.io/en/latest/user_guide/installation.html#installing-cx-oracle-on-linux) for details.
+
 #### Example
 
 Sample configuration in `dags.yaml` file:
