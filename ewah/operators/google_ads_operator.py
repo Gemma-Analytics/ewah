@@ -36,9 +36,15 @@ class EWAHGoogleAdsOperator(EWAHBaseOperator):
             recommendation: leave data_until=None and use a timedelta for
             data_from.
         """
+
+        if kwargs.get('columns_definition'):
+            raise Exception('columns_definition is not accepted for this ' \
+                + 'operator!')
+
         kwargs['update_on_columns'] = [
             col.replace('.', '_') for col in self.get_select_statement(fields)
-        ]
+            if col[:7] == 'segment'
+        ] + ['{0}_resource_name'.format(resource)]
 
         if conditions and not is_iterable_not_string(conditions):
             raise Exception('Argument "conditions" must be a list!')
@@ -158,10 +164,12 @@ class EWAHGoogleAdsOperator(EWAHBaseOperator):
 
         # get into uploadable format
         upload_data = []
+        fields_dict = deepcopy(self.fields_dict)
+        fields_dict.update({self.resource: ['resource_name']})
         while data:
             datum = data.pop(0)
             upload_data += [get_data_from_ads_output(
-                deepcopy(self.fields_dict),
+                fields_dict,
                 datum,
             )]
 
