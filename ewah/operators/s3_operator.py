@@ -31,7 +31,7 @@ class EWAHS3Operator(EWAHBaseOperator):
         data_from=None,
         data_until=None,
         csv_format_options={},
-        has_bom=False, # bye order mark - special characters in csv files
+        csv_encoding='utf-8',
     *args, **kwargs):
 
         if not file_format in self._IMPLEMENTED_FORMATS:
@@ -62,7 +62,7 @@ class EWAHS3Operator(EWAHBaseOperator):
         self.data_until = data_until
         self.file_format = file_format
         self.csv_format_options = csv_format_options
-        self.has_bom = has_bom
+        self.csv_encoding = csv_encoding
 
         super().__init__(*args, **kwargs)
 
@@ -108,10 +108,11 @@ class EWAHS3Operator(EWAHBaseOperator):
                     continue
 
                 self.log.info('Loading data from file {0}'.format(obj.key))
-                raw_data = hook.read_key(obj.key, self.bucket_name)
-                if self.has_bom:
-                    raw_data = raw_data.replace('\ufeff', '')
-                raw_data = raw_data.splitlines()
+                raw_data = obj.get()['Body'].read()
+                # remove BOM if it exists
+                if raw_data[:3] == b'\xef\xbb\xbf':
+                    raw_data = raw_data[3:]
+                raw_data = raw_data.decode(self.csv_encoding).splitlines()
                 reader = csv.DictReader(raw_data, **self.csv_format_options)
                 data = list(reader)
                 self._metadata.update({
