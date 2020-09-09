@@ -78,8 +78,14 @@ class EWAHBaseOperator(BaseOperator):
         add_metadata=True, # adds columns with metadata to all rows
         # Note: that metadata is specified by a dict on operator level!
         # metadata can only be added if no columns definition is given
+        exclude_columns=[], # list of columns to exclude, if no
+        # columns_definition was supplied (e.g. for select * with sql)
     *args, **kwargs):
         super().__init__(*args, **kwargs)
+
+        if columns_definition and exclude_columns:
+            raise Exception('Must not supply both columns_definition and ' \
+                + 'exclude_columns!')
 
         if not dwh_engine or not dwh_engine in EC.DWH_ENGINES:
             raise Exception('Invalid DWH Engine: {0}\n\nAccapted Engines:{1}'
@@ -147,6 +153,7 @@ class EWAHBaseOperator(BaseOperator):
         self.primary_key_column_name = primary_key_column_name # may be used ...
         #   ... by a child class at execution!
         self.add_metadata = add_metadata
+        self.exclude_columns = exclude_columns
 
         self.hook = get_dwhook(self.dwh_engine)
 
@@ -207,7 +214,9 @@ class EWAHBaseOperator(BaseOperator):
             if self.add_metadata and self._metadata:
                 datum.update(self._metadata)
             for field in datum.keys():
-                if not (result.get(field, {}).get(EC.QBC_FIELD_TYPE) \
+                if field in self.exclude_columns:
+                    del datum[field]
+                elif not (result.get(field, {}).get(EC.QBC_FIELD_TYPE) \
                     == inconsistent_data_type) and (not datum[field] is None):
                     if result.get(field):
                         # column has been added in a previous iteration.
