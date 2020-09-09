@@ -23,6 +23,8 @@ class EWAHS3Operator(EWAHBaseOperator):
         'CSV',
     ]
 
+    _BOM = b'\xef\xbb\xbf'
+
     def __init__(self,
         bucket_name,
         file_format,
@@ -110,9 +112,20 @@ class EWAHS3Operator(EWAHBaseOperator):
                 self.log.info('Loading data from file {0}'.format(obj.key))
                 raw_data = obj.get()['Body'].read()
                 # remove BOM if it exists
-                if raw_data[:3] == b'\xef\xbb\xbf':
+                # also, if file has a BOM, it is 99.9% utf-9 encoded!
+                if raw_data[:3] == self._BOM:
                     raw_data = raw_data[3:]
-                raw_data = raw_data.decode(self.csv_encoding).splitlines()
+                    csv_encoding = 'utf-8'
+                else:
+                    csv_encoding = self.csv_encoding
+                # there may be a BOM while still not utf-8 -> use the
+                # given csv_encoding argument if so
+                try:
+                    raw_data = raw_data.decode(csv_encoding).splitlines()
+                except UnicodeDecodeError:
+                    if csv_encoding == self.csv_encoding:
+                        raise
+                    raw_data = raw_data.decode(self.csv_encoding).splitlines()
                 reader = csv.DictReader(raw_data, **self.csv_format_options)
                 data = list(reader)
                 self._metadata.update({
