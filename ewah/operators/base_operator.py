@@ -215,7 +215,7 @@ class EWAHBaseOperator(BaseOperator):
                 datum.update(self._metadata)
             for field in datum.keys():
                 if field in self.exclude_columns:
-                    del datum[field]
+                    datum[field] = None
                 elif not (result.get(field, {}).get(EC.QBC_FIELD_TYPE) \
                     == inconsistent_data_type) and (not datum[field] is None):
                     if result.get(field):
