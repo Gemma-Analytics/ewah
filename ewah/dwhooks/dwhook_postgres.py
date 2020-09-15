@@ -47,6 +47,7 @@ class EWAHDWHookPostgres(EWAHBaseDWHook):
         data,
         table_name,
         schema_name,
+        schema_suffix,
         # database_name,
         columns_definition,
         columns_partial_query,
@@ -56,6 +57,7 @@ class EWAHDWHookPostgres(EWAHBaseDWHook):
         upload_chunking=100000,
     ):
         logging_function('Preparing DWH Tables...')
+        schema_name += schema_suffix
         if drop_and_replace or (not self.test_if_table_exists(
             table_name=table_name,
             schema_name=schema_name,

@@ -79,6 +79,7 @@ class EWAHDWHookSnowflake(EWAHBaseDWHook):
         data,
         table_name,
         schema_name,
+        schema_suffix,
         database_name,
         columns_definition,
         columns_partial_query,
@@ -87,6 +88,7 @@ class EWAHDWHookSnowflake(EWAHBaseDWHook):
         logging_function,
     ):
         logging_function('Preparing DWH Tables...')
+        schema_name += schema_suffix
         new_table_name = table_name + '_new'
         self.execute(
             sql="""CREATE OR REPLACE TABLE

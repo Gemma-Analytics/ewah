@@ -281,7 +281,8 @@ class EWAHBaseOperator(BaseOperator):
             data=data,
             columns_definition=columns_definition,
             table_name=self.target_table_name,
-            schema_name=self.target_schema_name+self.target_schema_suffix,
+            schema_name=self.target_schema_name,
+            schema_suffix=self.target_schema_suffix,
             database_name=self.target_database_name,
             drop_and_replace=self.drop_and_replace and \
                 (self.upload_call_count == 1), # In case of chunking of uploads

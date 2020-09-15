@@ -1,5 +1,6 @@
 from airflow.operators.postgres_operator import PostgresOperator as PGO
 from airflow.operators.python_operator import PythonOperator as PO
+from airflow.operators.dummy_operator import DummyOperator as DO
 from airflow.hooks.base_hook import BaseHook
 
 from ewah.dwhooks.dwhook_snowflake import EWAHDWHookSnowflake
@@ -221,5 +222,17 @@ def etl_schema_tasks(
             'dag': dag,
         })
         return (PO(**task_1_args), PO(**task_2_args))
+    elif dwh_engine == EC.DWH_ENGINE_GS:
+        # create dummy tasks
+        return (
+            DO(
+                task_id='kickoff',
+                dag=dag,
+            ),
+            DO(
+                task_id='final',
+                dag=dag,
+            ),
+        )
     else:
         raise ValueError('Feature not implemented!')
