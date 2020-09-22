@@ -70,7 +70,10 @@ class EWAHDWHookGSheets(EWAHBaseDWHook):
         # authorize and get correct worksheet
         servie_acc_file = NamedTemporaryFile()
         logging_function('Authenticating...')
-        service_acc = json.dumps(self.credentials.extra_dejson) # .encode()
+        credentials = self.credentials.extra_dejson
+        if credentials.get('client_secrets'):
+            credentials = credentials['client_secrets']
+        service_acc = json.dumps(credentials)
         filename = os.path.abspath(servie_acc_file.name)
         with open(filename, 'w') as f:
             f.write(service_acc)
