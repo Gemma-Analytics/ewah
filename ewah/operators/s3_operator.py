@@ -29,6 +29,7 @@ class EWAHS3Operator(EWAHBaseOperator):
         bucket_name,
         file_format,
         prefix='', # use for subfolder structures
+        suffix=None, # use e.g. for file types
         key_name=None, # if not specified, uses data_from and data_until
         data_from=None,
         data_until=None,
@@ -59,6 +60,7 @@ class EWAHS3Operator(EWAHBaseOperator):
 
         self.bucket_name = bucket_name
         self.prefix = prefix
+        self.suffix = suffix
         self.key_name = key_name
         self.data_from = data_from
         self.data_until = data_until
@@ -98,6 +100,7 @@ class EWAHS3Operator(EWAHBaseOperator):
         self.data_from = airflow_datetime_adjustments(self.data_from)
         self.data_until = airflow_datetime_adjustments(self.data_until)
         hook = S3Hook(self.source_conn_id)
+        suffix = self.suffix
         if self.key_name:
             data = hook.read_key(self.key_name, self.bucket_name)
             self.upload_data(data=data)
@@ -108,6 +111,9 @@ class EWAHS3Operator(EWAHBaseOperator):
                 if self.data_from and obj.last_modified < self.data_from:
                     continue
                 if self.data_until and obj.last_modified >= self.data_until:
+                    continue
+
+                if suffix and not suffix == obj.key[-len(suffix):]:
                     continue
 
                 self.log.info('Loading data from file {0}'.format(obj.key))
@@ -141,6 +147,9 @@ class EWAHS3Operator(EWAHBaseOperator):
         self.data_until = airflow_datetime_adjustments(self.data_until)
 
         hook = S3Hook(self.source_conn_id)
+
+        if self.suffix:
+            raise Exception('Feature not implemented!')
 
         if self.key_name:
             data = f_get_data(
