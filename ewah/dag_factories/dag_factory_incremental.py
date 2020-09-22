@@ -11,6 +11,7 @@ from datetime import datetime, timedelta
 from collections.abc import Iterable
 from copy import deepcopy
 import time
+import re
 
 class ExtendedETS(ETS):
     """Extend ETS functionality to support the interplay of backfill and
@@ -319,10 +320,10 @@ def dag_factory_incremental_loading(
         arg_dict.update({'drop_and_replace': False})
         arg_dict.update(operator_config.get('general_config', {}))
         arg_dict_internal = {
-            'task_id': 'extract_load_' + table,
+            'task_id': 'extract_load_' + re.sub(r'[^a-zA-Z0-9_]', '', table),
             'dwh_engine': dwh_engine,
             'dwh_conn_id': dwh_conn_id,
-            'target_table_name': table,
+            'target_table_name': operator_config['tables'][table].get('target_table_name', table),
             'target_schema_name': target_schema_name,
             'target_schema_suffix': target_schema_suffix,
             'target_database_name': target_database_name,
