@@ -100,6 +100,7 @@ class EWAHS3Operator(EWAHBaseOperator):
         hook = S3Hook(self.source_conn_id)
         if self.key_name:
             data = hook.read_key(self.key_name, self.bucket_name)
+            self.upload_data(data=data)
         else:
             bucket = hook.get_bucket(self.bucket_name)
             for obj in bucket.objects.filter(Prefix=self.prefix):
@@ -147,6 +148,7 @@ class EWAHS3Operator(EWAHBaseOperator):
                 key=self.key_name,
                 bucket=self.bucket_name,
             )
+            self.upload_data(data=data)
         else:
             data = []
             bucket = hook.get_bucket(self.bucket_name)
