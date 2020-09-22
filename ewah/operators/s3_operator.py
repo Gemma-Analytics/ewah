@@ -70,6 +70,20 @@ class EWAHS3Operator(EWAHBaseOperator):
 
         super().__init__(*args, **kwargs)
 
+    def _iterate_through_bucket(self, s3hook, bucket, prefix):
+        """ The bucket.objects.filter() method only returns a max of 1000
+            objects. If more objects are in an S3 bucket, pagniation is
+            required. See also: https://stackoverflow.com/questions/44238525/how-to-iterate-over-files-in-an-s3-bucket
+        """
+        cli = s3hook.get_client_type('s3')
+        paginator = cli.get_paginator('list_objects_v2')
+        page_iterator = paginator.paginate(Bucket=bucket, Prefix=prefix)
+
+        for page in page_iterator:
+            if page['KeyCount'] > 0:
+                for item in page['Contents']:
+                    yield item
+
     def ewah_execute(self, context):
         if not self.drop_and_replace and not self.key_name:
             self.data_from = self.data_from or context['execution_date']
@@ -105,14 +119,18 @@ class EWAHS3Operator(EWAHBaseOperator):
             data = hook.read_key(self.key_name, self.bucket_name)
             self.upload_data(data=data)
         else:
-            bucket = hook.get_bucket(self.bucket_name)
-            for obj in bucket.objects.filter(Prefix=self.prefix):
+            objects = self._iterate_through_bucket(
+                s3hook=hook,
+                bucket=self.bucket_name,
+                prefix=self.prefix,
+            )
+            for obj_iter in objects:
                 # skip all files outside of loading scope
+                obj = hook.get_key(obj_iter['Key'], self.bucket_name)
                 if self.data_from and obj.last_modified < self.data_from:
                     continue
                 if self.data_until and obj.last_modified >= self.data_until:
                     continue
-
                 if suffix and not suffix == obj.key[-len(suffix):]:
                     continue
 
@@ -147,9 +165,7 @@ class EWAHS3Operator(EWAHBaseOperator):
         self.data_until = airflow_datetime_adjustments(self.data_until)
 
         hook = S3Hook(self.source_conn_id)
-
-        if self.suffix:
-            raise Exception('Feature not implemented!')
+        suffix = self.suffix
 
         if self.key_name:
             data = f_get_data(
@@ -160,11 +176,18 @@ class EWAHS3Operator(EWAHBaseOperator):
             self.upload_data(data=data)
         else:
             data = []
-            bucket = hook.get_bucket(self.bucket_name)
-            for obj in bucket.objects.filter(Prefix=self.prefix):
+            objects = self._iterate_through_bucket(
+                s3hook=hook,
+                bucket=self.bucket_name,
+                prefix=self.prefix,
+            )
+            for obj_iter in objects:
+                obj = hook.get_key(obj_iter['Key'], self.bucket_name)
                 if self.data_from and obj.last_modified < self.data_from:
                     continue
                 if self.data_until and obj.last_modified >= self.data_until:
+                    continue
+                if suffix and not suffix == obj.key[-len(suffix):]:
                     continue
 
                 self.log.info('Loading data from file {0}'.format(
