@@ -10,14 +10,17 @@ import os
 
 def monkeypatch_values_update(func_to_call):
     def monkeypatch_func(range_name, params, body):
-        new_body = {}
-        for k, v in body.items():
-            if isinstance(v, datetime):
-                v = v.strftime('%Y-%m-%d %H:%M:%S%z')
-            elif isinstance(v, Decimal):
-                v = float(v)
-            new_body.update({k: v})
-        return func_to_call(range_name, params=params, body=new_body)
+        values = body.get('values')
+        if values:
+            values = [[ \
+                float(v) for v in outer \
+                    if isinstance(v, Decimal)
+                else v.strftime('%Y-%m-%d %H:%M:%S%z') \
+                    if isinstance(v, datetime)
+                else v
+            ] for outer in values]
+            body['values'] = values
+        return func_to_call(range_name, params=params, body=body)
     return monkeypatch_func
 
 class EWAHDWHookGSheets(EWAHBaseDWHook):
