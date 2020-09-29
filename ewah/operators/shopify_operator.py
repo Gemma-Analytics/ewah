@@ -292,7 +292,7 @@ class EWAHShopifyOperator(EWAHBaseOperator):
             for datum in data:
                 ids = [v['inventory_item_id'] for v in datum.get('variants',[])]
                 if ids:
-                    kwargs['ids'] = copy.deepcopy(ids)
+                    kwargs['params'].update({'ids': copy.deepcopy(ids)})
                     time.sleep(1) # avoid hitting api call requested limit
                     req = requests.get(url, **kwargs)
                     if not req.status_code == 200:
