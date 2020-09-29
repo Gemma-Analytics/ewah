@@ -12,6 +12,7 @@ from requests.auth import HTTPBasicAuth
 import requests
 import json
 import time
+import copy
 
 class EWAHShopifyOperator(EWAHBaseOperator):
 
@@ -97,6 +98,7 @@ class EWAHShopifyOperator(EWAHBaseOperator):
         api_version=None,
         get_transactions_with_orders=False,
         get_events_with_orders=False,
+        get_inventory_data_with_product_variants=False,
         page_limit=250, # API Call pagination limit
     *args, **kwargs):
 
@@ -108,6 +110,10 @@ class EWAHShopifyOperator(EWAHBaseOperator):
 
         if get_events_with_orders and not shopify_object == 'orders':
             raise Exception('events can only be pulled for orders!')
+
+        if get_inventory_data_with_product_variants \
+            and not shopify_object == 'products':
+            raise Exception('inventory data may only be pulled with products!')
 
         if not shopify_object in self._accepted_objects.keys():
             raise Exception('{0} is not in the list of accepted objects!' + \
@@ -160,6 +166,8 @@ class EWAHShopifyOperator(EWAHBaseOperator):
         self.page_limit = page_limit
         self.get_transactions_with_orders = get_transactions_with_orders
         self.get_events_with_orders = get_events_with_orders
+        self.get_inventory_data_with_product_variants = \
+            get_inventory_data_with_product_variants
 
     def ewah_execute(self, context):
         # can supply a list of shops - need to run for all shops individually!
@@ -270,6 +278,32 @@ class EWAHShopifyOperator(EWAHBaseOperator):
 
             return data
 
+        def add_get_inventoryitems(data, shop, version, req_kwargs):
+             # workaround to get inventory item data (i.e. costs) for products
+            self.log.info('Requesting inventory items of product variants...')
+            base_url = "https://{shop}.myshopify.com/admin/api/{version}/inventory_items.json"
+            url = base_url.format(
+                shop=shop,
+                version=version,
+            )
+
+            kwargs = copy.deepcopy(req_kwargs)
+
+            for datum in data:
+                ids = [v['inventory_item_id'] for v in datum.get('variants',[])]
+                if ids:
+                    kwargs['ids'] = copy.deepcopy(ids)
+                    time.sleep(1) # avoid hitting api call requested limit
+                    req = requests.get(url, **req_kwargs)
+                    if not req.status_code == 200:
+                        self.log.info('response: ' + str(req.status_code))
+                        self.log.info('request text: ' + req.text)
+                        raise Exception('non-200 response!')
+                    inv_items = json.loads(req.text).get('inventory_items', [])
+                    datum['inventory_items'] = inv_items
+
+            return data
+
         def add_get_events(data, shop, version, req_kwargs):
             # workaround to add events of an order to orders
             self.log.info('Requesting events of orders...')
@@ -350,6 +384,13 @@ class EWAHShopifyOperator(EWAHBaseOperator):
                 )
             if self.get_events_with_orders:
                 data = add_get_events(
+                    data=data,
+                    shop=shop_id,
+                    version=self.api_version,
+                    req_kwargs=kwargs_links,
+                )
+            if self.get_inventory_data_with_product_variants:
+                data = add_get_inventoryitems(
                     data=data,
                     shop=shop_id,
                     version=self.api_version,
