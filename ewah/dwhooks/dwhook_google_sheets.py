@@ -13,11 +13,10 @@ def monkeypatch_values_update(func_to_call):
         values = body.get('values')
         if values:
             values = [[ \
-                float(v) for v in outer \
-                    if isinstance(v, Decimal)
-                else v.strftime('%Y-%m-%d %H:%M:%S%z') \
+                float(v) if isinstance(v, Decimal)
+                else (v.strftime('%Y-%m-%d %H:%M:%S%z') \
                     if isinstance(v, datetime)
-                else v
+                else v) for v in outer
             ] for outer in values]
             body['values'] = values
         return func_to_call(range_name, params=params, body=body)
