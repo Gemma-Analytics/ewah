@@ -294,7 +294,7 @@ class EWAHShopifyOperator(EWAHBaseOperator):
                 if ids:
                     kwargs['ids'] = copy.deepcopy(ids)
                     time.sleep(1) # avoid hitting api call requested limit
-                    req = requests.get(url, **req_kwargs)
+                    req = requests.get(url, **kwargs)
                     if not req.status_code == 200:
                         self.log.info('response: ' + str(req.status_code))
                         self.log.info('request text: ' + req.text)
