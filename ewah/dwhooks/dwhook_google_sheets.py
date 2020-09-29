@@ -2,9 +2,26 @@ from ewah.dwhooks.base_dwhook import EWAHBaseDWHook
 from ewah.constants import EWAHConstants as EC
 
 from tempfile import NamedTemporaryFile
+from datetime import datetime
+from decimal import Decimal
 import gspread
 import json
 import os
+
+
+def filter_dict_values(D):
+    # monkey patch function of same name in gspread.utils
+    d = {}
+    for k, v in D.items():
+        if not v is None:
+            if isinstance(v, datetime):
+                v = v.strftime('%Y-%m-%d %H:%M:%S%z')
+            elif isinstance(v, Decimal):
+                v = float(v)
+            d.update({k: v})
+    return d
+
+gspread.utils.filter_dict_values = filter_dict_values
 
 class EWAHDWHookGSheets(EWAHBaseDWHook):
     """
@@ -104,5 +121,6 @@ class EWAHDWHookGSheets(EWAHBaseDWHook):
         range_notation = 'A1:' + colnum_string(len(column_header))
         range_notation += str(len(upload_data))
         logging_function('Uploading data now!')
+        worksheet.spreadsheet
         worksheet.update(range_notation, upload_data)
         logging_function('Upload done.')
