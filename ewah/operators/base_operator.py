@@ -127,6 +127,10 @@ class EWAHBaseOperator(BaseOperator):
                 raise Exception('This operator requires the argument ' \
                     + 'columns_definition!')
 
+        if primary_key_column_name and update_on_columns:
+            raise Exception('Cannot supply BOTH primary_key_column_name AND' + \
+                ' update_on_columns!')
+
         if not drop_and_replace:
             if not (
                 update_on_columns
@@ -289,6 +293,20 @@ class EWAHBaseOperator(BaseOperator):
             self.log.info('Creating table schema on the fly based on data.')
             # Note: This is also where metadata is added, if applicable
             columns_definition = self._create_columns_definition(data)
+
+        if self.update_on_columns:
+            pk_list = self.update_on_columns # is a list already
+        elif self.primary_key_column_name:
+            pk_list = [self.primary_key_column_name]
+        else:
+            pk_list = []
+
+        if pk_list:
+            for pk_name in pk_list:
+                if not pk_name in columns_definition.keys():
+                    raise Exception('Column {0} does not exist but is ' + \
+                        'expected!'.format(pk_name))
+                columns_definition[pk_name][EC.QBC_FIELD_PK] = True
 
         hook = self.upload_hook
 
