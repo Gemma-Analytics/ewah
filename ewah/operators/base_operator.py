@@ -5,6 +5,7 @@ from airflow.utils.decorators import apply_defaults
 from ewah.dwhooks import get_dwhook
 from ewah.constants import EWAHConstants as EC
 
+import hashlib
 
 class EWAHBaseOperator(BaseOperator):
     """Extension of airflow's native Base Operator.
@@ -57,6 +58,11 @@ class EWAHBaseOperator(BaseOperator):
 
     _REQUIRES_COLUMNS_DEFINITION = False # raise error if true an none supplied
 
+    _INDEX_QUERY = '''
+        CREATE INDEX IF NOT EXISTS {0}
+        ON "{1}"."{2}" ({3})
+    '''
+
     upload_call_count = 0
 
     _metadata = {} # to be updated by operator, if applicable
@@ -80,6 +86,8 @@ class EWAHBaseOperator(BaseOperator):
         # metadata can only be added if no columns definition is given
         exclude_columns=[], # list of columns to exclude, if no
         # columns_definition was supplied (e.g. for select * with sql)
+        index_columns=[], # list of columns to create an index on. can be
+        # an expression, must be quoted in list of quoting is required.
     *args, **kwargs):
         super().__init__(*args, **kwargs)
 
@@ -93,6 +101,9 @@ class EWAHBaseOperator(BaseOperator):
                 str(dwh_engine),
                 '\n'.join(EC.DWH_ENGINES),
             ))
+
+        if index_columns AND NOT dwh_engine == EC.DWH_ENGINE_POSTGRES:
+            raise Exception('Indices are only allowed for PostgreSQL DWHs!')
 
         if dwh_engine == EC.DWH_ENGINE_SNOWFLAKE:
             if not target_database_name:
@@ -154,6 +165,7 @@ class EWAHBaseOperator(BaseOperator):
         #   ... by a child class at execution!
         self.add_metadata = add_metadata
         self.exclude_columns = exclude_columns
+        self.index_columns = index_columns
 
         self.hook = get_dwhook(self.dwh_engine)
 
@@ -171,6 +183,27 @@ class EWAHBaseOperator(BaseOperator):
         self.upload_hook = self.hook(self.dwh_conn_id)
         # execute operator
         result = self.ewah_execute(context)
+        # if PostgreSQL and arg given: create indices
+        for column in self.index_columns:
+            # Use hashlib to create a unique 63 character string as index
+            # name to avoid breaching index name length limits and accidental
+            # duplicates / missing indices due to name truncation leading to
+            # identical index names.
+            self.hook.execute(self._INDEX_QUERY.format(
+                '__ewah_' + hashlib.blake2b(
+                    (self.target_schema_name
+                        + self.target_schema_suffix
+                        + '.'
+                        + self.target_table_name
+                        + '.'
+                        + column
+                    ).encode(),
+                    digest_size=28,
+                ).hexdigest(),
+                self.target_schema_name + self.target_schema_suffix,
+                self.target_table_name,
+                column,
+            ))
         # commit only at the end, so that no data may be committed before an
         # error occurs.
         self.log.info('Now committing changes!')
