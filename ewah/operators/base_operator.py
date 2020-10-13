@@ -102,7 +102,7 @@ class EWAHBaseOperator(BaseOperator):
                 '\n'.join(EC.DWH_ENGINES),
             ))
 
-        if index_columns AND NOT dwh_engine == EC.DWH_ENGINE_POSTGRES:
+        if index_columns and not dwh_engine == EC.DWH_ENGINE_POSTGRES:
             raise Exception('Indices are only allowed for PostgreSQL DWHs!')
 
         if dwh_engine == EC.DWH_ENGINE_SNOWFLAKE:
