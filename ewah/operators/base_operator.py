@@ -304,8 +304,8 @@ class EWAHBaseOperator(BaseOperator):
         if pk_list:
             for pk_name in pk_list:
                 if not pk_name in columns_definition.keys():
-                    raise Exception('Column {0} does not exist but is ' + \
-                        'expected!'.format(pk_name))
+                    raise Exception(('Column {0} does not exist but is ' + \
+                        'expected!').format(pk_name))
                 columns_definition[pk_name][EC.QBC_FIELD_PK] = True
 
         hook = self.upload_hook
