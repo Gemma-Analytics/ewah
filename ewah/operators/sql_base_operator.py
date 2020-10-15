@@ -184,6 +184,7 @@ class EWAHSQLBaseOperator(EWAHBaseOperator):
                     'remote_bind_address': rba,
                 }
                 with SSHTunnelForwarder(**forwarder_kwargs) as t:
+                    self.connection.host = 'localhost'
                     self.connection.port = t.local_bind_port
                     self.sql_execute(context)
         else:
