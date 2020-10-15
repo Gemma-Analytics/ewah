@@ -158,9 +158,15 @@ class EWAHSQLBaseOperator(EWAHBaseOperator):
 
     def ewah_execute(self, context):
         if self.tunnel_conn_id:
+            if self.sql_engine == self._PGSQL:
+                raise Exception('Tunnelling not implemented for Postgres!')
+
+            self.connection = BaseHook.get_connection(self.source_conn_id)
+
             # if tunnel_conn_id arg is given, use SSH tunnel to connect!
             tc = BaseHook.get_connection(self.tunnel_conn_id)
-            rba = (self.upload_hook.credentials.host, self.upload_hook.credentials.port)
+            source_conn = BaseHook.get_connection(self.source_conn_id)
+            rba = (source_conn.host, source_conn.port)
             with NamedTemporaryFile() as temp_file:
                 # write private key into a file to connect to SSH tunnel
                 if tc.extra:
@@ -178,9 +184,11 @@ class EWAHSQLBaseOperator(EWAHBaseOperator):
                     'remote_bind_address': rba,
                 }
                 with SSHTunnelForwarder(**forwarder_kwargs) as t:
-                    self.upload_hook.credentials.port = t.local_bind_port
+                    self.connection.port = t.local_bind_port
                     self.sql_execute(context)
         else:
+            if not self.sql_engine == self._PGSQL:
+                self.connection = BaseHook.get_connection(self.source_conn_id)
             self.sql_execute(context)
 
     def sql_execute(self, context):

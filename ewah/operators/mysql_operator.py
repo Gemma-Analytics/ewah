@@ -24,13 +24,12 @@ class EWAHMySQLOperator(EWAHSQLBaseOperator):
         super().__init__(*args, **kwargs)
 
     def _get_data_from_sql(self, sql, params=None, return_dict=True):
-        connection = BaseHook.get_connection(self.source_conn_id)
         database_conn = connect(**{
-            'host': connection.host,
-            'user': connection.login,
-            'passwd': connection.password,
-            'port': connection.port,
-            'database': connection.schema,
+            'host': self.connection.host,
+            'user': self.connection.login,
+            'passwd': self.connection.password,
+            'port': self.connection.port,
+            'database': self.connection.schema,
         })
         cursor = database_conn.cursor(dictionary=return_dict)
         self.log.info('Executing:\n{0}\n\nWith params:\n{1}'.format(

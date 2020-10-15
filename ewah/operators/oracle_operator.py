@@ -45,14 +45,13 @@ class EWAHOracleSQLOperator(EWAHSQLBaseOperator):
                     return dict(zip(columnNames, args))
                 return createRow
 
-            connection = BaseHook.get_connection(self.source_conn_id)
             oracle_conn = cx_Oracle.connect(
-                connection.login,
-                connection.password,
+                self.connection.login,
+                self.connection.password,
                 '{0}:{1}/{2}'.format(
-                    connection.host,
-                    connection.port,
-                    connection.schema,
+                    self.connection.host,
+                    self.connection.port,
+                    self.connection.schema,
                 ),
                 encoding='UTF-8'
             )
