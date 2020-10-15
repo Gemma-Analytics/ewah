@@ -160,9 +160,7 @@ class EWAHSQLBaseOperator(EWAHBaseOperator):
         if self.tunnel_conn_id:
             # if tunnel_conn_id arg is given, use SSH tunnel to connect!
             tc = BaseHook.get_connection(self.tunnel_conn_id)
-            rba = (self.hook.credentials.host, self.hook.credentials.port)
-            self.hook.credentials.port = self.hook.credentials.port + 1
-            lba = ('0.0.0.0', self.hook.credentials.port)
+            rba = (self.upload_hook.credentials.host, self.upload_hook.credentials.port)
             with NamedTemporaryFile() as temp_file:
                 # write private key into a file to connect to SSH tunnel
                 if tc.extra:
@@ -178,10 +176,9 @@ class EWAHSQLBaseOperator(EWAHBaseOperator):
                     'ssh_pkey': temp_file_name,
                     'ssh_password': tc.password or None,
                     'remote_bind_address': rba,
-                    'local_bind_address': lba,
                 }
                 with SSHTunnelForwarder(**forwarder_kwargs) as t:
-                    self.hook.credentials.port = t.local_bind_port
+                    self.upload_hook.credentials.port = t.local_bind_port
                     self.sql_execute(context)
         else:
             self.sql_execute(context)
