@@ -176,7 +176,7 @@ class EWAHSQLBaseOperator(EWAHBaseOperator):
                     'ssh_address_or_host': (tc.host, tc.port or 22),
                     'ssh_username': tc.login or None,
                     'ssh_pkey': temp_file_name,
-                    'ssh_password' tc.password or None,
+                    'ssh_password': tc.password or None,
                     'remote_bind_address': rba,
                     'local_bind_address': lba,
                 }
