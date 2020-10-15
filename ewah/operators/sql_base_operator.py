@@ -180,7 +180,7 @@ class EWAHSQLBaseOperator(EWAHBaseOperator):
                     'remote_bind_address': rba,
                     'local_bind_address': lba,
                 }
-                with SSHTunnelForwarder(**forwarder_kwargs) AS t:
+                with SSHTunnelForwarder(**forwarder_kwargs) as t:
                     self.hook.credentials.port = t.local_bind_port
                     self.sql_execute(context)
         else:
