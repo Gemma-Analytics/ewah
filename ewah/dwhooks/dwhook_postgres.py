@@ -55,6 +55,7 @@ class EWAHDWHookPostgres(EWAHBaseDWHook):
         drop_and_replace,
         logging_function,
         upload_chunking=100000,
+        pk_columns=[],
     ):
         logging_function('Preparing DWH Tables...')
         schema_name += schema_suffix
@@ -73,6 +74,17 @@ class EWAHDWHookPostgres(EWAHBaseDWHook):
                 }),
                 commit=False,
             )
+            if pk_columns:
+                self.execte(
+                    sql="""
+                        ALTER TABLE ONLY "{schema_name}"."{table_name}"
+                        ADD CONSTRAINT "pkey" PRIMARY KEY ("{columns}");
+                    """.format(
+                        schema_name=schema_name,
+                        table_name=table_name,
+                        columns='","'.join(pk_columns),
+                    )
+                )
 
         if not drop_and_replace and update_on_columns:
             # make sure there is a unique constraint for update_on_columns
