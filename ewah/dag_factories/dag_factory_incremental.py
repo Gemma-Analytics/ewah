@@ -11,6 +11,7 @@ from datetime import datetime, timedelta
 from collections.abc import Iterable
 from copy import deepcopy
 import time
+import pytz
 import re
 
 class ExtendedETS(ETS):
@@ -130,7 +131,11 @@ def dag_factory_incremental_loading(
             #   keep both DAGs active!
             switch_relative_timedelta = -schedule_interval_future / 2
 
-        current_time = datetime.now() - switch_relative_timedelta
+        time_now = datetime.utcnow()
+        if start_date.tzinfo:
+            time_now = time_now.replace(tzinfo=pytz.utc)
+
+        current_time = time_now - switch_relative_timedelta
         # How much time has passed in total between start_date and now?
         switch_absolute_date = current_time - start_date
         # How often could the backfill DAG run in that time frame?
