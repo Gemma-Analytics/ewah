@@ -86,6 +86,7 @@ class EWAHDWHookSnowflake(EWAHBaseDWHook):
         update_on_columns,
         drop_and_replace,
         logging_function,
+        pk_columns=[],
     ):
         logging_function('Preparing DWH Tables...')
         schema_name += schema_suffix
@@ -182,6 +183,16 @@ class EWAHDWHookSnowflake(EWAHBaseDWHook):
                 table_name,
                 new_table_name,
             )
+            if pk_columns:
+                sql_final += '''
+                    ALTER TABLE "{0}"."{1}"."{2}"
+                    ADD PRIMARY KEY ("{3}");
+                '''.format(
+                    database_name,
+                    schema_name,
+                    table_name,
+                    '","'.join(pk_columns),
+                )
         else:
             update_set_cols = []
             for col in columns_definition.keys():

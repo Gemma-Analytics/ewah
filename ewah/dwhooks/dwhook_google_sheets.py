@@ -63,7 +63,11 @@ class EWAHDWHookGSheets(EWAHBaseDWHook):
         update_on_columns, # unused but always given
         drop_and_replace, # must be true!
         logging_function,
+        pk_columns=[], # must accept arg, but it must also always be []
     ):
+        if not pk_columns == []:
+            raise Exception('Arg pk_columns invalidly supplied!')
+            
         def colnum_string(n):
             # adapted from https://stackoverflow.com/questions/23861680/convert-spreadsheet-number-to-column-letter
             string = ""
