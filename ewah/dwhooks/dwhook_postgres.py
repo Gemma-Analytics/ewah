@@ -78,7 +78,7 @@ class EWAHDWHookPostgres(EWAHBaseDWHook):
                 self.execute(
                     sql="""
                         ALTER TABLE ONLY "{schema_name}"."{table_name}"
-                        ADD CONSTRAINT "pkey" PRIMARY KEY ("{columns}");
+                        ADD PRIMARY KEY ("{columns}");
                     """.format(
                         schema_name=schema_name,
                         table_name=table_name,
