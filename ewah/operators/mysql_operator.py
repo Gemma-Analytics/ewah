@@ -1,9 +1,9 @@
 from ewah.operators.sql_base_operator import EWAHSQLBaseOperator
 from ewah.constants import EWAHConstants as EC
 
-from mysql.connector import connect
-
 from airflow.hooks.base_hook import BaseHook
+
+import pymysql
 
 class EWAHMySQLOperator(EWAHSQLBaseOperator):
 
@@ -24,19 +24,20 @@ class EWAHMySQLOperator(EWAHSQLBaseOperator):
         super().__init__(*args, **kwargs)
 
     def _get_data_from_sql(self, sql, params=None, return_dict=True):
-        database_conn = connect(**{
+        database_conn = pymysql.connect(**{
             'host': self.connection.host,
             'user': self.connection.login,
             'passwd': self.connection.password,
             'port': self.connection.port,
             'database': self.connection.schema,
+            'cursorclass': pymysql.cursors.DictCursor if return_dict else None,
         })
-        cursor = database_conn.cursor(dictionary=return_dict)
+        cursor = database_conn.cursor()
         self.log.info('Executing:\n{0}\n\nWith params:\n{1}'.format(
             sql,
             str(params),
         ))
-        cursor.execute(sql, params=params)
+        cursor.execute(sql, args=params)
         data = cursor.fetchall()
         cursor.close()
         database_conn.close()
