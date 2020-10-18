@@ -9,12 +9,14 @@ class EWAHConstants:
     DWH_ENGINE_BIGQUERY = 'BigQuery'
     DWH_ENGINE_REDSHIFT = 'Redshift'
     DWH_ENGINE_S3 = 'S3'
+    DWH_ENGINE_GS = 'GoogleSheets'
     DWH_ENGINES = [
         DWH_ENGINE_POSTGRES,
         DWH_ENGINE_SNOWFLAKE,
         # DWH_ENGINE_BIGQUERY, To Be Implemented
         # DWH_ENGINE_REDSHIFT, To Be Implemented
         # DWH_ENGINE_S3, To Be Implemented
+        DWH_ENGINE_GS,
     ]
 
     # Query Building Constants
@@ -38,6 +40,9 @@ class EWAHConstants:
         # DWH_ENGINE_BIGQUERY: {},
         # DWH_ENGINE_REDSHIFT: {},
         # DWH_ENGINE_S3: {},
+        DWH_ENGINE_GS: {
+            # Not applicable
+        },
     }
 
     """When a columns_definition is given, but a column does not have a field
@@ -80,4 +85,8 @@ class EWAHConstants:
         # DWH_ENGINE_BIGQUERY: {},
         # DWH_ENGINE_REDSHIFT: {},
         # DWH_ENGINE_S3: {},
+        DWH_ENGINE_GS: { # must have these two values evaluate to True as bool
+            QBC_TYPE_MAPPING_DEFAULT: 'x',
+            QBC_TYPE_MAPPING_INCONSISTENT: 'x',
+        },
     }

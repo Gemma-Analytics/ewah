@@ -1,0 +1,52 @@
+version: '3.8'
+services:
+
+  database:
+    image: postgres
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: ewah
+    ports:
+      - 5432:5432
+
+  webserver:
+    build: .
+    entrypoint: ./docker/entrypoint_webserver.sh
+    restart: on-failure
+    depends_on:
+      - database
+    env_file:
+      - ./airflow/docker/.airflow_env
+    volumes:
+      # running airflow with docker
+      - ./airflow:/opt/airflow
+      # running ewah
+      - ./ewah:/opt/ewah/ewah
+      - ./README.md:/opt/ewah/README.md
+      - ./setup.cfg:/opt/ewah/setup.cfg
+      - ./setup.py:/opt/ewah/setup.py
+    ports:
+      - 8080:8080
+
+  scheduler:
+    build: .
+    entrypoint: ./docker/entrypoint_scheduler.sh
+    restart: on-failure
+    depends_on:
+        - database
+        - webserver
+    env_file:
+        - ./airflow/docker/.airflow_env
+    volumes:
+      # running airflow with docker
+      - ./airflow:/opt/airflow
+      # running ewah
+      - ./ewah:/opt/ewah/ewah
+      - ./README.md:/opt/ewah/README.md
+      - ./setup.cfg:/opt/ewah/setup.cfg
+      - ./setup.py:/opt/ewah/setup.py
+
+networks:
+  default:
+    name: ewah-net

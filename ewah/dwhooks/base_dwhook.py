@@ -187,6 +187,7 @@ class EWAHBaseDWHook(BaseHook):
         columns_definition,
         table_name,
         schema_name,
+        schema_suffix,
         database_name=None,
         drop_and_replace=True,
         update_on_columns=None,
@@ -210,6 +211,11 @@ class EWAHBaseDWHook(BaseHook):
             self.dwh_engine,
         )
 
+        # don't add primary key to create table definition
+        # instead make alter table call later for the case of composite PKs
+        field_constraints_mapping.pop(EC.QBC_FIELD_PK, None)
+        pk_columns = []
+
         for column_name in columns_definition.keys():
             raw_row.update({column_name: None})
             definition = columns_definition[column_name]
@@ -227,8 +233,10 @@ class EWAHBaseDWHook(BaseHook):
             )]
             if self._get_column_type(definition) == 'jsonb':
                 jsonb_columns += [column_name]
-            if create_update_on_columns and definition.get(EC.QBC_FIELD_PK):
-                update_on_columns += [column_name]
+            if definition.get(EC.QBC_FIELD_PK):
+                pk_columns += [column_name]
+                if create_update_on_columns:
+                    update_on_columns += [column_name]
         sql_part_columns = ',\n\t'.join(sql_part_columns)
 
         if clean_data_before_upload:
@@ -271,11 +279,13 @@ class EWAHBaseDWHook(BaseHook):
             'data': upload_data or data,
             'table_name': table_name,
             'schema_name': schema_name,
+            'schema_suffix': schema_suffix,
             'columns_definition': columns_definition,
             'columns_partial_query': sql_part_columns,
             'update_on_columns': update_on_columns,
             'drop_and_replace': drop_and_replace,
             'logging_function': logging_function,
+            'pk_columns': pk_columns,
         })
         self._create_or_update_table(**kwargs)
 

@@ -5,7 +5,7 @@ with open("README.md", "r") as fh:
 
 setuptools.setup(
     name="ewah", # Replace with your own username
-    version="0.1.27",
+    version="0.2.6",
     author="Bijan Soltani",
     author_email="bijan.soltani+ewah@gemmaanalytics.com",
     description="An ELT with airflow helper module: Ewah",
@@ -21,16 +21,18 @@ setuptools.setup(
     install_requires=[            # I get to this in a second
           'pyyaml',
           'psycopg2',
-          'gspread',
+          'gspread>=3.6',
           'pytz',
           'yahoofinancials',
           'google-api-python-client',
           'oauth2client',
           'cx_Oracle',
           'facebook_business',
-          'mysql-connector-python',
+          'pymysql',
           'snowflake-connector-python==2.0.2',
           'pymongo',
           'apache-airflow-backport-providers-google',
+          'googlemaps',
+          'sshtunnel',
       ],
 )

@@ -11,6 +11,8 @@ from datetime import datetime, timedelta
 from collections.abc import Iterable
 from copy import deepcopy
 import time
+import pytz
+import re
 
 class ExtendedETS(ETS):
     """Extend ETS functionality to support the interplay of backfill and
@@ -129,7 +131,11 @@ def dag_factory_incremental_loading(
             #   keep both DAGs active!
             switch_relative_timedelta = -schedule_interval_future / 2
 
-        current_time = datetime.now() - switch_relative_timedelta
+        time_now = datetime.utcnow()
+        if start_date.tzinfo:
+            time_now = time_now.replace(tzinfo=pytz.utc)
+
+        current_time = time_now - switch_relative_timedelta
         # How much time has passed in total between start_date and now?
         switch_absolute_date = current_time - start_date
         # How often could the backfill DAG run in that time frame?
@@ -319,10 +325,10 @@ def dag_factory_incremental_loading(
         arg_dict.update({'drop_and_replace': False})
         arg_dict.update(operator_config.get('general_config', {}))
         arg_dict_internal = {
-            'task_id': 'extract_load_' + table,
+            'task_id': 'extract_load_' + re.sub(r'[^a-zA-Z0-9_]', '', table),
             'dwh_engine': dwh_engine,
             'dwh_conn_id': dwh_conn_id,
-            'target_table_name': table,
+            'target_table_name': operator_config['tables'][table].get('target_table_name', table),
             'target_schema_name': target_schema_name,
             'target_schema_suffix': target_schema_suffix,
             'target_database_name': target_database_name,

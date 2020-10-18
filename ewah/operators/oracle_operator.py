@@ -7,7 +7,7 @@ import cx_Oracle
 
 class EWAHOracleSQLOperator(EWAHSQLBaseOperator):
 
-        _SQL_BASE = 'SELECT\n{columns}\nFROM "{table}"\nWHERE {where_clause}'
+        _SQL_BASE = 'SELECT\n{columns}\nFROM "{schema}"."{table}"\nWHERE {where_clause}'
         _SQL_BASE_SELECT = \
             'SELECT * FROM ({select_sql}) t WHERE {{0}}'
         _SQL_COLUMN_QUOTE = '"'
@@ -24,9 +24,6 @@ class EWAHOracleSQLOperator(EWAHSQLBaseOperator):
 
         def __init__(self, *args, **kwargs):
             self.sql_engine = self._ORACLE
-            if kwargs.get('source_schema_name'):
-                raise Exception('source_schema_name is an illegal argument ' \
-                    + 'for the Oracle operator!')
             super().__init__(*args, **kwargs)
 
         def _get_data_from_sql(self,
@@ -48,14 +45,13 @@ class EWAHOracleSQLOperator(EWAHSQLBaseOperator):
                     return dict(zip(columnNames, args))
                 return createRow
 
-            connection = BaseHook.get_connection(self.source_conn_id)
             oracle_conn = cx_Oracle.connect(
-                connection.login,
-                connection.password,
+                self.connection.login,
+                self.connection.password,
                 '{0}:{1}/{2}'.format(
-                    connection.host,
-                    connection.port,
-                    connection.schema,
+                    self.connection.host,
+                    self.connection.port,
+                    self.connection.schema,
                 ),
                 encoding='UTF-8'
             )

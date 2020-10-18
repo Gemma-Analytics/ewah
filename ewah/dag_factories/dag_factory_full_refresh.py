@@ -5,6 +5,7 @@ from ewah.ewah_utils.airflow_utils import etl_schema_tasks
 from datetime import datetime, timedelta
 from collections.abc import Iterable
 from copy import deepcopy
+import re
 
 def dag_factory_drop_and_replace(
         dag_name,
@@ -63,10 +64,10 @@ def dag_factory_drop_and_replace(
             table_config.update(operator_config.get('general_config', {}))
             table_config.update(operator_config['tables'][table] or {})
             table_config.update({
-                'task_id': 'extract_load_'+table,
+                'task_id': 'extract_load_'+re.sub(r'[^a-zA-Z0-9_]', '', table),
                 'dwh_engine': dwh_engine,
                 'dwh_conn_id': dwh_conn_id,
-                'target_table_name': table,
+                'target_table_name': operator_config['tables'][table].get('target_table_name', table),
                 'target_schema_name': target_schema_name,
                 'target_schema_suffix': target_schema_suffix,
                 'target_database_name': target_database_name,

@@ -18,7 +18,7 @@ Functions to create all DAGs required for ELT using only a simple config file.
 
 EWAH currently supports the following operators:
 
-- PostgreSQL
+- PostgreSQL / Redshift
 - MySQL
 - OracleSQL
 - Google Ads
@@ -88,6 +88,10 @@ WHERE segments.date BETWEEN 2020-08-01 AND 2020-08-08
 i.e., there are nested object structures, the `fields` structure must reflect the same. Take a look at the example config for the correct configuration of abovementioned Google Ads query. Note in addition, that the fields will be uploaded with the same names to the DWH, excepts that the periods will be replaced by underscored. i.e., the table `keyword_view_data` in the example below will have the columns `campaign_id`, `ad_group_criterion_keyword_text`, etc.
 
 Finally, note that `segments.date` is always required in the `fields` argument.
+
+### Oracle operator particularities
+
+The Oracle operator utilizes the `cx_Oracle` python library. To make it work, you need to install additional packages, see [here](https://cx-oracle.readthedocs.io/en/latest/user_guide/installation.html#installing-cx-oracle-on-linux) for details.
 
 #### Example
 
@@ -284,6 +288,63 @@ el_dags:
             - age
             - gender
 ...
+```
+
+## Developing EWAH locally with Docker
+
+It is easy to develop EWAH with Docker. Here's how:
+
+* Step 1: clone the repository locally
+* Step 2: configure your local secrets
+  * In `ewah/airflow/docker/secrets`, you should at least have a file called `secret_airflow_connections.yml` which looks exactly like `ewah/airflow/docker/airflow_connections.yml` and contains any additional credentials you may need during development -> this file can also contain connections defined in the `airflow_connections.yml`, in which case your connections will overwrite them.
+  * You can add any other files in this folder that you may need, e.g. private key files
+  * For example, you can add a file called `google_service_acc.json` that contains service account credentials that can be loaded as extra into an airflow connection used for a Google Analytics DAG
+  * Sample files are shown below
+* Step 3: run `docker-compose up` to start the postgres, webserver and scheduler containers
+  * You can stop them with `CTRL+C`
+  * If you want to free up the ports again or if you are generally done developing, you should additionally run `docker-compose down`
+* Step 4: Make any changes you wish to files in `ewah/ewah/` or `airflow/dags/`
+  * If you add new dependencies, makes sure to add them in the `ewah/setup.py` file; you may need to restart the containers to include the new dependencies in the ewah installations running in your containers
+* Step 5: Commit, Push and open a PR
+  * When pushing, feel free to include configurations in your `ewah/airflow/dags/dags.yml` that utilize your new feature, if applicable
+
+##### Sample `secret_airflow_connections.yml`
+```yaml
+---
+
+connections:
+  - id: ssh_tunnel
+    host: [SSH Server IP]
+    port: [SSH Port] # usually 22
+    login: [SSH username]
+    password: [private key password OR SSH server password]
+    extra: !text_from_file /opt/airflow/docker/secrets/ssh_rsa_private # example, with a file called `ssh_rsa_private` in your `ewah/airflow/docker/secrets/` folder
+  - id: shopware
+    host: [host] # "localhost" if tunnelling into the server running the MySQL database
+    schema: [database_name]
+    port: 3306
+    login: [username]
+    password: [password]
+  - id: google_service_account
+    extra: !text_from_file /opt/airflow/docker/secrets/google_service_acc.json # example, with a file called `google_service_acc.json` in your `ewah/airflow/docker/secrets/` folder
+
+...
+```
+
+##### Sample `google_service_acc.json`
+```json
+{"client_secrets": {
+  "type": "service_account",
+  "project_id": "my-project-id",
+  "private_key_id": "abcdefghij1234567890abcdefghij1234567890",
+  "private_key": "-----BEGIN PRIVATE KEY-----\n[...]\n-----END PRIVATE KEY-----\n",
+  "client_email": "xxx@my-project-id.iam.gserviceaccount.com",
+  "client_id": "012345678901234567890",
+  "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+  "token_uri": "https://oauth2.googleapis.com/token",
+  "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
+  "client_x509_cert_url": "https://www.googleapis.com/robot/v1/metadata/x509/xxx%40my-project-id.iam.gserviceaccount.com"
+}}
 ```
 
 ## Using EWAH with Astronomer

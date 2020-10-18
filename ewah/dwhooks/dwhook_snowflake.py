@@ -79,14 +79,17 @@ class EWAHDWHookSnowflake(EWAHBaseDWHook):
         data,
         table_name,
         schema_name,
+        schema_suffix,
         database_name,
         columns_definition,
         columns_partial_query,
         update_on_columns,
         drop_and_replace,
         logging_function,
+        pk_columns=[],
     ):
         logging_function('Preparing DWH Tables...')
+        schema_name += schema_suffix
         new_table_name = table_name + '_new'
         self.execute(
             sql="""CREATE OR REPLACE TABLE
@@ -180,6 +183,16 @@ class EWAHDWHookSnowflake(EWAHBaseDWHook):
                 table_name,
                 new_table_name,
             )
+            if pk_columns:
+                sql_final += '''
+                    ALTER TABLE "{0}"."{1}"."{2}"
+                    ADD PRIMARY KEY ("{3}");
+                '''.format(
+                    database_name,
+                    schema_name,
+                    table_name,
+                    '","'.join(pk_columns),
+                )
         else:
             update_set_cols = []
             for col in columns_definition.keys():

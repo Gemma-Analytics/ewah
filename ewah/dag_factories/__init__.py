@@ -132,8 +132,13 @@ def dags_from_dict(
         'Postgres': EC.DWH_ENGINE_POSTGRES,
         'snowflake': EC.DWH_ENGINE_SNOWFLAKE,
         'Snowflake': EC.DWH_ENGINE_SNOWFLAKE,
+        'sheets': EC.DWH_ENGINE_GS,
+        'gsheets': EC.DWH_ENGINE_GS,
+        'GSheets': EC.DWH_ENGINE_GS,
+        'Google Sheets': EC.DWH_ENGINE_GS,
         EC.DWH_ENGINE_POSTGRES: EC.DWH_ENGINE_POSTGRES,
         EC.DWH_ENGINE_SNOWFLAKE: EC.DWH_ENGINE_SNOWFLAKE,
+        EC.DWH_ENGINE_GS: EC.DWH_ENGINE_GS,
         # EC.DWH_ENGINE_BIGQUERY: EC.DWH_ENGINE_BIGQUERY,
         # EC.DWH_ENGINE_REDSHIFT: EC.DWH_ENGINE_REDSHIFT,
         # EC.DWH_ENGINE_S3: EC.DWH_ENGINE_S3,
@@ -163,6 +168,8 @@ def dags_from_dict(
         'mongodb': EWAHMongoDBOperator,
         'shopify': EWAHShopifyOperator,
         'zendesk': EWAHZendeskOperator,
+        'gmaps': EWAHGMapsOperator,
+        'googlemaps': EWAHGMapsOperator,
     }
 
     allowed_dag_args = [

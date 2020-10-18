@@ -46,3 +46,7 @@ try:
     from ewah.operators.google_ads_operator import EWAHGoogleAdsOperator
 except ImportError:
     from ewah.operators.base_operator import EWAHEmptyOperator as EWAHGoogleAdsOperator
+try:
+    from ewah.operators.google_maps_operator import EWAHGMapsOperator
+except ImportError:
+    from ewah.operators.base_operator import EWAHEmptyOperator as EWAHGMapsOperator
