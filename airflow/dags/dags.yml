@@ -1,0 +1,60 @@
+---
+
+base_config: # applied to all DAGs unless overwritten
+  dwh_engine: postgres
+  dwh_conn_id: dwh
+  airflow_conn_id: airflow
+  start_date: 2020-10-01 00:00:00+00:00
+  schedule_interval: !!python/object/apply:datetime.timedelta
+    - 1 # days
+    - 0 # seconds
+  schedule_interval_backfill: !!python/object/apply:datetime.timedelta
+    - 7
+  schedule_interval_future: !!python/object/apply:datetime.timedelta
+    - 0
+    - 3600
+  additional_task_args:
+    retries: 1
+    retry_delay: !!python/object/apply:datetime.timedelta
+      - 0
+      - 30
+    email_on_retry: False
+    email_on_failure: False
+    # email: ['me+ewahairflowerror@mail.com']
+el_dags:
+  EL_GA:
+    incremental: True
+    el_operator: ga
+    target_schema_name: raw_google_analytics
+    start_date: 2020-09-01 00:00:00+00:00
+    operator_config:
+      general_config:
+        source_conn_id: google_service_account
+        view_id: '12345678'
+        api: core_v4
+        reload_data_from: 2020-01-01 00:00:00+00:00
+        reload_data_chunking: !!python/object/apply:datetime.timedelta
+          - 7
+        chunking_interval: !!python/object/apply:datetime.timedelta
+          - 7
+      tables:
+        first_ga:
+          dimensions:
+            - date
+          metrics:
+            - newUsers
+            - adCost
+  EL_Shopware:
+    incremental: False
+    el_operator: mysql
+    target_schema_name: raw_shopware
+    operator_config:
+      general_config:
+        source_conn_id: shopware
+        source_schema_name: shopware
+        tunnel_conn_id: ssh_tunnel
+        primary_key_column_name: id
+      tables:
+        s_articles: {}
+
+...
