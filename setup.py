@@ -4,7 +4,7 @@ with open("README.md", "r") as fh:
     long_description = fh.read()
 
 setuptools.setup(
-    name="ewah", # Replace with your own username
+    name="ewah",
     version="0.2.6",
     author="Bijan Soltani",
     author_email="bijan.soltani+ewah@gemmaanalytics.com",
@@ -18,7 +18,7 @@ setuptools.setup(
         "License :: OSI Approved :: MIT License",
     ],
     python_requires='>=3.6',
-    install_requires=[            # I get to this in a second
+    install_requires=[
           'pyyaml',
           'psycopg2',
           'gspread>=3.6',
