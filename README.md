@@ -5,7 +5,7 @@ Functions to create all DAGs required for ELT using only a simple config file.
 
 ## Resources
 
-- [Setting up airflow with `LocalExecutor`](resources/setting_up_airflow.md)
+- [Setting up airflow with `LocalExecutor`](ewah/resources/setting_up_airflow.md)
 
 ## DWHs Implemented
 - Snowflake
