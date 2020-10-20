@@ -278,6 +278,11 @@ class EWAHSQLBaseOperator(EWAHBaseOperator):
                         max_chunk = tz.localize(max_chunk)
                     if self.data_until:
                         max_chunk = min(max_chunk, self.data_until)
+
+                if previous_chunk is None or max_chunk is None:
+                    self.log.info('There appears to be no data?')
+                    return
+                    
             else:
                 previous_chunk = self.data_from
                 max_chunk = self.data_until

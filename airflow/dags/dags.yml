@@ -57,5 +57,6 @@ el_dags:
         chunking_interval: 100000
       tables:
         s_articles: {}
+        s_articles_categories_seo: {}
 
 ...
