@@ -24,13 +24,17 @@ class EWAHMySQLOperator(EWAHSQLBaseOperator):
         super().__init__(*args, **kwargs)
 
     def _get_data_from_sql(self, sql, params=None, return_dict=True):
+        if return_dict:
+            cursor_class = pymysql.cursors.DictCursor
+        else:
+            cursor_class = pymysql.cursors.Cursor
         database_conn = pymysql.connect(**{
             'host': self.connection.host,
             'user': self.connection.login,
             'passwd': self.connection.password,
             'port': self.connection.port,
             'database': self.connection.schema,
-            'cursorclass': pymysql.cursors.DictCursor if return_dict else None,
+            'cursorclass': cursor_class,
         })
         cursor = database_conn.cursor()
         self.log.info('Executing:\n{0}\n\nWith params:\n{1}'.format(
