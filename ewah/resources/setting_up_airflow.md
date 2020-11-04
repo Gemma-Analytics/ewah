@@ -75,7 +75,7 @@ Follow the following steps:
   - note that you may locally see the example DAGs even if you set `load_examples = False` earlier, as they may have been loaded into the metadata database before changing the config - but if you turn one on and want to run it, they won't work unless you set `load_examples = True` in your config first (fyi: you may need to restart the airflow processes after making a config change)
 - finally, you might also want to add `airflow_home/airflow-webserver.pid` to your `.gitignore`
 
-## Setting up airflow on a remote server
+## Setting up airflow on a remote server (LocalExecutor)
 
 Chances are, if you wish to run airflow in production, that you want to run it on a server somewhere. This server might be on-premise or in a cloud, such as AWS. There are many ways to run airflow. You can run it with a SaaS like `http://astronomer.io/` or you can run it on your own server. You can run it on a single server with `LocalExecutor` or you can run it exploiting distributed computing with the `CeleryExecutor` or `KubernetesExecutor`. This guide is intended to explain the manual set up of airflow on a single server running Ubuntu 18, using `LocalExecutor`.
 
@@ -124,3 +124,285 @@ Follow the following steps:
   - personally, I prefer to not open any ports other than 22 to anything and use SSH tunnelling whenever I need to access the airflow web UI
 - finally, add your connections in the airflow web UI and turn on your DAGs
 - congrats, you have successfully set up airflow!
+
+## Setting up airflow locally with Docker
+
+An alternative to running airflow locally can be to run airflow with Docker. This is much easier and faster than the above, although it requires additional dependencies and knowledge of Docker. It also allows running and developing your airflow instance seamlessly on your Window machine.
+
+Requirements:
+
+* [Docker](https://www.docker.com/)
+
+### Steps
+
+1. Use the repository created in "Setting up airflow locally" or create a new repository with the content:
+  * a `dags` folders containing your airflow dags
+  * an `airflow.cfg` file where all instances of the airflow home path is replaced with `$AIRFLOW_HOME`, e.g. `dags_folder = $AIRFLOW_HOME/dags` - an example file is found at `ewah/ewah/resources/sample_airflow.cfg`
+  * a `.gitignore` file
+2. add these files to containerize it - examples for all of them are below:
+  * Dockerfile
+  * docker-compose.yml
+  * .env
+  * requirements.txt
+  * airflow_connections.yml (this should also be added to your .gitignore to avoid committing credentials to your repository!)
+3. open a command prompt, navigate to the folder level containing the `docker-composte.yml` and run `docker-compose up`
+4. go to `localhost:8080` in your browser and see if it worked
+
+### Potential issues
+
+There are a number of issues that can cause failures. A short list and their solution is below:
+- Issue: docker-compose command not found
+  - Did you install Docker?
+  - Is it running?
+  - Are you logged in?
+  - Did you start a new command prompt after fixing one of the issues above?
+
+### Final structure
+
+Your final airflow repository should look like this:
+
+    .
+    ├── dags                        # your airflow DAGs are in this folder
+    │   ├── dags.py                   # standard EWAH `dags.py`
+    │   ├── dags.yml                  # standard EWAH `dags.yml`
+    │   └── ...                       # any other files containing DAG definitions
+    │
+    ├── scripts                     # contains scripts related to Docker
+    │   ├── add_conns.py              # see below for a sample file and explanation
+    │   └── entrypoint_webserver.sh   # see below for a sample file and explanation
+    │
+    ├── secret_files                # may contain files that relate to connections
+    │   ├── private_key               # EXAMPLE
+    │   └── google_service_acc.json   # EXAMPLE
+    │
+    ├── .env                    # environment variables for local development
+    ├── .gitignore
+    ├── airflow_connections.yml # see below for a sample file and explanation
+    ├── docker-compose.yml      # see below for a sample file and explanation
+    ├── Dockerfile              # see below for a sample file and explanation
+    ├── requirements.txt        # see below for a sample file and explanation
+    └── ...
+
+##### Sample `add_conns.py`
+
+This script is supposed to run whenever the webserver container is started. It adds connections saved locally in the `airflow_connections.yml` to the airflow metadata database running locally. It is essentially just a helper to make development faster and easier by avoiding you to have to always add the connections anew whenever you run airflow.
+
+```python
+from airflow import settings
+from airflow.models import Connection
+
+from ewah.ewah_utils.yml_loader import Loader, Dumper
+
+import os
+import yaml
+import json
+
+# Change the filepath if appropriate - should be the location of the file on VM
+filepath = '/opt/airflow/airflow_connections.yml'
+
+if os.path.isfile(filepath):
+    conns = yaml.load(open(filepath, 'r'), Loader=Loader)
+
+    session = settings.Session() # get the session
+    existing_conns = session.query(Connection)
+    for conn in conns.get('connections'):
+        extra = conn.get('extra')
+        if isinstance(conn.get('extra'), dict):
+            extra = json.dumps(extra)
+        try:
+            airflow_conn = (session
+                            .query(Connection)
+                            .filter(Connection.conn_id == conn.get('id'))
+                            .one())
+            print('Connection {0} exists - update!'.format(conn['id']))
+            airflow_conn.conn_id=conn.get('id')
+            airflow_conn.conn_type=conn.get('type')
+            airflow_conn.host=conn.get('host')
+            airflow_conn.schema=conn.get('schema')
+            airflow_conn.login=conn.get('login')
+            airflow_conn.password=conn.get('password')
+            airflow_conn.port=conn.get('port')
+            airflow_conn.extra=extra
+        except:
+            print('Connection {0} does not exist - add!'.format(conn['id']))
+            airflow_conn = Connection(
+                conn_id=conn.get('id'),
+                conn_type=conn.get('type'),
+                host=conn.get('host'),
+                schema=conn.get('schema'),
+                login=conn.get('login'),
+                password=conn.get('password'),
+                port=conn.get('port'),
+                extra=extra,
+            )
+        session.add(airflow_conn)
+        print('Added or updated connection "{0}"'.format(conn['id']))
+    session.commit()
+    print('Committed new connections.')
+    session.close()
+```
+
+##### Sample `entrypoint_webserver.sh`
+
+This script is supposed to run when the airflow webserver container is spun up. It is an alternative to the default, which would just be running `airflow webserver`. Instead, first run `airflow upgradedb` to make the sure the metadata database is ready for airflow and run the `add_conns.py` script.
+
+```bash
+#!/bin/bash
+
+airflow upgradedb && \
+  python /opt/airflow/scripts/add_conns.py && \
+  airflow webserver
+```
+
+##### Sample `.env`
+
+This file contains environment variable definitions that should be present when docker-compose is running. In production, the environment variables are likely going to differ.
+
+```
+AIRFLOW__CORE__SQL_ALCHEMY_CONN=postgresql+psycopg2://airflow:airflow@postgres/airflow
+AIRFLOW_CONN_AIRFLOW=postgresql+psycopg2://airflow:airflow@postgres/airflow
+AIRFLOW_HOME=/opt/airflow
+AIRFLOW__CORE__REMOTE_LOGGING=False
+```
+
+##### Sample `.gitignore`
+
+The `.gitignore` file should include at least the following lines:
+```
+/logs # don't commit logs
+__pycache__ # temporary files created when running Python
+secret_files/ # a folder that may contain secret connection details
+airflow_connections.yml
+env
+notes.txt
+```
+
+##### Sample `airflow_connections.yml`
+
+This YAML file can be used to locally save connection details used in testing of your airflow DAGs. It simply contains data that will be written into the `connections` table of the airflow metadata database when running `docker-compose up`.
+
+```yaml
+---
+
+connections:
+  - id: dwh # should correspond to the name of the dwh conn id in the dags.yml
+    # note: this setting are already correct if you use the postgres created for airflow metadata as your testing DWH as well
+    type: postgres
+    host: postgres
+    port: 5432
+    schema: airflow
+    login: airflow
+    password: airflow
+  - id: ssh_tunnel # could be used as a connection in dags.yml for tunnelling
+    host: [SSH server IP]
+    port: [SSH port, e.g. 22]
+    login: [SSH username]
+    password: [SSH password OR password of private key, if any]
+    extra: !text_from_file /opt/airflow/secret_files/private_key # location of the private key in the docker container (see docker_compose.yml to see where this is bind-mounted to)
+  - id: shopware
+    type: mysql
+    host: [e.g. localhost when using a tunnel]
+    schema: [database name]
+    port: [port, e.g. 3306]
+    login: [username to access mysql database]
+    password: [password to access mysql database]
+  - id: google_service_account
+    extra: !text_from_file /opt/airflow/secret_files/google_service_account.json
+
+...
+```
+
+##### Sample `docker_compose.yml`
+
+This file is read by the `docker-compose up` command and tells it what to do. In this case, three containers are run: One postgres container for airflow metadata (and optionally as test DWH) used by the other two containers, one for airflow webserver and one for airflow scheduler.
+
+For the postgres container, the credentials are defined in this file as well. You will find these credentials again in other files, e.g. the `airflow_connections.yml` or the `.env` file. The postgres is also exposed to you on port `5432`
+
+The webserver properties are as follows:
+- use the `entrypoint_webserver.sh` as command to run
+- have the environment variables saved in `.env`... well, as environment variables
+- bind-mount the files and folders defined in volumes
+- expose the web UI on port `8080` -> you can view it in your browser under `localhost:8080`
+
+The scheduler properties are the same the webserver proprties, except:
+- no port exposure
+- no need to bind-mount files related to airflow connections
+- runs the default `airflow scheduler` command instead of a script
+
+```yaml
+version: '3.8'
+services:
+    postgres:
+        image: postgres
+        environment:
+            - POSTGRES_USER=airflow
+            - POSTGRES_PASSWORD=airflow
+            - POSTGRES_DB=airflow
+        ports:
+          - 5432:5432
+
+    webserver:
+        build: .
+        entrypoint: ./scripts/entrypoint_webserver.sh
+        restart: on-failure
+        depends_on:
+            - postgres
+        env_file:
+            - .env
+        volumes:
+            - ./dags:/opt/airflow/dags
+            - ./logs:/opt/airflow/logs
+            - ./scripts:/opt/airflow/scripts
+            - ./airflow.cfg:/opt/airflow/airflow.cfg
+            - ./secret_files:/opt/airflow/secret_files
+            - ./airflow_connections.yml:/opt/airflow/airflow_connections.yml
+        ports:
+            - 8080:8080
+
+    scheduler:
+        build: .
+        command: scheduler
+        restart: on-failure
+        depends_on:
+            - postgres
+            - webserver
+        env_file:
+            - .env
+        volumes:
+            - ./dags:/opt/airflow/dags
+            - ./logs:/opt/airflow/logs
+            - ./airflow.cfg:/opt/airflow/airflow.cfg
+            - ./secret_files:/opt/airflow/secret_files
+
+```
+
+
+##### Sample `Dockerfile`
+
+The Dockerfile defines the image details used by the airflow webserver and scheduler VMs.
+
+```Dockerfile
+# Use the official container as basis
+FROM apache/airflow
+
+# upgrade pip
+RUN pip install --user --upgrade pip
+
+# this step is required to install psycopg2 which is a dependency of ewah
+USER root
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends postgresql-server-dev-all gcc
+USER airflow
+
+# get the requirements, if any, and install them
+COPY ./requirements.txt /opt/airflow/requirements.txt
+RUN pip install --user --upgrade -r /opt/airflow/requirements.txt --no-cache-dir
+```
+
+##### Sample `requirements.txt`
+
+Python packages that are required by the airflow installation.
+
+```text
+ewah
+```
