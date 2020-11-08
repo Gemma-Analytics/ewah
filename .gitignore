@@ -3,6 +3,8 @@ airflow/docker/secrets/*
 !airflow/docker/secrets/.gitkeep
 airflow/airflow-webserver.pid
 airflow/logs
+postgres-data/*
+!postgres-data/.gitkeep
 
 pt/
 ewah_airflow_tests/

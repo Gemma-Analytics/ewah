@@ -1,3 +1,5 @@
+from ewah.ewah_utils.dbt_operator import EWAHdbtOperator
+
 from airflow import DAG
 
 from airflow.operators.postgres_operator import PostgresOperator
@@ -12,7 +14,7 @@ from ewah.constants import EWAHConstants as EC
 from datetime import datetime, timedelta
 import os
 
-def dbt_dags_factory(
+def dbt_dags_factory_legacy(
     dwh_engine,
     dwh_conn_id,
     project_name,
@@ -235,3 +237,114 @@ def dbt_dags_factory(
     else:
         dbt_test >> dbt_docs
     return (dag, dag_full_refresh)
+
+def dbt_dag_factory_new(
+    airflow_conn_id,
+    repo_type,
+    dwh_engine,
+    dwh_conn_id,
+    git_conn_id=None, # if provided, expecting private SSH key in conn extra
+    # dbt_commands=['run'], # string or list of strings - dbt commands
+    dbt_version='0.18.1',
+    git_link=None, # SSH link to a remote git repository, if using git repo
+    git_branch=None, # optional: branch to check out
+    subfolder=None, # optional: supply if dbt project is in a subfolder
+    threads=4, # see https://docs.getdbt.com/dbt-cli/configure-your-profile/#understanding-threads
+    schema_name='analytics', # see https://docs.getdbt.com/dbt-cli/configure-your-profile/#understanding-target-schemas
+    keepalives_idle=0, # see https://docs.getdbt.com/reference/warehouse-profiles/postgres-profile/
+    dag_base_name='T_dbt_run',
+    schedule_interval=timedelta(hours=1),
+    start_date=datetime(2019,1,1),
+    default_args=None,
+):
+
+    # only PostgreSQL implement as of now!
+    assert dwh_engine == EC.DWH_ENGINE_POSTGRES
+
+    dag_kwargs = {
+        'catchup': False,
+        'max_active_runs': 1,
+        'start_date': start_date,
+        'default_args': default_args,
+    }
+    dag_1 = DAG(
+        dag_base_name,
+        schedule_interval=schedule_interval,
+    **dag_kwargs)
+    dag_2 = DAG(
+        dag_base_name + '_full_refresh',
+        schedule_interval=None,
+    **dag_kwargs)
+
+    sensor_sql = """
+        SELECT
+            CASE WHEN COUNT(*) = 0 THEN 1 ELSE 0 END -- only run if exatly equal to 0
+        FROM public.dag_run
+        WHERE dag_id IN ('{0}', '{1}')
+        and state = 'running'
+        and not (run_id = '{2}')
+    """.format(
+        dag_1._dag_id,
+        dag_2._dag_id,
+        '{{ run_id }}',
+    )
+
+    snsr_1 = SqlSensor(
+        task_id='sense_dbt_conflict_avoided',
+        conn_id=airflow_conn_id,
+        sql=sensor_sql,
+        dag=dag_1,
+    )
+    snsr_2 = SqlSensor(
+        task_id='sense_dbt_conflict_avoided',
+        conn_id=airflow_conn_id,
+        sql=sensor_sql,
+        dag=dag_2,
+    )
+
+    dbt_kwargs = {
+        'repo_type': repo_type,
+        'dwh_conn_id': dwh_conn_id,
+        'git_conn_id': git_conn_id,
+        'dbt_version': dbt_version,
+        'git_link': git_link,
+        'git_branch': git_branch,
+        'subfolder': subfolder,
+        'threads': threads,
+        'schema_name': schema_name,
+        'keepalives_idle': 0,
+    }
+
+    run_1 = EWAHdbtOperator(
+        task_id='dbt_run',
+        dbt_commands=['seed', 'run'],
+        dag=dag_1,
+    **dbt_kwargs)
+    run_2 = EWAHdbtOperator(
+        task_id='dbt_run',
+        dbt_commands=['seed', 'run --full-refresh'],
+        dag=dag_2,
+    **dbt_kwargs)
+
+    test_1 = EWAHdbtOperator(
+        task_id='dbt_test',
+        dbt_commands='test',
+        dag=dag_1,
+    **dbt_kwargs)
+    test_2 = EWAHdbtOperator(
+        task_id='dbt_test',
+        dbt_commands='test',
+        dag=dag_2,
+    **dbt_kwargs)
+
+    snsr_1 >> run_1 >> test_1
+    snsr_2 >> run_2 >> test_2
+
+    return (dag_1, dag_2)
+
+
+def dbt_dags_factory(*args, **kwargs):
+    if 'dbt_schema_name' in kwargs:
+        return dbt_dags_factory_legacy(*args, **kwargs)
+    else:
+        return dbt_dag_factory_new(*args, **kwargs)

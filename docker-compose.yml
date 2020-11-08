@@ -3,17 +3,21 @@ services:
 
   database:
     image: postgres
+    restart: always
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
       POSTGRES_DB: ewah
+    volumes:
+      # persist data on disk
+      - ./postgres-data:/var/lib/postgresql
     ports:
       - 5432:5432
 
   webserver:
     build: .
     entrypoint: ./docker/entrypoint_webserver.sh
-    restart: on-failure
+    restart: always
     depends_on:
       - database
     env_file:
@@ -32,7 +36,7 @@ services:
   scheduler:
     build: .
     entrypoint: ./docker/entrypoint_scheduler.sh
-    restart: on-failure
+    restart: always
     depends_on:
         - database
         - webserver
