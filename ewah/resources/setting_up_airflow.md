@@ -260,7 +260,6 @@ This file contains environment variable definitions that should be present when 
 
 ```
 AIRFLOW__CORE__SQL_ALCHEMY_CONN=postgresql+psycopg2://airflow:airflow@postgres/airflow
-AIRFLOW_CONN_AIRFLOW=postgresql+psycopg2://airflow:airflow@postgres/airflow
 AIRFLOW_HOME=/opt/airflow
 AIRFLOW__CORE__REMOTE_LOGGING=False
 ```
@@ -275,6 +274,7 @@ secret_files/ # a folder that may contain secret connection details
 airflow_connections.yml
 env
 notes.txt
+metabase-data/metabase.db
 ```
 
 ##### Sample `airflow_connections.yml`
@@ -285,8 +285,15 @@ This YAML file can be used to locally save connection details used in testing of
 ---
 
 connections:
+  - id: airflow # conn to local airflow metadata database (required by some EWAH DAGs)
+    type: postgres
+    host: postgres
+    port: 5432
+    schema: airflow
+    login: airflow
+    password: airflow
   - id: dwh # should correspond to the name of the dwh conn id in the dags.yml
-    # note: this setting are already correct if you use the postgres created for airflow metadata as your testing DWH as well
+    # note: this setting is already correct if you use the postgres created for airflow metadata as your testing DWH as well
     type: postgres
     host: postgres
     port: 5432
@@ -299,15 +306,17 @@ connections:
     login: [SSH username]
     password: [SSH password OR password of private key, if any]
     extra: !text_from_file /opt/airflow/secret_files/private_key # location of the private key in the docker container (see docker_compose.yml to see where this is bind-mounted to)
-  - id: shopware
+  - id: shopware # a connection used in the dags.yml
     type: mysql
     host: [e.g. localhost when using a tunnel]
     schema: [database name]
     port: [port, e.g. 3306]
     login: [username to access mysql database]
     password: [password to access mysql database]
-  - id: google_service_account
+  - id: google_service_account # for google analytics, google sheets, ...
     extra: !text_from_file /opt/airflow/secret_files/google_service_account.json
+  - id: git # dbt DAGs require an SSH key to download the current repos
+    extra: !text_from_file /opt/airflow/secret_files/git_ssh_private_key
 
 ...
 ```
@@ -334,6 +343,7 @@ version: '3.8'
 services:
     postgres:
         image: postgres
+        restart: always
         environment:
             - POSTGRES_USER=airflow
             - POSTGRES_PASSWORD=airflow
@@ -344,7 +354,7 @@ services:
     webserver:
         build: .
         entrypoint: ./scripts/entrypoint_webserver.sh
-        restart: on-failure
+        restart: always
         depends_on:
             - postgres
         env_file:
@@ -362,7 +372,7 @@ services:
     scheduler:
         build: .
         command: scheduler
-        restart: on-failure
+        restart: always
         depends_on:
             - postgres
             - webserver
@@ -373,6 +383,24 @@ services:
             - ./logs:/opt/airflow/logs
             - ./airflow.cfg:/opt/airflow/airflow.cfg
             - ./secret_files:/opt/airflow/secret_files
+
+    # optional section: also run a local Metabase instance to view your dev data
+    metabase:
+      image: metabase/metabase
+      restart: always
+      depends_on:
+          - postgres
+          - webserver
+          - scheduler
+      environment:
+          # persist metadata on disk using H2 metadata database for development
+          MB_DB_FILE: /metabase-data/metabase.db
+      volumes:
+          # persist H2 metadata database locally
+          # make sure this folder is added to the .gitignore!
+          - ./metabase-data:/metabase-data
+      ports:
+          - 3000:3000
 
 ```
 
@@ -388,11 +416,17 @@ FROM apache/airflow
 # upgrade pip
 RUN pip install --user --upgrade pip
 
-# this step is required to install psycopg2 which is a dependency of ewah
 USER root
+# required to install psycopg2 which is a dependency of ewah
 RUN apt-get update && \
-    apt-get install -y --no-install-recommends postgresql-server-dev-all gcc
+    apt-get install -y --no-install-recommends \
+    postgresql-server-dev-all gcc
+# required to use git with ssh
+RUN apt-get install -y --no-install-recommends git
 USER airflow
+
+# required to use git with ssh
+RUN mkdir -p ~/.ssh
 
 # get the requirements, if any, and install them
 COPY ./requirements.txt /opt/airflow/requirements.txt
