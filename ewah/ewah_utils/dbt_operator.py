@@ -116,11 +116,28 @@ class EWAHdbtOperator(BaseOperator):
                         file_name = os.path.abspath(f.name)
                         f.write(ssh_key_text.encode())
                         f.seek(0)
-                        cmd += ' && ssh-add {0}'.format(file_name)
+                        # if there is a password set in the git conn, it's
+                        # the password for the SSH key! supply it!
+                        # use SSH_ASKPASS env var & a temp file to do so
+                        ssh_pw = ''
+                        if git_conn.password:
+                            f_pw_path = tmp_dir + os.path.sep + 'ssh_key_pw'
+                            with open(f_pw_path, 'w+') as f_pw:
+                                # create file in temp folder -> ssh-add cannot
+                                # open a NamedTemporaryFile in context manager
+                                f_pw.write('#!/bin/bash\necho "{0}"'
+                                        .format(git_conn.password)
+                                )
+                                f_pw.seek(0)
+                            ssh_pw = 'DISPLAY=":0.0" SSH_ASKPASS="{0}" '
+                            ssh_pw = ssh_pw.format(f_pw_path)
+                            cmd += ' && chmod 777 {0}'.format(f_pw_path)
+                        cmd += ' && {1}ssh-add {0}'.format(file_name, ssh_pw)
                     else:
                         cmd += 'echo "cloning without credentials!"'
                     ssh_domain = re.search('@(.*):', self.git_link).group(1)
-                    cmd += (' && ssh-keyscan -H {0} >> ~/.ssh/known_hosts'
+                    cmd += ' && mkdir -p $HOME/.ssh'
+                    cmd += (' && ssh-keyscan -H {0} >> $HOME/.ssh/known_hosts'
                     .format(ssh_domain))
                     cmd += ' && git clone {0} {1}'.format(
                         git_repo_link,
