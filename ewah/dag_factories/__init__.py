@@ -170,6 +170,8 @@ def dags_from_dict(
         'zendesk': EWAHZendeskOperator,
         'gmaps': EWAHGMapsOperator,
         'googlemaps': EWAHGMapsOperator,
+        'mc': EWAHMailchimpOperator,
+        'mailchimp': EWAHMailchimpOperator,
     }
 
     allowed_dag_args = [

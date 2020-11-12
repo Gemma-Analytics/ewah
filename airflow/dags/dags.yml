@@ -22,6 +22,22 @@ base_config: # applied to all DAGs unless overwritten
     email_on_failure: False
     # email: ['me+ewahairflowerror@mail.com']
 el_dags:
+  EL_Mailchimp:
+    incremental: False
+    el_operator: mailchimp
+    target_schema_name: raw_mailchimp
+    operator_config:
+      general_config:
+        source_conn_id: mailchimp
+      tables:
+        reports:
+          resource: reports
+        lists:
+          resource: lists
+        conversations:
+          resource: conversations
+        campaigns: {}
+
   EL_GA:
     incremental: True
     el_operator: ga

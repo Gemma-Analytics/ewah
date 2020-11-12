@@ -5,7 +5,7 @@ with open("README.md", "r") as fh:
 
 setuptools.setup(
     name="ewah",
-    version="0.2.9",
+    version="0.2.10",
     author="Bijan Soltani",
     author_email="bijan.soltani+ewah@gemmaanalytics.com",
     description="An ELT with airflow helper module: Ewah",
@@ -34,5 +34,6 @@ setuptools.setup(
           'apache-airflow-backport-providers-google',
           'googlemaps',
           'sshtunnel',
+          'mailchimp3',
       ],
 )

@@ -50,3 +50,7 @@ try:
     from ewah.operators.google_maps_operator import EWAHGMapsOperator
 except ImportError:
     from ewah.operators.base_operator import EWAHEmptyOperator as EWAHGMapsOperator
+try:
+    from ewah.operators.mailchimp_operator import EWAHMailchimpOperator
+except ImportError:
+    from ewah.operators.base_operator import EWAHEmptyOperator as EWAHMailchimpOperator
