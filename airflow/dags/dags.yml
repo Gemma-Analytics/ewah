@@ -22,10 +22,41 @@ base_config: # applied to all DAGs unless overwritten
     email_on_failure: False
     # email: ['me+ewahairflowerror@mail.com']
 el_dags:
+
+  # EL_Facebook: tbd
+
+  EL_FX:
+    incremental: False
+    el_operator: fx
+    target_schema_name: raw_fx
+    operator_config:
+      general_config:
+        frequency: daily
+        data_from: 2016-12-01 00:00:00+00:00
+      tables:
+        daily_fx_rates_usd_eur:
+          currency_pair: ['USD', 'EUR']
+        daily_fx_rates_usd_cad:
+          currency_pair: ['USD', 'CAD']
+        daily_fx_rates_usd_gbp:
+          currency_pair: ['USD', 'GBP']
+        daily_fx_rates_usd_chf:
+          currency_pair: ['USD', 'CHF']
+
+  # EL_GAds: tbd
+
+  EL_GA: !yml_from_file secret_dag_google_analytics.yml
+
+  # EL_GMaps: tbd
+
+  # EL_GSheets: tbd
+
   EL_Mailchimp:
     incremental: False
     el_operator: mailchimp
     target_schema_name: raw_mailchimp
+    dwh_conn_id: ssh_dwh
+    dwh_ssh_tunnel_conn_id: ssh_target
     operator_config:
       general_config:
         source_conn_id: mailchimp
@@ -38,41 +69,33 @@ el_dags:
           resource: conversations
         campaigns: {}
 
-  EL_GA:
-    incremental: True
-    el_operator: ga
-    target_schema_name: raw_google_analytics
-    start_date: 2020-09-01 00:00:00+00:00
-    operator_config:
-      general_config:
-        source_conn_id: google_service_account
-        view_id: '12345678'
-        api: core_v4
-        reload_data_from: 2020-01-01 00:00:00+00:00
-        reload_data_chunking: !!python/object/apply:datetime.timedelta
-          - 7
-        chunking_interval: !!python/object/apply:datetime.timedelta
-          - 7
-      tables:
-        first_ga:
-          dimensions:
-            - date
-          metrics:
-            - newUsers
-            - adCost
-  EL_Shopware:
+  EL_MongoDB: !yml_from_file secret_dag_mongodb.yml
+
+  EL_MySQL_Shopware:
     incremental: False
     el_operator: mysql
     target_schema_name: raw_shopware
+    #dwh_conn_id: ssh_dwh
+    #dwh_ssh_tunnel_conn_id: ssh_target
     operator_config:
       general_config:
         source_conn_id: shopware
         source_schema_name: shopware
-        tunnel_conn_id: ssh_tunnel
+        source_ssh_tunnel_conn_id: ssh_tunnel
         primary_key_column_name: id
         chunking_interval: 100000
       tables:
         s_articles: {}
         s_articles_categories_seo: {}
+
+  # EL_Oracle: tbd
+
+  # EL_Postgres: tbd
+
+  # EL_S3: tbd
+
+  # EL_Shopify: tbd
+
+  # EL_Zendesk: tbd
 
 ...

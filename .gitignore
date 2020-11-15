@@ -5,6 +5,7 @@ airflow/airflow-webserver.pid
 airflow/logs
 postgres-data/*
 !postgres-data/.gitkeep
+secret_dag_*.yml
 
 pt/
 ewah_airflow_tests/
