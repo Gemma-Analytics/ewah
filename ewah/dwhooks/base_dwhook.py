@@ -63,18 +63,18 @@ class EWAHBaseDWHook(BaseHook):
 
     def execute(self, sql, params=None, commit=False, cursor=None):
         self.logging_func('\nExecuting SQL:\n\n{0}'.format(sql))
-        for statement in sql.split(';'):
-            if statement.strip():
-                kwargs = {}
-                args = []
-                if params:
-                    if self.dwh_engine == EC.DWH_ENGINE_POSTGRES:
-                        kwargs.update({'vars': params})
-                    elif self.dwh_engine == EC.DWH_ENGINE_SNOWFLAKE:
-                        args = [params]
-                    else:
-                        raise Exception('Feature not implemented!')
-                (cursor or self.cur).execute(statement.strip(), *args, **kwargs)
+        kwargs = {}
+        args = []
+        if params:
+            if self.dwh_engine == EC.DWH_ENGINE_POSTGRES:
+                kwargs.update({'vars': params})
+            elif self.dwh_engine == EC.DWH_ENGINE_SNOWFLAKE:
+                args = [params]
+            else:
+                raise Exception('Feature not implemented!')
+
+        (cursor or self.cur).execute(sql.strip(), *args, **kwargs)
+
         if commit:
             self.commit()
 

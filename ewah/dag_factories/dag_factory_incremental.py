@@ -214,11 +214,24 @@ def dag_factory_incremental_loading(
         	FOR meta_db, meta_schema, meta_table IN
         		SELECT table_catalog, table_schema, table_name
         		FROM information_schema.tables
-        		WHERE table_name IN ('dag_run', 'job', 'task_fail',
-                    'task_instance', 'task_reschedule', 'xcom', 'dag_stats')
+        		WHERE table_name IN ('dag_run'
+                    , 'job'
+                    , 'task_fail'
+                    , 'task_instance'
+                    , 'task_reschedule'
+                    , 'xcom'
+                    , 'dag_stats'
+                )
         		AND table_catalog LIKE %(db_name)s
         		AND table_schema LIKE %(schema_name)s
         	LOOP
+                IF meta_table = 'dag_run' THEN
+                    -- Only once per DAG: turn DAGs off!
+                    EXECUTE 'UPDATE "' || meta_db || '"."' || meta_schema
+                        || '"."dag"'
+                        || ' SET is_paused = TRUE'
+                        || ' WHERE dag_id = ''' || dag_name || '''';
+                END IF;
         		EXECUTE 'DELETE FROM "' || meta_db || '"."' || meta_schema
                     || '"."' || meta_table
                     || '" WHERE dag_id = ''' || dag_name || '''';
