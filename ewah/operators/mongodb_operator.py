@@ -1,15 +1,18 @@
+from ewah.constants import EWAHConstants as EC
 from ewah.operators.base_operator import EWAHBaseOperator
 from ewah.ewah_utils.airflow_utils import airflow_datetime_adjustments
-from ewah.constants import EWAHConstants as EC
 
 from airflow.hooks.base_hook import BaseHook
+from airflow.utils.file import TemporaryDirectory
 
+import os
 import json
+from copy import deepcopy
 from datetime import timedelta
 from pymongo import MongoClient
-from pymongo import ASCENDING as asc
 from bson.json_util import dumps
-from copy import deepcopy
+from pymongo import ASCENDING as asc
+from tempfile import NamedTemporaryFile
 
 class EWAHMongoDBOperator(EWAHBaseOperator):
 
@@ -31,6 +34,10 @@ class EWAHMongoDBOperator(EWAHBaseOperator):
         reload_data_from=None, # string (can be templated), datetime or None
         pagination_limit=None, # integer
         single_column_mode=False, # If True, throw all data as json into one col
+        ssl=False,
+        ssl_conn_id=None,
+        mongoclient_extra_args={},
+        conn_style='uri', # one of ['uri', 'credentials']
     *args, **kwargs):
 
         src = source_collection_name or kwargs.get('target_table_name')
@@ -46,6 +53,14 @@ class EWAHMongoDBOperator(EWAHBaseOperator):
         self.data_from = data_from
         self.data_until = data_until
         self.reload_data_from = reload_data_from
+        self.ssl = ssl or bool(ssl_conn_id)
+        self.ssl_conn_id = ssl_conn_id
+        self.conn_style = conn_style
+        self.mongoclient_extra_args = mongoclient_extra_args
+
+        assert conn_style in ['uri', 'credentials']
+        if conn_style == 'uri' and ssh_conn_id:
+            raise Exception('SSH cannot be combined with supplying a URI!')
 
         chunking_field = chunking_field or timestamp_field
         if chunking_interval:
@@ -155,8 +170,56 @@ class EWAHMongoDBOperator(EWAHBaseOperator):
                 }]
 
         self.log.info('Connecting to MongoDB Database...')
-        uri = BaseHook.get_connection(self.source_conn_id).password
-        database = MongoClient(uri).get_database(name=self.source_database_name)
+        if self.conn_style == 'uri':
+            conn_kwargs = {'host': self.source_conn.password} # as uri
+        else:
+            conn_kwargs = {
+                'host': self.source_conn.host,
+                'port': self.source_conn.port,
+                'tz_aware': True,
+            }
+            if self.source_conn.login:
+                conn_kwargs['username'] = self.source_conn.login
+            if self.source_conn.password:
+                conn_kwargs['password'] = self.source_conn.password
+
+        with TemporaryDirectory() as tmp_dir:
+            db_name = self.source_database_name
+            if self.ssl:
+                conn_kwargs['tls'] = True
+            with NamedTemporaryFile(dir=tmp_dir) as ssl_f:
+                with NamedTemporaryFile(dir=tmp_dir) as ssl_f_pk:
+                    if self.ssl_conn_id:
+                        ssl_f_name = os.path.abspath(ssl_f.name)
+                        ssl_f_pk_name = os.path.abspath(ssl_f_pk.name)
+                        ssl_conn = BaseHook.get_connection(self.ssl_conn_id)
+
+                        extra = ssl_conn.extra_dejson or ssl_conn.extra
+                        if isinstance(extra, dict):
+                            # extra is json with certificate & private key
+                            certificate_text = extra.get('CERTIFICATE')
+                            private_text = extra.get('PRIVATE')
+                            ssl_f.write(certificate_text.encode())
+                            ssl_f_pk.write(private_text.encode())
+                            ssl_f.seek(0)
+                            ssl_f_pk.seek(0)
+                            conn_kwargs['ssl_certfile'] = ssl_f_name
+                            conn_kwargs['ssl_keyfile'] = ssl_f_pk_name
+                        else:
+                            # extra is text with certificate & private key
+                            ssl_f.write(extra.encode())
+                            ssl_f.seek(0)
+                            conn_kwargs['tlsCertificateKeyFile'] = ssl_f_name
+                        if ssl_conn.password:
+                            # works for both ways of providing SSL cert
+                            conn_kwargs['tlsCertificateKeyFilePassword'] = \
+                                ssl_conn.password
+
+
+                    conn_kwargs.update(self.mongoclient_extra_args)
+                    print(conn_kwargs) # delete me
+                    mdb_conn = MongoClient(**conn_kwargs)
+                    database = mdb_conn.get_database(name=db_name)
 
         self.log.info('Getting data...')
         collection = database[self.source_collection_name]

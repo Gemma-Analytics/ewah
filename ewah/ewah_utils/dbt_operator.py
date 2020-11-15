@@ -3,6 +3,7 @@ from airflow.hooks.base_hook import BaseHook
 from airflow.utils.file import TemporaryDirectory
 
 from ewah.ewah_utils.yml_loader import Loader, Dumper
+from ewah.ewah_utils.ssh_tunnel import start_ssh_tunnel
 
 import re
 import os
@@ -39,6 +40,7 @@ class EWAHdbtOperator(BaseOperator):
         threads=4, # see https://docs.getdbt.com/dbt-cli/configure-your-profile/#understanding-threads
         schema_name='analytics', # see https://docs.getdbt.com/dbt-cli/configure-your-profile/#understanding-target-schemas
         keepalives_idle=0, # see https://docs.getdbt.com/reference/warehouse-profiles/postgres-profile/
+        ssh_tunnel_id=None,
     *args, **kwargs):
 
         assert repo_type in ('git')
@@ -77,6 +79,7 @@ class EWAHdbtOperator(BaseOperator):
         self.threads = threads
         self.schema_name = schema_name
         self.keepalives_idle = keepalives_idle
+        self.ssh_tunnel_id = ssh_tunnel_id
 
     def execute(self, context):
         def run_cmd(cmd, env):
@@ -116,11 +119,28 @@ class EWAHdbtOperator(BaseOperator):
                         file_name = os.path.abspath(f.name)
                         f.write(ssh_key_text.encode())
                         f.seek(0)
-                        cmd += ' && ssh-add {0}'.format(file_name)
+                        # if there is a password set in the git conn, it's
+                        # the password for the SSH key! supply it!
+                        # use SSH_ASKPASS env var & a temp file to do so
+                        ssh_pw = ''
+                        if git_conn.password:
+                            f_pw_path = tmp_dir + os.path.sep + 'ssh_key_pw'
+                            with open(f_pw_path, 'w+') as f_pw:
+                                # create file in temp folder -> ssh-add cannot
+                                # open a NamedTemporaryFile in context manager
+                                f_pw.write('#!/bin/bash\necho "{0}"'
+                                        .format(git_conn.password)
+                                )
+                                f_pw.seek(0)
+                            ssh_pw = 'DISPLAY=":0.0" SSH_ASKPASS="{0}" '
+                            ssh_pw = ssh_pw.format(f_pw_path)
+                            cmd += ' && chmod 777 {0}'.format(f_pw_path)
+                        cmd += ' && {1}ssh-add {0}'.format(file_name, ssh_pw)
                     else:
                         cmd += 'echo "cloning without credentials!"'
                     ssh_domain = re.search('@(.*):', self.git_link).group(1)
-                    cmd += (' && ssh-keyscan -H {0} >> ~/.ssh/known_hosts'
+                    cmd += ' && mkdir -p $HOME/.ssh'
+                    cmd += (' && ssh-keyscan -H {0} >> $HOME/.ssh/known_hosts'
                     .format(ssh_domain))
                     cmd += ' && git clone {0} {1}'.format(
                         git_repo_link,
@@ -151,6 +171,16 @@ class EWAHdbtOperator(BaseOperator):
                     self.subfolder = os.path.sep + self.subfolder
                 dbt_dir += self.subfolder
 
+            # if applicable: open SSH tunnel
+            if self.ssh_tunnel_id:
+                self.ssh_tunnel_forwarder, dwh_conn = start_ssh_tunnel(
+                    ssh_conn_id=self.ssh_tunnel_id,
+                    remote_conn_id=self.dwh_conn_id,
+                )
+            else:
+                dwh_conn = BaseHook.get_connection(self.dwh_conn_id)
+
+
             # read profile name & create temporary profiles.yml
             project_yml_file = dbt_dir
             if not project_yml_file[-1:] == os.path.sep:
@@ -159,7 +189,6 @@ class EWAHdbtOperator(BaseOperator):
             project_yml = yaml.load(open(project_yml_file, 'r'), Loader=Loader)
             profile_name = project_yml['profile']
             self.log.info('Creating temp profile "{0}"'.format(profile_name))
-            dwh_conn = BaseHook.get_connection(self.dwh_conn_id)
             profiles_yml = {
                 'config': {
                     'send_anonymous_usage_stats': False,
@@ -197,3 +226,9 @@ class EWAHdbtOperator(BaseOperator):
                 cmd += ' && dbt '.join(['', 'deps'] + self.dbt_commands)
                 cmd += ' && deactivate'
                 run_cmd(cmd, env)
+
+            # if applicable: close SSH tunnel
+            if hasattr(self, 'ssh_tunnel_forwarder'):
+                self.log.info('Stopping!')
+                self.ssh_tunnel_forwarder.stop()
+                del self.ssh_tunnel_forwarder

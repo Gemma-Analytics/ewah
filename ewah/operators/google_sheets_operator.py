@@ -42,7 +42,7 @@ class EWAHGSpreadOperator(EWAHBaseOperator):
     *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-        credentials = BaseHook.get_connection(self.source_conn_id).extra_dejson
+        credentials = self.source_conn.extra_dejson
         if not credentials.get('client_secrets'):
             raise Exception('Google Analytics Credentials misspecified!' \
                 + ' Example of a correct specifidation: {0}'.format(

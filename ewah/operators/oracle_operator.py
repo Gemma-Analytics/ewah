@@ -46,12 +46,12 @@ class EWAHOracleSQLOperator(EWAHSQLBaseOperator):
                 return createRow
 
             oracle_conn = cx_Oracle.connect(
-                self.connection.login,
-                self.connection.password,
+                self.source_conn.login,
+                self.source_conn.password,
                 '{0}:{1}/{2}'.format(
-                    self.connection.host,
-                    self.connection.port,
-                    self.connection.schema,
+                    self.source_conn.host,
+                    self.source_conn.port,
+                    self.source_conn.schema,
                 ),
                 encoding='UTF-8'
             )

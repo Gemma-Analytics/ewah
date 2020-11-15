@@ -1,14 +1,73 @@
-from airflow.operators.postgres_operator import PostgresOperator as PGO
+# from airflow.operators.postgres_operator import PostgresOperator as PGO
 from airflow.operators.python_operator import PythonOperator as PO
 from airflow.operators.dummy_operator import DummyOperator as DO
 from airflow.hooks.base_hook import BaseHook
+from airflow.models import BaseOperator
 
+from ewah.ewah_utils.ssh_tunnel import start_ssh_tunnel
 from ewah.dwhooks.dwhook_snowflake import EWAHDWHookSnowflake
+from ewah.dwhooks.dwhook_postgres import EWAHDWHookPostgres
 from ewah.constants import EWAHConstants as EC
 
 from datetime import datetime, timedelta, timezone
 from copy import deepcopy
 import re
+
+class PGO(BaseOperator):
+    """Airflow operator to execute PostgreSQL statements.
+
+    Required in excess of airflow.operators.postgres_operator.PostgresOperator
+        due to the a requirement to have an SSH tunnel option.
+
+    Needs to be otherwise interchangeable with Airflow's PostgresOperator.
+    """
+
+    template_fields = ('sql',)
+    template_ext = ('.sql',)
+
+    def __init__(self,
+        sql,
+        postgres_conn_id,
+        autocommit=False,
+        parameters=None,
+        database=None,
+        *args,
+        ssh_tunnel_conn_id=None,
+    **kwargs):
+        self.sql = sql
+        self.postgres_conn_id = postgres_conn_id
+        if autocommit:
+            print('WARNING: autocommit=True not implemented!')
+        self.autocommit = autocommit
+        self.parameters = parameters
+        self.database = database
+        self.ssh_tunnel_conn_id = ssh_tunnel_conn_id
+        super().__init__(*args, **kwargs)
+
+    def execute(self, context):
+        self.log.info('Executing: %s', self.sql)
+        if self.autocommit:
+            self.log.warn('Autocommit feature is not implemented!')
+
+        # open SSH tunnel if applicable
+        if self.ssh_tunnel_conn_id:
+            self.ssh_tunnel_forwarder, conn = start_ssh_tunnel(
+                ssh_conn_id=self.ssh_tunnel_conn_id,
+                remote_conn_id=self.postgres_conn_id,
+            )
+        else:
+            conn = BaseHook.get_connection(self.postgres_conn_id)
+
+        if self.database:
+            conn.schema = self.database
+
+        hook = EWAHDWHookPostgres(conn)
+        hook.execute(sql=self.sql, params=self.parameters, commit=True)
+
+        # close SSH tunnel if applicable
+        if hasattr(self, 'ssh_tunnel_forwarder'):
+            self.ssh_tunnel_forwarder.close()
+            del self.ssh_tunnel_forwarder
 
 def airflow_datetime_adjustments(datetime_raw):
     if type(datetime_raw) == str:
@@ -58,6 +117,7 @@ def etl_schema_tasks(
         target_database_name=None,
         copy_schema=False,
         read_right_users=None, # Only for PostgreSQL
+        ssh_tunnel_conn_id=None,
         **additional_task_args
     ):
 
@@ -149,6 +209,7 @@ def etl_schema_tasks(
             'task_id': 'kickoff_{0}'.format(target_schema_name),
             'dag': dag,
             'postgres_conn_id': dwh_conn_id,
+            'ssh_tunnel_conn_id': ssh_tunnel_conn_id,
             # 'retries': 1,
             # 'retry_delay': timedelta(minutes=1),
         })
@@ -157,6 +218,7 @@ def etl_schema_tasks(
             'task_id': 'final_{0}'.format(target_schema_name),
             'dag': dag,
             'postgres_conn_id': dwh_conn_id,
+            'ssh_tunnel_conn_id': ssh_tunnel_conn_id,
             # 'retries': 1,
             # 'retry_delay': timedelta(minutes=1),
         })

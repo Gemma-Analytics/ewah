@@ -218,7 +218,7 @@ class EWAHShopifyOperator(EWAHBaseOperator):
                     ),
                 })
 
-        source_conn_id = self.source_conn_id
+        source_conn_id = self.source_conn.conn_id
         auth_type = self.auth_type
         if is_iterable_not_string(self.shop_id):
             # multiple shops to iterate - loop through!
@@ -241,7 +241,7 @@ class EWAHShopifyOperator(EWAHBaseOperator):
                 self.execute_for_shop(context, shop_id, params, sci, at)
         else:
             self._metadata.update({'shop_id': self.shop_id})
-            sci = self.source_conn_id
+            sci = self.source_conn.conn_id
             at = self.auth_type
             self.execute_for_shop(context, self.shop_id, params, sci, at)
 

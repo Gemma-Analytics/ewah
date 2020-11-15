@@ -145,7 +145,7 @@ class EWAHGAOperator(EWAHBaseOperator):
     def ewah_execute(self, context):
         self.data_until = self.data_until or context['next_execution_date']
         self.data_from = self.data_from or context['execution_date']
-        
+
         self.data_until = airflow_datetime_adjustments(self.data_until)
         self.data_from = airflow_datetime_adjustments(self.data_from)
         self.reload_data_from = \

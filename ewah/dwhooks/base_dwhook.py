@@ -15,10 +15,11 @@ class EWAHBaseDWHook(BaseHook):
     always a child of this class and contains logic that is DWH specific.
     """
 
-    def __init__(self, dwh_engine, *args, logging_func=None, **kwargs):
+    def __init__(self, dwh_engine, dwh_conn, *args, logging_func=None, **kwargs):
+        args = [dwh_conn.conn_id] + (args or [])
         super().__init__(*args, **kwargs)
         self.dwh_engine = dwh_engine
-        self.credentials = self.get_connection(args[0])
+        self.credentials = dwh_conn
         self.logging_func = logging_func or print
         self._init_conn(first_call=True)
 
@@ -62,18 +63,18 @@ class EWAHBaseDWHook(BaseHook):
 
     def execute(self, sql, params=None, commit=False, cursor=None):
         self.logging_func('\nExecuting SQL:\n\n{0}'.format(sql))
-        for statement in sql.split(';'):
-            if statement.strip():
-                kwargs = {}
-                args = []
-                if params:
-                    if self.dwh_engine == EC.DWH_ENGINE_POSTGRES:
-                        kwargs.update({'vars': params})
-                    elif self.dwh_engine == EC.DWH_ENGINE_SNOWFLAKE:
-                        args = [params]
-                    else:
-                        raise Exception('Feature not implemented!')
-                (cursor or self.cur).execute(statement.strip(), *args, **kwargs)
+        kwargs = {}
+        args = []
+        if params:
+            if self.dwh_engine == EC.DWH_ENGINE_POSTGRES:
+                kwargs.update({'vars': params})
+            elif self.dwh_engine == EC.DWH_ENGINE_SNOWFLAKE:
+                args = [params]
+            else:
+                raise Exception('Feature not implemented!')
+
+        (cursor or self.cur).execute(sql.strip(), *args, **kwargs)
+
         if commit:
             self.commit()
 

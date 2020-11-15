@@ -256,6 +256,7 @@ def dbt_dag_factory_new(
     schedule_interval=timedelta(hours=1),
     start_date=datetime(2019,1,1),
     default_args=None,
+    ssh_tunnel_id=None,
 ):
 
     # only PostgreSQL implement as of now!
@@ -313,6 +314,7 @@ def dbt_dag_factory_new(
         'threads': threads,
         'schema_name': schema_name,
         'keepalives_idle': 0,
+        'ssh_tunnel_id': ssh_tunnel_id,
     }
 
     run_1 = EWAHdbtOperator(

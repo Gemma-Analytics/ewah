@@ -29,11 +29,11 @@ class EWAHMySQLOperator(EWAHSQLBaseOperator):
         else:
             cursor_class = pymysql.cursors.Cursor
         database_conn = pymysql.connect(**{
-            'host': self.connection.host,
-            'user': self.connection.login,
-            'passwd': self.connection.password,
-            'port': self.connection.port,
-            'database': self.connection.schema,
+            'host': self.source_conn.host,
+            'user': self.source_conn.login,
+            'passwd': self.source_conn.password,
+            'port': self.source_conn.port,
+            'database': self.source_conn.schema,
             'cursorclass': cursor_class,
         })
         cursor = database_conn.cursor()

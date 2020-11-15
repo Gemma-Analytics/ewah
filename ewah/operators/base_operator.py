@@ -4,6 +4,7 @@ from airflow.utils.decorators import apply_defaults
 
 from ewah.dwhooks import get_dwhook
 from ewah.constants import EWAHConstants as EC
+from ewah.ewah_utils.ssh_tunnel import start_ssh_tunnel
 
 import hashlib
 
@@ -88,6 +89,9 @@ class EWAHBaseOperator(BaseOperator):
         # columns_definition was supplied (e.g. for select * with sql)
         index_columns=[], # list of columns to create an index on. can be
         # an expression, must be quoted in list of quoting is required.
+        source_ssh_tunnel_conn_id=None, # create SSH tunnel if set; uses host
+        # and port from source_conn_id as remote host and port
+        target_ssh_tunnel_conn_id=None, # see source_ssh_tunnel_conn_id
     *args, **kwargs):
         super().__init__(*args, **kwargs)
 
@@ -170,6 +174,8 @@ class EWAHBaseOperator(BaseOperator):
         self.add_metadata = add_metadata
         self.exclude_columns = exclude_columns
         self.index_columns = index_columns
+        self.source_ssh_tunnel_conn_id = source_ssh_tunnel_conn_id
+        self.target_ssh_tunnel_conn_id = target_ssh_tunnel_conn_id
 
         self.hook = get_dwhook(self.dwh_engine)
 
@@ -181,42 +187,88 @@ class EWAHBaseOperator(BaseOperator):
             the child operators shall have an ewah_execute() function which is
             called by this general execute() method.
         """
+
+        def close_ssh_tunnels():
+            # close SSH tunnels if they exist
+            if hasattr(self, 'source_ssh_tunnel_forwarder'):
+                self.source_ssh_tunnel_forwarder.stop()
+                del self.source_ssh_tunnel_forwarder
+            if hasattr(self, 'target_ssh_tunnel_forwarder'):
+                self.target_ssh_tunnel_forwarder.stop()
+                del self.target_ssh_tunnel_forwarder
+
         # the upload hook is used in the self.upload_data() function
         # which is called by the child's ewah_execute function whenever there is
-        # data to upload.
-        self.upload_hook = self.hook(self.dwh_conn_id)
-        # execute operator
-        result = self.ewah_execute(context)
-        # if PostgreSQL and arg given: create indices
-        for column in self.index_columns:
-            # Use hashlib to create a unique 63 character string as index
-            # name to avoid breaching index name length limits and accidental
-            # duplicates / missing indices due to name truncation leading to
-            # identical index names.
-            self.hook.execute(self._INDEX_QUERY.format(
-                '__ewah_' + hashlib.blake2b(
-                    (self.target_schema_name
-                        + self.target_schema_suffix
-                        + '.'
-                        + self.target_table_name
-                        + '.'
-                        + column
-                    ).encode(),
-                    digest_size=28,
-                ).hexdigest(),
-                self.target_schema_name + self.target_schema_suffix,
-                self.target_table_name,
-                column,
-            ))
-        # commit only at the end, so that no data may be committed before an
-        # error occurs.
-        self.log.info('Now committing changes!')
-        self.upload_hook.commit()
-        self.upload_hook.close()
+        # data to upload. If applicable: start SSH tunnel first!
+        if self.target_ssh_tunnel_conn_id:
+            self.log.info('Opening SSH tunnel to target...')
+            self.target_ssh_tunnel_forwarder, self.dwh_conn = start_ssh_tunnel(
+                ssh_conn_id=self.target_ssh_tunnel_conn_id,
+                remote_conn_id=self.dwh_conn_id,
+            )
+        else:
+            self.dwh_conn = BaseHook.get_connection(self.dwh_conn_id)
+        self.upload_hook = self.hook(self.dwh_conn)
+
+        # open SSH tunnel for the data source connection, if applicable
+        if self.source_ssh_tunnel_conn_id:
+            #if self.target_ssh_tunnel_conn_id:
+            #    local_port = self.dwh_conn.port + 1
+            #else:
+            #    local_port = 0 # random assignment
+            self.log.info('Opening SSH tunnel to source...')
+            self.source_ssh_tunnel_forwarder, self.source_conn=start_ssh_tunnel(
+                ssh_conn_id=self.source_ssh_tunnel_conn_id,
+                remote_conn_id=self.source_conn_id,
+            )
+        elif self.source_conn_id:
+            # resolve conn id here & delete the object to avoid usage elsewhere
+            self.source_conn = BaseHook.get_connection(self.source_conn_id)
+        del self.source_conn_id
+
+        try:
+            # execute operator
+            result = self.ewah_execute(context)
+
+            # if PostgreSQL and arg given: create indices
+            for column in self.index_columns:
+                # Use hashlib to create a unique 63 character string as index
+                # name to avoid breaching index name length limits & accidental
+                # duplicates / missing indices due to name truncation leading to
+                # identical index names.
+                self.hook.execute(self._INDEX_QUERY.format(
+                    '__ewah_' + hashlib.blake2b(
+                        (self.target_schema_name
+                            + self.target_schema_suffix
+                            + '.'
+                            + self.target_table_name
+                            + '.'
+                            + column
+                        ).encode(),
+                        digest_size=28,
+                    ).hexdigest(),
+                    self.target_schema_name + self.target_schema_suffix,
+                    self.target_table_name,
+                    column,
+                ))
+
+            # commit only at the end, so that no data may be committed before an
+            # error occurs.
+            self.log.info('Now committing changes!')
+            self.upload_hook.commit()
+            self.upload_hook.close()
+        except:
+            # close SSH tunnels on failure before raising the error
+            close_ssh_tunnels()
+            raise
+
+        # everything worked, now close SSH tunnels
+        close_ssh_tunnels()
+
         return result
 
     def test_if_target_table_exists(self):
-        hook = self.hook(self.dwh_conn_id)
+        hook = self.hook(self.dwh_conn)
         if self.dwh_engine == EC.DWH_ENGINE_POSTGRES:
             result = hook.test_if_table_exists(
                 table_name=self.target_table_name,
@@ -312,8 +364,9 @@ class EWAHBaseOperator(BaseOperator):
 
         if (not self.drop_and_replace) or (self.upload_call_count > 1):
             self.log.info('Checking for, and applying schema changes.')
+            _new_schema_name = self.target_schema_name+self.target_schema_suffix
             new_cols, del_cols = hook.detect_and_apply_schema_changes(
-                new_schema_name=self.target_schema_name+self.target_schema_suffix,
+                new_schema_name=_new_schema_name,
                 new_table_name=self.target_table_name,
                 new_columns_dictionary=columns_definition,
                 # When introducing a feature utilizing this, remember to
@@ -338,11 +391,11 @@ class EWAHBaseOperator(BaseOperator):
             drop_and_replace=self.drop_and_replace and \
                 (self.upload_call_count == 1), # In case of chunking of uploads
             update_on_columns=self.update_on_columns,
-            commit=False,
+            commit=False, # See note below for reason
             logging_function=self.log.info,
             clean_data_before_upload=self.clean_data_before_upload,
         )
-        """ Note on commiting changes:
+        """ Note on committing changes:
             The hook used for data uploading is created at the beginning of the
             execute function and automatically committed and closed at the end.
             DO NOT commit in this function, as multiple uploads may be required,

@@ -133,7 +133,7 @@ class EWAHGoogleAdsOperator(EWAHBaseOperator):
             self.data_from = airflow_datetime_adjustments(self.data_from)
             self.data_from = self.data_from or context['execution_date']
 
-        conn = BaseHook.get_connection(self.source_conn_id).extra_dejson
+        conn = self.source_conn.extra_dejson
         credentials = {}
         for key in self._REQUIRED_KEYS:
             if not key in conn.keys():

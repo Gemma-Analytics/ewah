@@ -1,6 +1,7 @@
 from airflow import DAG
 
 from ewah.ewah_utils.airflow_utils import etl_schema_tasks
+from ewah.constants import EWAHConstants as EC
 
 from datetime import datetime, timedelta
 from collections.abc import Iterable
@@ -21,10 +22,13 @@ def dag_factory_drop_and_replace(
         schedule_interval=timedelta(days=1),
         end_date=None,
         read_right_users=None,
+        dwh_ssh_tunnel_conn_id=None,
         additional_dag_args={},
         additional_task_args={},
     ):
 
+    if dwh_ssh_tunnel_conn_id and not dwh_engine == EC.DWH_ENGINE_POSTGRES:
+        raise Exception('DWH tunneling only implemented for PostgreSQL DWHs!')
     if not hasattr(el_operator, '_IS_FULL_REFRESH'):
         raise Exception('Invalid operator supplied!')
     if not el_operator._IS_FULL_REFRESH:
@@ -55,6 +59,7 @@ def dag_factory_drop_and_replace(
         target_database_name=target_database_name,
         copy_schema=False,
         read_right_users=read_right_users,
+        ssh_tunnel_conn_id=dwh_ssh_tunnel_conn_id,
         **additional_task_args
     )
 
@@ -72,6 +77,7 @@ def dag_factory_drop_and_replace(
                 'target_schema_suffix': target_schema_suffix,
                 'target_database_name': target_database_name,
                 'drop_and_replace': True,
+                'target_ssh_tunnel_conn_id': dwh_ssh_tunnel_conn_id,
             })
             table_task = el_operator(**table_config)
             kickoff >> table_task >> final
