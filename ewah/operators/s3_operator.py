@@ -113,7 +113,7 @@ class EWAHS3Operator(EWAHBaseOperator):
     def execute_csv(self, context):
         self.data_from = airflow_datetime_adjustments(self.data_from)
         self.data_until = airflow_datetime_adjustments(self.data_until)
-        hook = S3Hook(self.source_conn_id)
+        hook = S3Hook(self.source_conn.conn_id)
         suffix = self.suffix
         if self.key_name:
             data = hook.read_key(self.key_name, self.bucket_name)
@@ -164,7 +164,7 @@ class EWAHS3Operator(EWAHBaseOperator):
         self.data_from = airflow_datetime_adjustments(self.data_from)
         self.data_until = airflow_datetime_adjustments(self.data_until)
 
-        hook = S3Hook(self.source_conn_id)
+        hook = S3Hook(self.source_conn.conn_id)
         suffix = self.suffix
 
         if self.key_name:

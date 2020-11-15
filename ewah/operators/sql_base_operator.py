@@ -39,7 +39,6 @@ class EWAHSQLBaseOperator(EWAHBaseOperator):
         #   it is loading incrementally, where to start loading data? datetime
         reload_data_chunking=None, # must be timedelta
         where_clause='1 = 1',
-        tunnel_conn_id=None, # str - name of conn id of SSH tunnel if applicable
     *args, **kwargs):
 
         # allow setting schema in general config w/out throwing an error
@@ -110,7 +109,6 @@ class EWAHSQLBaseOperator(EWAHBaseOperator):
         self.chunking_column = chunking_column
         self.reload_data_from = reload_data_from
         self.reload_data_chunking = reload_data_chunking or chunking_interval
-        self.tunnel_conn_id = tunnel_conn_id
 
         # run after setting class properties for templating
         super().__init__(*args, **kwargs)
@@ -157,42 +155,6 @@ class EWAHSQLBaseOperator(EWAHBaseOperator):
         })
 
     def ewah_execute(self, context):
-        if self.tunnel_conn_id:
-            if self.sql_engine == self._PGSQL:
-                raise Exception('Tunnelling not implemented for Postgres!')
-
-            self.connection = BaseHook.get_connection(self.source_conn_id)
-
-            # if tunnel_conn_id arg is given, use SSH tunnel to connect!
-            tc = BaseHook.get_connection(self.tunnel_conn_id)
-            source_conn = BaseHook.get_connection(self.source_conn_id)
-            rba = (source_conn.host, source_conn.port)
-            with NamedTemporaryFile() as temp_file:
-                # write private key into a file to connect to SSH tunnel
-                if tc.extra:
-                    temp_file_name = os.path.abspath(temp_file.name)
-                    temp_file.write(tc.extra.encode())
-                    temp_file.flush()
-                else:
-                    temp_file_name = None
-
-                forwarder_kwargs ={
-                    'ssh_address_or_host': (tc.host, tc.port or 22),
-                    'ssh_username': tc.login or None,
-                    'ssh_pkey': temp_file_name,
-                    'ssh_password': tc.password or None,
-                    'remote_bind_address': rba,
-                }
-                with SSHTunnelForwarder(**forwarder_kwargs) as t:
-                    self.connection.host = 'localhost'
-                    self.connection.port = t.local_bind_port
-                    self.sql_execute(context)
-        else:
-            if not self.sql_engine == self._PGSQL:
-                self.connection = BaseHook.get_connection(self.source_conn_id)
-            self.sql_execute(context)
-
-    def sql_execute(self, context):
         str_format = '%Y-%m-%dT%H:%M:%SZ'
 
         if not self.drop_and_replace and \
@@ -282,7 +244,7 @@ class EWAHSQLBaseOperator(EWAHBaseOperator):
                 if previous_chunk is None or max_chunk is None:
                     self.log.info('There appears to be no data?')
                     return
-                    
+
             else:
                 previous_chunk = self.data_from
                 max_chunk = self.data_until

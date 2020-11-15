@@ -85,7 +85,7 @@ class EWAHZendeskOperator(EWAHBaseOperator):
         self.data_from = self.make_unix_datetime(self.get_data_from(context))
         self.data_until= self.make_unix_datetime(context['next_execution_date'])
 
-        conn = BaseHook.get_connection(self.source_conn_id)
+        conn = self.source_conn
         if self.auth_type == 'basic_auth':
             self.auth = HTTPBasicAuth(conn.login, conn.password)
         else:

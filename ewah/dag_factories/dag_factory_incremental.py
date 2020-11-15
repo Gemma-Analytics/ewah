@@ -1,8 +1,8 @@
 from airflow import DAG
 from airflow.hooks.base_hook import BaseHook
-from airflow.operators.postgres_operator import PostgresOperator as PGO
 from airflow.sensors.external_task_sensor import ExternalTaskSensor as ETS
 
+from ewah.ewah_utils.airflow_utils import PGO
 from ewah.ewah_utils.airflow_utils import etl_schema_tasks
 from ewah.dwhooks.dwhook_snowflake import SnowflakeOperator
 from ewah.constants import EWAHConstants as EC
@@ -92,10 +92,13 @@ def dag_factory_incremental_loading(
         #   of schedule_interval_future (which is recommended in most cases)
         end_date=None,
         read_right_users=None,
+        dwh_ssh_tunnel_conn_id=None,
         additional_dag_args={},
         additional_task_args={},
     ):
 
+    if dwh_ssh_tunnel_conn_id and not dwh_engine == EC.DWH_ENGINE_POSTGRES:
+        raise Exception('DWH tunneling only implemented for PostgreSQL DWHs!')
     if not hasattr(el_operator, '_IS_INCREMENTAL'):
         raise Exception('Invalid operator supplied!')
     if not el_operator._IS_INCREMENTAL:
@@ -250,6 +253,7 @@ def dag_factory_incremental_loading(
             postgres_conn_id=dwh_conn_id,
             task_id='delete_previous_schema_if_exists',
             dag=dags[2],
+            ssh_tunnel_conn_id=dwh_ssh_tunnel_conn_id,
             **additional_task_args
         )
     elif dwh_engine == EC.DWH_ENGINE_SNOWFLAKE:
@@ -276,6 +280,7 @@ def dag_factory_incremental_loading(
         target_schema_suffix=target_schema_suffix,
         dwh_conn_id=dwh_conn_id,
         read_right_users=read_right_users,
+        ssh_tunnel_conn_id=dwh_ssh_tunnel_conn_id,
         **additional_task_args
     )
 
@@ -288,6 +293,7 @@ def dag_factory_incremental_loading(
         target_schema_suffix=target_schema_suffix,
         dwh_conn_id=dwh_conn_id,
         read_right_users=read_right_users,
+        ssh_tunnel_conn_id=dwh_ssh_tunnel_conn_id,
         **additional_task_args
     )
 
@@ -332,6 +338,7 @@ def dag_factory_incremental_loading(
             'target_schema_name': target_schema_name,
             'target_schema_suffix': target_schema_suffix,
             'target_database_name': target_database_name,
+            'target_ssh_tunnel_conn_id': dwh_ssh_tunnel_conn_id,
             # 'drop_and_replace': False,
             # columns_definition
             # update_on_columns

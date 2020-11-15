@@ -29,7 +29,7 @@ class EWAHMailchimpOperator(EWAHBaseOperator):
     def ewah_execute(self, context):
         # Initiate Mailchimp client
         self.log.info('Connecting to Mailchimp...')
-        conn = BaseHook.get_connection(self.source_conn_id)
+        conn = self.source_conn
         mailchimp_cli = mailchimp3.MailChimp(
             mc_user=conn.login,
             mc_api=conn.password,

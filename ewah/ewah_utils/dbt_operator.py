@@ -3,6 +3,7 @@ from airflow.hooks.base_hook import BaseHook
 from airflow.utils.file import TemporaryDirectory
 
 from ewah.ewah_utils.yml_loader import Loader, Dumper
+from ewah.ewah_utils.ssh_tunnel import start_ssh_tunnel
 
 import re
 import os
@@ -39,6 +40,7 @@ class EWAHdbtOperator(BaseOperator):
         threads=4, # see https://docs.getdbt.com/dbt-cli/configure-your-profile/#understanding-threads
         schema_name='analytics', # see https://docs.getdbt.com/dbt-cli/configure-your-profile/#understanding-target-schemas
         keepalives_idle=0, # see https://docs.getdbt.com/reference/warehouse-profiles/postgres-profile/
+        ssh_tunnel_id=None,
     *args, **kwargs):
 
         assert repo_type in ('git')
@@ -77,6 +79,7 @@ class EWAHdbtOperator(BaseOperator):
         self.threads = threads
         self.schema_name = schema_name
         self.keepalives_idle = keepalives_idle
+        self.ssh_tunnel_id = ssh_tunnel_id
 
     def execute(self, context):
         def run_cmd(cmd, env):
@@ -168,6 +171,16 @@ class EWAHdbtOperator(BaseOperator):
                     self.subfolder = os.path.sep + self.subfolder
                 dbt_dir += self.subfolder
 
+            # if applicable: open SSH tunnel
+            if self.ssh_tunnel_id:
+                self.ssh_tunnel_forwarder, dwh_conn = start_ssh_tunnel(
+                    ssh_conn_id=self.ssh_tunnel_id,
+                    remote_conn_id=self.dwh_conn_id,
+                )
+            else:
+                dwh_conn = BaseHook.get_connection(self.dwh_conn_id)
+
+
             # read profile name & create temporary profiles.yml
             project_yml_file = dbt_dir
             if not project_yml_file[-1:] == os.path.sep:
@@ -176,7 +189,6 @@ class EWAHdbtOperator(BaseOperator):
             project_yml = yaml.load(open(project_yml_file, 'r'), Loader=Loader)
             profile_name = project_yml['profile']
             self.log.info('Creating temp profile "{0}"'.format(profile_name))
-            dwh_conn = BaseHook.get_connection(self.dwh_conn_id)
             profiles_yml = {
                 'config': {
                     'send_anonymous_usage_stats': False,
@@ -214,3 +226,9 @@ class EWAHdbtOperator(BaseOperator):
                 cmd += ' && dbt '.join(['', 'deps'] + self.dbt_commands)
                 cmd += ' && deactivate'
                 run_cmd(cmd, env)
+
+            # if applicable: close SSH tunnel
+            if hasattr(self, 'ssh_tunnel_forwarder'):
+                self.log.info('Stopping!')
+                self.ssh_tunnel_forwarder.stop()
+                del self.ssh_tunnel_forwarder

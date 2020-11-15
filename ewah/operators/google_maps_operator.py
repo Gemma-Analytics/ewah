@@ -38,7 +38,7 @@ class EWAHGMapsOperator(EWAHBaseOperator):
             return_dict=True,
         )
 
-        api_key = BaseHook.get_connection(self.source_conn_id).password
+        api_key = self.source_conn.password
 
         client = googlemaps.Client(key=api_key)
 

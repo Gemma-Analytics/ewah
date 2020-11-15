@@ -15,10 +15,11 @@ class EWAHBaseDWHook(BaseHook):
     always a child of this class and contains logic that is DWH specific.
     """
 
-    def __init__(self, dwh_engine, *args, logging_func=None, **kwargs):
+    def __init__(self, dwh_engine, dwh_conn, *args, logging_func=None, **kwargs):
+        args = [dwh_conn.conn_id] + (args or [])
         super().__init__(*args, **kwargs)
         self.dwh_engine = dwh_engine
-        self.credentials = self.get_connection(args[0])
+        self.credentials = dwh_conn
         self.logging_func = logging_func or print
         self._init_conn(first_call=True)
 
