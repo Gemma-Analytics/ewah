@@ -88,7 +88,7 @@ el_dags:
         s_articles: {}
         s_articles_categories_seo: {}
 
-  # EL_Oracle: tbd
+  EL_Oracle: !yml_from_file secret_dag_oracle_to_snowflake.yml
 
   # EL_Postgres: tbd
 
