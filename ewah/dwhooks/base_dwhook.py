@@ -73,7 +73,13 @@ class EWAHBaseDWHook(BaseHook):
             else:
                 raise Exception('Feature not implemented!')
 
-        (cursor or self.cur).execute(sql.strip(), *args, **kwargs)
+        if self.dwh_engine == EC.DWH_ENGINE_SNOWFLAKE:
+            # Snowflake does not allow multiple statements in one call
+            # refactor this! breaks queries with strings including semicolon!
+            for statement in sql.strip().split(';'):
+                (cursor or self.cur).execute(statement.strip(), *args, **kwargs)
+        else:
+            (cursor or self.cur).execute(sql.strip(), *args, **kwargs)
 
         if commit:
             self.commit()
