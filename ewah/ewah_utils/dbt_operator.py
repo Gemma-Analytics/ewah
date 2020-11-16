@@ -2,6 +2,7 @@ from airflow.models import BaseOperator
 from airflow.hooks.base_hook import BaseHook
 from airflow.utils.file import TemporaryDirectory
 
+from ewah.constants import EWAHConstants as EC
 from ewah.ewah_utils.yml_loader import Loader, Dumper
 from ewah.ewah_utils.ssh_tunnel import start_ssh_tunnel
 
@@ -29,7 +30,7 @@ class EWAHdbtOperator(BaseOperator):
 
     def __init__(self,
         repo_type,
-        # dwh_engine, tbd - right now: only postgres DWHs implemented
+        dwh_engine,
         dwh_conn_id,
         git_conn_id=None,
         dbt_commands=['run'], # string or list of strings - dbt commands
@@ -39,6 +40,7 @@ class EWAHdbtOperator(BaseOperator):
         subfolder=None, # optional: supply if dbt project is in a subfolder
         threads=4, # see https://docs.getdbt.com/dbt-cli/configure-your-profile/#understanding-threads
         schema_name='analytics', # see https://docs.getdbt.com/dbt-cli/configure-your-profile/#understanding-target-schemas
+        database_name=None, # Snowflake only - name of the database
         keepalives_idle=0, # see https://docs.getdbt.com/reference/warehouse-profiles/postgres-profile/
         ssh_tunnel_id=None,
     *args, **kwargs):
@@ -48,6 +50,12 @@ class EWAHdbtOperator(BaseOperator):
         assert dbt_version
         assert threads
         assert schema_name
+
+        assert dwh_engine in (EC.DWH_ENGINE_POSTGRES, EC.DWH_ENGINE_SNOWFLAKE)
+
+        # only Snowflake is allowed to have the database_name kwarg
+        assert (dwh_engine == EC.DWH_ENGINE_SNOWFLAKE) or (not database_name)
+
 
         if isinstance(dbt_commands, str):
             dbt_commands = [dbt_commands]
@@ -70,6 +78,7 @@ class EWAHdbtOperator(BaseOperator):
 
         self.repo_type = repo_type
         self.git_conn_id = git_conn_id
+        self.dwh_engine = dwh_engine
         self.dwh_conn_id = dwh_conn_id
         self.dbt_commands = dbt_commands
         self.dbt_version = dbt_version
@@ -80,6 +89,7 @@ class EWAHdbtOperator(BaseOperator):
         self.schema_name = schema_name
         self.keepalives_idle = keepalives_idle
         self.ssh_tunnel_id = ssh_tunnel_id
+        self.database_name = database_name
 
     def execute(self, context):
         def run_cmd(cmd, env):
@@ -160,7 +170,8 @@ class EWAHdbtOperator(BaseOperator):
             # install dbt into created venv
             self.log.info('installing dbt=={0}'.format(self.dbt_version))
             cmd = 'source {0}/bin/activate'.format(venv_folder)
-            cmd += ' && pip install --quiet --upgrade dbt=={0}'.format(self.dbt_version)
+            cmd += (' && pip install --quiet --upgrade dbt=={0}'
+                    .format(self.dbt_version))
             cmd += ' && dbt --version'
             cmd += ' && deactivate'
             run_cmd(cmd, env)
@@ -194,7 +205,9 @@ class EWAHdbtOperator(BaseOperator):
                     'send_anonymous_usage_stats': False,
                     'use_colors': False, # colors won't be useful in logs
                 },
-                profile_name: {
+            }
+            if self.dwh_engine == EC.DWH_ENGINE_POSTGRES:
+                profiles_yml[profile_name] = {
                     'target': 'prod', # same as the output defined below
                     'outputs': {
                         'prod': { # for postgres
@@ -209,8 +222,30 @@ class EWAHdbtOperator(BaseOperator):
                             'keepalives_idle': self.keepalives_idle,
                         },
                     },
-                },
-            }
+                }
+            elif self.dwh_engine == EC.DWH_ENGINE_SNOWFLAKE:
+                extra = dwh_conn.extra_dejson
+                _db = extra.get('database', self.database_name)
+                _db = _db or dwh_conn.schema
+                profiles_yml[profile_name] = {
+                    'target': 'prod', # same as the output defined below
+                    'outputs': {
+                        'prod': { # for postgres
+                            'type': 'snowflake',
+                            'account': extra.get('account', dwh_conn.host),
+                            'user': extra.get('user', dwh_conn.login),
+                            'password': extra.get('password', dwh_conn.password),
+                            'role': extra.get('role'),
+                            'database': _db,
+                            'warehouse': extra.get('warehouse'),
+                            'schema': self.schema_name,
+                            'threads': self.threads,
+                            'keepalives_idle': self.keepalives_idle,
+                        },
+                    },
+                }
+            else:
+                raise Exception('DWH Engine not implemented!')
 
             # run commands with correct profile in the venv in the temp folder
             profiles_yml_name = tmp_dir + os.path.sep + 'profiles.yml'
