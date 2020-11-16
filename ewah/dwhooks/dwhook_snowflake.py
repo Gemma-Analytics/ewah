@@ -22,15 +22,17 @@ class SnowflakeOperator(BaseOperator):
         self.sql = sql
         self.conn_id = snowflake_conn_id
         self.database = database
-        self.params = params
+        # an attribute called "params" of an operator leads to an airflow error
+        # if that attribute is None due to default templating of "task.params"!
+        self._params = params
 
     def execute(self, context):
         hook = EWAHDWHookSnowflake(
-            conn_id=self.conn_id,
+            dwh_conn=EWAHBaseDWHook.get_connection(self.conn_id),
             database=self.database,
         )
-        self.log.info('execute: '+self.sql)
-        hook.execute(self.sql, commit=True, params=self.params)
+        self.log.info('execute: {0}'.format(self.sql))
+        hook.execute(self.sql, commit=True, params=self._params)
         hook.close()
 
 class EWAHDWHookSnowflake(EWAHBaseDWHook):
