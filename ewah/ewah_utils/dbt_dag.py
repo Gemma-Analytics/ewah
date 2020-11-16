@@ -243,6 +243,7 @@ def dbt_dag_factory_new(
     repo_type,
     dwh_engine,
     dwh_conn_id,
+    database_name=None,
     git_conn_id=None, # if provided, expecting private SSH key in conn extra
     # dbt_commands=['run'], # string or list of strings - dbt commands
     dbt_version='0.18.1',
@@ -259,8 +260,8 @@ def dbt_dag_factory_new(
     ssh_tunnel_id=None,
 ):
 
-    # only PostgreSQL implement as of now!
-    assert dwh_engine == EC.DWH_ENGINE_POSTGRES
+    # only PostgreSQL & Snowflake implemented as of now!
+    assert dwh_engine in (EC.DWH_ENGINE_POSTGRES, EC.DWH_ENGINE_SNOWFLAKE)
 
     dag_kwargs = {
         'catchup': False,
@@ -315,6 +316,8 @@ def dbt_dag_factory_new(
         'schema_name': schema_name,
         'keepalives_idle': 0,
         'ssh_tunnel_id': ssh_tunnel_id,
+        'dwh_engine': dwh_engine,
+        'database_name': database_name,
     }
 
     run_1 = EWAHdbtOperator(
