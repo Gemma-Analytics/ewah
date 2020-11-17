@@ -27,13 +27,13 @@ from tempfile import NamedTemporaryFile
 
 import sshtunnel
 
-# The default timeout of 1s is too little if airflow runs many EL tasks in
+# The default timeout of 10s is too little if airflow runs many EL tasks in
 # parallel -> if the SSH connection attempts are done in parallel, the timeout
 # hits before the connection is established.
-sshtunnel.TUNNEL_TIMEOUT = 10
+sshtunnel.TUNNEL_TIMEOUT = 30
 
 
-def start_ssh_tunnel(ssh_conn_id, remote_conn_id):
+def start_ssh_tunnel(ssh_conn_id, remote_conn_id, custom_timeout=None):
     """
     Start the SSH Tunnel with appropriate port forwarding.
 
@@ -41,6 +41,8 @@ def start_ssh_tunnel(ssh_conn_id, remote_conn_id):
     adjusted connection object (host and port are adjusted in accordance with
     the open tunnel)
     """
+    if custom_timeout:
+        sshtunnel.TUNNEL_TIMEOUT = custom_timeout
     ssh_conn = BaseHook.get_connection(ssh_conn_id)
     remote_conn = BaseHook.get_connection(remote_conn_id)
     kwargs = {
