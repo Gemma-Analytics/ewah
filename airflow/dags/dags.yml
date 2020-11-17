@@ -70,6 +70,7 @@ el_dags:
         campaigns: {}
 
   EL_MongoDB: !yml_from_file secret_dag_mongodb.yml
+  EL_MongoDB_2: !yml_from_file secret_dag_mongodb_2.yml
 
   EL_MySQL_Shopware:
     incremental: False

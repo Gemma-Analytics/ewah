@@ -264,7 +264,7 @@ class EWAHBaseDWHook(BaseHook):
                         value_type = type(value)
                         if column_name in jsonb_columns and value:
                             row[column_name] = json.dumps(value)
-                        elif value_type in [dict, OrderedDict]:
+                        elif value_type in [dict, OrderedDict, list]:
                             row[column_name] = json.dumps(value)
                         elif not (value == '\0'):
                             if value_type == str:
