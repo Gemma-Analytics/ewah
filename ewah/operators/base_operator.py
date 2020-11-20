@@ -92,8 +92,20 @@ class EWAHBaseOperator(BaseOperator):
         source_ssh_tunnel_conn_id=None, # create SSH tunnel if set; uses host
         # and port from source_conn_id as remote host and port
         target_ssh_tunnel_conn_id=None, # see source_ssh_tunnel_conn_id
+        hash_columns=None, # str or list of str - columns to hash pre-upload
+        hashlib_func_name='sha256', # specify hashlib hashing function
     *args, **kwargs):
         super().__init__(*args, **kwargs)
+
+        if hash_columns and not clean_data_before_upload:
+            _msg = 'column hashing is only possible with data cleaning!'
+            raise Exception(_msg)
+        elif isinstance(hash_columns, str):
+            hash_columns = [hash_columns]
+        if hashlib_func_name:
+            _msg = 'Invalid hashing function: hashlib.{0}()'
+            _msg = _msg.format(hashlib_func_name)
+            assert hasattr(hashlib, hashlib_func_name), _msg
 
         if columns_definition and exclude_columns:
             raise Exception('Must not supply both columns_definition and ' \
@@ -176,6 +188,8 @@ class EWAHBaseOperator(BaseOperator):
         self.index_columns = index_columns
         self.source_ssh_tunnel_conn_id = source_ssh_tunnel_conn_id
         self.target_ssh_tunnel_conn_id = target_ssh_tunnel_conn_id
+        self.hash_columns = hash_columns
+        self.hashlib_func_name = hashlib_func_name
 
         self.hook = get_dwhook(self.dwh_engine)
 
@@ -305,6 +319,13 @@ class EWAHBaseOperator(BaseOperator):
             for field in datum.keys():
                 if field in self.exclude_columns:
                     datum[field] = None
+                elif field in (self.hash_columns or []) \
+                    and not result.get(field):
+                     # Type is appropriate string type & QBC_FIELD_HASH is true
+                     result.update({field:{
+                        EC.QBC_FIELD_TYPE: get_field_type('str'),
+                        EC.QBC_FIELD_HASH: True,
+                     }})
                 elif not (result.get(field, {}).get(EC.QBC_FIELD_TYPE) \
                     == inconsistent_data_type) and (not datum[field] is None):
                     if result.get(field):
@@ -394,6 +415,8 @@ class EWAHBaseOperator(BaseOperator):
             commit=False, # See note below for reason
             logging_function=self.log.info,
             clean_data_before_upload=self.clean_data_before_upload,
+            hash_columns=self.hash_columns,
+            hashlib_func_name=self.hashlib_func_name,
         )
         """ Note on committing changes:
             The hook used for data uploading is created at the beginning of the

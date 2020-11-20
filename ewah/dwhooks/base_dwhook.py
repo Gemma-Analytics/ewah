@@ -3,6 +3,7 @@ from airflow.hooks.base_hook import BaseHook
 from ewah.constants import EWAHConstants as EC
 
 import json
+import hashlib
 from copy import deepcopy
 from collections import OrderedDict
 from psycopg2.extras import RealDictCursor
@@ -15,9 +16,9 @@ class EWAHBaseDWHook(BaseHook):
     always a child of this class and contains logic that is DWH specific.
     """
 
-    def __init__(self, dwh_engine, dwh_conn, *args, logging_func=None, **kwargs):
+    def __init__(self, dwh_engine, dwh_conn, *args, logging_func=None, **kwarg):
         args = [dwh_conn.conn_id] + (args or [])
-        super().__init__(*args, **kwargs)
+        super().__init__(*args, **kwarg)
         self.dwh_engine = dwh_engine
         self.credentials = dwh_conn
         self.logging_func = logging_func or print
@@ -203,6 +204,8 @@ class EWAHBaseDWHook(BaseHook):
         commit=False,
         logging_function=None,
         clean_data_before_upload=True,
+        hash_columns=None,
+        hashlib_func_name=None,
     ):
         logging_function = logging_function or (lambda *args: None)
         database_name = database_name or \
@@ -225,6 +228,7 @@ class EWAHBaseDWHook(BaseHook):
         field_constraints_mapping.pop(EC.QBC_FIELD_PK, None)
         pk_columns = []
 
+        hash_columns = hash_columns or []
         for column_name in columns_definition.keys():
             raw_row.update({column_name: None})
             definition = columns_definition[column_name]
@@ -246,31 +250,40 @@ class EWAHBaseDWHook(BaseHook):
                 pk_columns += [column_name]
                 if create_update_on_columns:
                     update_on_columns += [column_name]
+            if definition.get(EC.QBC_FIELD_HASH):
+                hash_columns += [column_name]
         sql_part_columns = ',\n\t'.join(sql_part_columns)
 
         if clean_data_before_upload:
             logging_function('Cleaning data for upload...')
             upload_data = []
             cols_list = list(raw_row.keys())
+            if hash_columns:
+                hash_func = getattr(hashlib, hashlib_func_name)
             while data:
                 datum = data.pop(0)
                 # Make sure that each dict in upload_data has all keys
                 row = deepcopy(raw_row)
                 for column_name, value in datum.items():
                     if column_name in cols_list:
-                        # avoid edge case of data where all instances of a field
-                        #   are None, thus having data for a field missing
-                        #   in the columns_definition!
-                        value_type = type(value)
-                        if column_name in jsonb_columns and value:
-                            row[column_name] = json.dumps(value)
-                        elif value_type in [dict, OrderedDict, list]:
-                            row[column_name] = json.dumps(value)
-                        elif not (value == '\0'):
-                            if value_type == str:
-                                row[column_name] = value.replace('\x00', '')
-                            else:
-                                row[column_name] = value
+                        if column_name in hash_columns:
+                            # hash column!
+                            pre_digest = hash_func(str(value).encode())
+                            row[column_name] = pre_digest.hexdigest()
+                        else:
+                            # avoid edge case of data where all instances of a field
+                            #   are None, thus having data for a field missing
+                            #   in the columns_definition!
+                            value_type = type(value)
+                            if column_name in jsonb_columns and value:
+                                row[column_name] = json.dumps(value)
+                            elif value_type in [dict, OrderedDict, list]:
+                                row[column_name] = json.dumps(value)
+                            elif not (value == '\0'):
+                                if value_type == str:
+                                    row[column_name] = value.replace('\x00', '')
+                                else:
+                                    row[column_name] = value
                 upload_data += [row]
             data_len = len(upload_data)
         else:

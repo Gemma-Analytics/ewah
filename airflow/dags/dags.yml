@@ -65,9 +65,19 @@ el_dags:
           resource: reports
         lists:
           resource: lists
+        lists_hashed:
+          resource: lists
+          hash_columns: name
         conversations:
           resource: conversations
         campaigns: {}
+        campaigns_hashed:
+          resource: campaigns
+          hash_columns:
+            - web_id
+            - type
+            - status
+            - sed_time
 
   EL_MongoDB: !yml_from_file secret_dag_mongodb.yml
   EL_MongoDB_2: !yml_from_file secret_dag_mongodb_2.yml

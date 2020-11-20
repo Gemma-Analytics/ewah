@@ -25,6 +25,7 @@ class EWAHConstants:
     QBC_FIELD_PK = 'is_primary_key'
     QBC_FIELD_NN = 'is_not_null'
     QBC_FIELD_UQ = 'is_unique'
+    QBC_FIELD_HASH = 'is_hash_column'
     QBC_FIELD_GSHEET_COLNO = 'column' # Gsheet operator: position of the column
     QBC_FIELD_CONSTRAINTS_MAPPING = {
         DWH_ENGINE_POSTGRES: {
