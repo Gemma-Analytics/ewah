@@ -33,6 +33,19 @@ class EWAHGAOperator(EWAHBaseOperator):
         # _API_MULTI,
     ]
 
+    _SAMPLE_JSON = {"client_secrets":{
+        "type": "service_account",
+        "project_id": "abc-123",
+        "private_key_id": "123456abcder",
+        "private_key": "-----BEGIN PRIVATE KEY-----\nxxx\n-----END PRIVATE KEY-----\n",
+        "client_email": "xyz@abc-123.iam.gserviceaccount.com",
+        "client_id": "123457",
+        "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+        "token_uri": "https://oauth2.googleapis.com/token",
+        "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
+        "client_x509_cert_url": "https://www.googleapis.com/robot/v1/metadata/x509/xyz%40abc-123.iam.gserviceaccount.com"
+    }}
+
     def __init__(
         self,
         api, # one of _API_CORE_V3, _API_CORE_V4, _API_MULTI
@@ -79,8 +92,6 @@ class EWAHGAOperator(EWAHBaseOperator):
 
         kwargs.update({'update_on_columns': [dim[3:] for dim in dimensions]})
 
-        self.credentials = BaseHook.get_connection(kwargs['source_conn_id']) # dont commit this
-        self.credentials = self.credentials.extra_dejson
         self.api = api
         self.view_id = view_id
         self.data_from = data_from
@@ -105,25 +116,19 @@ class EWAHGAOperator(EWAHBaseOperator):
 
         super().__init__(*args, **kwargs)
 
+        credentials = BaseHook.get_connection(self.source_conn_id).extra_dejson
+
         if chunking_interval and not (type(chunking_interval) == timedelta):
             raise Exception('If supplied, chunking_interval must be timedelta!')
 
-        if not self.credentials.get('client_secrets'):
-            raise Exception('Google Analytics Credentials misspecified!' \
-                + ' Example of a correct specifidation: {0}'.format(
-                    json.dumps({"client_secrets":{
-                        "type": "service_account",
-                        "project_id": "abc-123",
-                        "private_key_id": "123456abcder",
-                        "private_key": "-----BEGIN PRIVATE KEY-----\nxxx\n-----END PRIVATE KEY-----\n",
-                        "client_email": "xyz@abc-123.iam.gserviceaccount.com",
-                        "client_id": "123457",
-                        "auth_uri": "https://accounts.google.com/o/oauth2/auth",
-                        "token_uri": "https://oauth2.googleapis.com/token",
-                        "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
-                        "client_x509_cert_url": "https://www.googleapis.com/robot/v1/metadata/x509/xyz%40abc-123.iam.gserviceaccount.com"
-                    }})
-                ))
+        if not credentials.get('client_secrets'):
+            _msg = 'Google Analytics Credentials misspecified!'
+            _msg += ' Example of a correct specifidation: {0}'.format(
+                    json.dumps(self._SAMPLE_JSON)
+            )
+            for key in self._SAMPLE_JSON['client_secrets']:
+                if not key in credentials:
+                    raise Exception(_msg)
 
         if len(dimensions) > 7:
             raise Exception(('Can only fetch up to 7 dimensions!' \
@@ -160,6 +165,8 @@ class EWAHGAOperator(EWAHBaseOperator):
         elif not self.chunking_interval:
             self.chunking_interval = self.data_until - self.data_from
 
+        credentials = self.source_conn.extra_dejson
+        credentials = credentials.get('client_secrets', credentials)
         self.log.info('Connecting to Google...')
         if self.api == self._API_CORE_V3:
             raise Exception('Not yet implemented')
@@ -169,7 +176,7 @@ class EWAHGAOperator(EWAHBaseOperator):
                     'analyticsreporting',
                     'v4',
                     credentials=SAC.from_json_keyfile_dict(
-                        self.credentials['client_secrets'],
+                        credentials,
                         ['https://www.googleapis.com/auth/analytics.readonly'],
                     )
                 ),
@@ -184,7 +191,7 @@ class EWAHGAOperator(EWAHBaseOperator):
                     'analytics',
                     'v3',
                     credentials=SAC.from_json_keyfile_dict(
-                        self.credentials['client_secrets'],
+                        credentials,
                         ['https://www.googleapis.com/auth/analytics.readonly'],
                     )
                 ),
