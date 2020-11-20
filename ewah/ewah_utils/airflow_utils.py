@@ -257,7 +257,7 @@ def etl_schema_tasks(
             })
 
         def execute_snowflake(sql, conn_id, **kwargs):
-            hook = EWAHDWHookSnowflake(conn_id)
+            hook = EWAHDWHookSnowflake(BaseHook.get_connection(conn_id))
             hook.execute(sql)
             hook.close()
 

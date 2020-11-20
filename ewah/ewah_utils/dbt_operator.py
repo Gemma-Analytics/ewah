@@ -25,6 +25,7 @@ class EWAHdbtOperator(BaseOperator):
         'snapshot',
         'seed',
         'docs generate',
+        'docs serve',
     ]
     # note: dbt deps is always executed first!
 
