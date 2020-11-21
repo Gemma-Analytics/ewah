@@ -42,3 +42,9 @@ RUN mkdir -p /home/airflow/.ssh
 
 # install psycopg2 - optional, but increases iteration speed
 RUN pip install --user --upgrade psycopg2
+
+# install flask-bcrypt to enable use of the backend
+RUN pip install flask-bcrypt
+
+# Set environment variables
+ENV AIRFLOW__CORE__FERNET_KEY='Change me in production!'
