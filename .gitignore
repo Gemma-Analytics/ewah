@@ -1,11 +1,14 @@
-# keep the folder, but don't keep the contents!
+# Only keep the dags and docker folders
+airflow/*
+!airflow/dags
+!airflow/docker
 airflow/docker/secrets/*
 !airflow/docker/secrets/.gitkeep
-airflow/airflow-webserver.pid
-airflow/logs
+secret_dag_*.yml
+
+
 postgres-data/*
 !postgres-data/.gitkeep
-secret_dag_*.yml
 
 pt/
 ewah_airflow_tests/
