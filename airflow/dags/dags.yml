@@ -13,6 +13,13 @@ base_config: # applied to all DAGs unless overwritten
   schedule_interval_future: !!python/object/apply:datetime.timedelta
     - 0
     - 3600
+  # For fullcremental loads
+  schedule_interval_full_refresh: !!python/object/apply:datetime.timedelta
+    - 1 # days
+    - 0 # seconds
+  schedule_interval_incremental: !!python/object/apply:datetime.timedelta
+    - 0 # days
+    - 3600 # seconds
   additional_task_args:
     retries: 1
     retry_delay: !!python/object/apply:datetime.timedelta
@@ -100,6 +107,7 @@ el_dags:
         s_articles_categories_seo: {}
 
   EL_Oracle: !yml_from_file secret_dag_oracle_to_snowflake.yml
+  EL_Oracle_2: !yml_from_file secret_dag_oracle_fullcremental.yml
 
   # EL_Postgres: tbd
 
