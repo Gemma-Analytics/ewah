@@ -30,6 +30,18 @@ base_config: # applied to all DAGs unless overwritten
     # email: ['me+ewahairflowerror@mail.com']
 el_dags:
 
+  EL_BigQuery:
+    incremental: False
+    el_operator: bq
+    target_schema_name: raw_bq
+    operator_config:
+      general_config:
+        source_conn_id: bq
+        source_schema_name: ds1
+      tables:
+        weights:
+          source_table_name: bijan_weight
+
   # EL_Facebook: tbd
 
   EL_FX:

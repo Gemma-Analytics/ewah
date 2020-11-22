@@ -35,5 +35,6 @@ setuptools.setup(
           'googlemaps',
           'sshtunnel>=0.2.2',
           'mailchimp3',
+          'google-cloud-bigquery',
       ],
 )

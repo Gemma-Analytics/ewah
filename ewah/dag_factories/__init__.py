@@ -173,6 +173,8 @@ def dags_from_dict(
         'googlemaps': EWAHGMapsOperator,
         'mc': EWAHMailchimpOperator,
         'mailchimp': EWAHMailchimpOperator,
+        'bq': EWAHBigQueryOperator,
+        'bigquery': EWAHBigQueryOperator,
     }
 
     allowed_dag_args = [

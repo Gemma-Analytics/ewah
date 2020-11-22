@@ -54,3 +54,7 @@ try:
     from ewah.operators.mailchimp_operator import EWAHMailchimpOperator
 except ImportError:
     from ewah.operators.base_operator import EWAHEmptyOperator as EWAHMailchimpOperator
+try:
+    from ewah.operators.bigquery_operator import EWAHBigQueryOperator
+except ImportError:
+    from ewah.operators.base_operator import EWAHEmptyOperator as EWAHBigQueryOperator
