@@ -23,9 +23,16 @@ def dag_factory_drop_and_replace(
         end_date=None,
         read_right_users=None,
         dwh_ssh_tunnel_conn_id=None,
-        additional_dag_args={},
-        additional_task_args={},
-    ):
+        additional_dag_args=None,
+        additional_task_args=None,
+    **kwargs):
+
+    if kwargs:
+        for key, value in kwargs.items():
+            print('unused config: {0}={1}'.format(key, str(value)))
+            
+    additional_dag_args = additional_dag_args or {}
+    additional_task_args = additional_task_args or {}
 
     if dwh_ssh_tunnel_conn_id and not dwh_engine == EC.DWH_ENGINE_POSTGRES:
         raise Exception('DWH tunneling only implemented for PostgreSQL DWHs!')

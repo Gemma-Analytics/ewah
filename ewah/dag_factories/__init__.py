@@ -3,6 +3,7 @@ from ewah.operators import *
 from ewah.operators.base_operator import EWAHBaseOperator as EBO
 
 from .dag_factory_full_refresh import dag_factory_drop_and_replace
+from .dag_factory_fullcremental import dag_factory_fullcremental
 from .dag_factory_incremental import dag_factory_incremental_loading
 
 from copy import deepcopy
@@ -195,6 +196,17 @@ def dags_from_dict(
         'owner', # set within this function, can be overwritten
     ]
 
+    factory_type = {
+        'fr': dag_factory_drop_and_replace,
+        'full-refresh': dag_factory_drop_and_replace,
+        'full refresh': dag_factory_drop_and_replace,
+        'fullcremental': dag_factory_fullcremental,
+        'periodic fr': dag_factory_fullcremental,
+        'inc': dag_factory_incremental_loading,
+        'incr': dag_factory_incremental_loading,
+        'incremental': dag_factory_incremental_loading,
+    }
+
     def warn_me(*warning_strings):
         if raise_warnings_as_errors:
             raise Exception(' '.join(warning_strings))
@@ -260,7 +272,25 @@ def dags_from_dict(
             'el_dags.{0}.additional_dag_args'.format(dag_name),
         )
         config.update(dag_config)
-        drop_and_replace = not config.pop('incremental', False)
+        load_strategy_depr = config.pop('incremental', None)
+        load_strategy = config.pop('load_strategy', None)
+        if (not load_strategy_depr is None) and load_strategy:
+            _msg = 'incremental kwarg is depcrecated and cannot be used '
+            _msg += 'simultaneously with load_strategy!'
+            raise Exception(_msg)
+        if load_strategy is None and load_strategy_depr is None:
+            _msg = 'Must supply kwarg load_strategy!'
+            raise Exception(_msg)
+        if not load_strategy_depr is None:
+            if load_strategy_depr:
+                load_strategy = 'inc'
+            else:
+                load_strategy = 'fr'
+        dag_factory = factory_type.get(load_strategy.lower())
+        if not dag_factory:
+            _msg = 'load_strategy={0} is invalid!'.format(load_strategy)
+            raise Exception(_msg)
+
         try:
             config.update({'dwh_engine': dwh_engines[config['dwh_engine']]})
         except KeyError:
@@ -285,21 +315,25 @@ def dags_from_dict(
                 '\n\t'.join(list(operators.keys())),
             ))
 
-        if drop_and_replace:
+
+        if dag_factory == dag_factory_drop_and_replace:
             config.update({'dag_name': dag_name})
             for key in _INCR_ONLY: # allow specifying everything in base config
                 config.pop(key, '')
-            dags += [dag_factory_drop_and_replace(**config)]
-        else:
+            dags += [dag_factory(**config)]
+        elif dag_factory == dag_factory_incremental_loading:
             for key in _FR_ONLY:
                 config.pop(key, '')
             config.update({'dag_base_name': dag_name})
-            dags += list(dag_factory_incremental_loading(**config))
-    if dags:
-        return dags
-    else:
+            dags += list(dag_factory(**config))
+        else:
+            config.update({'dag_base_name': dag_name})
+            dags += list(dag_factory(**config))
+
+    if not dags:
         warn_me('No DAGs created!')
-        return []
+
+    return dags
 
 def dags_from_yml_file(
     file_path,
