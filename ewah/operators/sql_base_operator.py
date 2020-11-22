@@ -19,6 +19,14 @@ class EWAHSQLBaseOperator(EWAHBaseOperator):
     _MYSQL = 'MySQL'
     _PGSQL = 'PostgreSQL'
     _ORACLE = 'OracleSQL'
+    _BQ = 'BigQuery'
+
+    _ACCEPTED_SOURCES = [
+        _MYSQL,
+        _PGSQL,
+        _ORACLE,
+        _BQ,
+    ]
 
     _IS_INCREMENTAL = True
     _IS_FULL_REFRESH = True
@@ -49,6 +57,8 @@ class EWAHSQLBaseOperator(EWAHBaseOperator):
 
         if not hasattr(self, 'sql_engine'):
             raise Exception('Operator invalid: need attribute sql_engine!')
+        if not self.sql_engine in self._ACCEPTED_SOURCES:
+            raise Exception('Operator invalid: SQL engine not implemented!')
 
         if reload_data_from and not (reload_data_chunking or chunking_interval):
             raise Exception('When setting reload_data_from, must also set ' \

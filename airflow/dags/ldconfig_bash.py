@@ -14,7 +14,7 @@ dag = DAG(
         'retry_delay': timedelta(minutes=2),
         'email_on_retry': False,
         'email_on_failure': True,
-        'email': ['me+afcairflowerror@bijansoltani.com'],
+        'email': ['email@email.com'],
         'priority_weight': 5,
     },
     schedule_interval=timedelta(minutes=3),
@@ -26,6 +26,6 @@ dag = DAG(
 
 task = BashOperator(
     task_id='ldconfig_update',
-    bash_command='sudo ldconfig /afc/opt/analytics/instantclient_19_8',
+    bash_command='sudo ldconfig /opt/oracle/instantclient_19_8',
     dag=dag,
 )

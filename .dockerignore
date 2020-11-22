@@ -1,0 +1,7 @@
+.git
+*__pycache__*
+airflow/logs
+build
+dist
+ewah.egg-info
+notes.txt
