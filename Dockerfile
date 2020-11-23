@@ -68,6 +68,51 @@ ENV EWAH_AIRFLOW_USER_USER='ewah'
 ENV EWAH_AIRFLOW_USER_PASSWORD='ewah'
 ENV EWAH_AIRFLOW_USER_EMAIL='ewah@gemmaanalytics.com'
 
+#################################################################################
+##  Set a number of environment variables as EWAH defaults, can be overwritten ##
+#################################################################################
+ENV AIRFLOW_HOME=/opt/airflow
+
+# Useful, often changed configurations
+ENV AIRFLOW__CORE__EXECUTOR=LocalExecutor
+ENV AIRFLOW__CORE__PARALLELISM=8
+ENV AIRFLOW__CORE__DAG_CONCURRENCY=16
+ENV AIRFLOW__WEBSERVER__BASE_URL="http://localhost:8080"
+
+# Email related
+ENV AIRFLOW__CORE__EMAIL_BACKEND=airflow.utils.email.send_email_smtp
+ENV AIRFLOW__CORE__SMTP_HOST=smtp.gmail.com
+ENV AIRFLOW__CORE__SMTP_STARTTLS=True
+ENV AIRFLOW__CORE__SMTP_SSL=False
+# ENV AIRFLOW__CORE__SMTP_USER=
+# ENV AIRFLOW__CORE__SMTP_PASSWORD=
+ENV AIRFLOW__CORE__SMTP_PORT=587
+# ENV AIRFLOW__CORE__SMTP_MAILFROM=
+
+# Logging
+ENV AIRFLOW__CORE__REMOTE_LOGGING=False
+# ENV AIRFLOW__CORE__REMOTE_LOG_CONN_ID=
+# ENV AIRFLOW__CORE__REMOTE_BASE_LOG_FOLDER=
+# ENV AIRFLOW__CORE__ENCRYPT_S3_LOGS=
+# ENV AIRFLOW__CORE__LOGGING_LEVEL = INFO
+
+# Other useful configurations
+ENV AIRFLOW__CORE__LOAD_EXAMPLES=False
+ENV AIRFLOW__CORE__LOAD_DEFAULT_CONNECTIONS=False
+ENV AIRFLOW__API__AUTH_BACKEND=airflow.api.auth.backend.deny_all
+
+# Related to $AIRFLOW_HOME
+ENV AIRFLOW__CORE__DAGS_FOLDER=/opt/airflow/dags
+ENV AIRFLOW__CORE__BASE_LOG_FOLDER=/opt/airflow/logs
+ENV AIRFLOW__CORE__PLUGINS_FOLDER=/opt/airflow/plugins
+ENV AIRFLOW__CORE__DAG_PROCESSOR_MANAGER_LOG_LOCATION=/opt/airflow/logs/dag_processor_manager/dag_processor_manager.log
+ENV AIRFLOW__SCHEDULER__CHILD_PROCESS_LOG_DIRECTORY=/opt/airflow/logs/scheduler
+
+# Default value socket.getfqdn sometimes cannot resolve hostname and falls back to gehostname()
+# If that happens, all tasks fail - just use gethostname() from the start instead
+ENV AIRFLOW__CORE__HOSTNAME_CALLABLE="socket:gethostname"
+
+
 ###############################################################################
 ## Multi-Stage build: for the publishable EWAH image, install EWAH from pip  ##
 ###############################################################################
