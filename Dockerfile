@@ -122,4 +122,4 @@ FROM dev_build as prod_build
 ENV EWAH_IMAGE_TYPE='PROD'
 
 # install from pip
-RUN pip install --user --upgrade ewah
+RUN pip install --user --upgrade ewah==0.2.19
