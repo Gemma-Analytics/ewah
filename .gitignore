@@ -1,9 +1,7 @@
 # Only keep the dags and docker folders
 airflow/*
 !airflow/dags
-!airflow/docker
-airflow/docker/secrets/*
-!airflow/docker/secrets/.gitkeep
+!airflow/airflow_connections.yml
 secret_dag_*.yml
 
 

@@ -1,0 +1,15 @@
+connections:
+  - id: dwh
+    type: postgres
+    host: database
+    port: 5432
+    schema: postgres
+    login: postgres
+    password: postgres
+  - id: airflow
+    type: postgres
+    host: database
+    port: 5432
+    schema: postgres
+    login: postgres
+    password: postgres
