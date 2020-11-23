@@ -97,7 +97,7 @@ class EWAHFBOperator(EWAHBaseOperator):
 
         super().__init__(*args, **kwargs)
 
-        credentials = self.source_conn
+        credentials = BaseHook.get_connection(self.source_conn_id)
         extra = credentials.extra_dejson
 
         # Note: app_secret is not always required!

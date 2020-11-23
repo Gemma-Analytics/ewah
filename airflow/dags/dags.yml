@@ -42,7 +42,7 @@ el_dags:
         weights:
           source_table_name: bijan_weight
 
-  # EL_Facebook: tbd
+  EL_Facebook: !yml_from_file secret_dag_facebook.yml
 
   EL_FX:
     incremental: False
