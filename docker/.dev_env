@@ -5,13 +5,9 @@ AIRFLOW_HOME=/opt/airflow
 # Fernet key
 AIRFLOW__CORE__FERNET_KEY=kiQHALe31o7by-d9U-lzxhpDsmllTmu0DUagDuYQoWs=
 
-# Backend-related
+# Backend-related - also set in the Dockerfile!
 AIRFLOW__WEBSERVER__AUTHENTICATE=True
 AIRFLOW__WEBSERVER__AUTH_BACKEND='airflow.contrib.auth.backends.password_auth'
-EWAH_AIRFLOW_USER_SET=True
-EWAH_AIRFLOW_USER_USER='ewah'
-EWAH_AIRFLOW_USER_PASSWORD='ewah'
-EWAH_AIRFLOW_USER_EMAIL='ewah@gemmaanalytics.com'
 
 # Useful, often changed configurations
 AIRFLOW__CORE__EXECUTOR=LocalExecutor

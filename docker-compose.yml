@@ -15,39 +15,43 @@ services:
       - 5432:5432
 
   webserver:
-    build: .
-    entrypoint: ./docker/entrypoint_webserver.sh
+    build:
+      context: .
+      target: dev_build
+    command: webserver
     restart: always
     depends_on:
       - database
     env_file:
-      - ./airflow/docker/.airflow_env
+      - ./docker/.dev_env
     volumes:
       # running airflow with docker
       - ./airflow:/opt/airflow
       # running ewah
       - ./ewah:/opt/ewah/ewah
-      - ./README.md:/opt/ewah/README.md
+      - ./README.md:/opt/ewah/README.md # yes, this is required for dev install
       - ./setup.cfg:/opt/ewah/setup.cfg
       - ./setup.py:/opt/ewah/setup.py
     ports:
       - 8080:8080
 
   scheduler:
-    build: .
-    entrypoint: ./docker/entrypoint_scheduler.sh
+    build:
+      context: .
+      target: dev_build
+    command: scheduler
     restart: always
     depends_on:
-        - database
-        - webserver
+      - database
+      - webserver
     env_file:
-        - ./airflow/docker/.airflow_env
+      - ./docker/.dev_env
     volumes:
       # running airflow with docker
       - ./airflow:/opt/airflow
       # running ewah
       - ./ewah:/opt/ewah/ewah
-      - ./README.md:/opt/ewah/README.md
+      - ./README.md:/opt/ewah/README.md # yes, this is required for dev install
       - ./setup.cfg:/opt/ewah/setup.cfg
       - ./setup.py:/opt/ewah/setup.py
 

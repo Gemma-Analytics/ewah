@@ -1,4 +1,4 @@
-FROM apache/airflow
+FROM apache/airflow as dev_build
 
 ### --------------------------------------------- run as root => ##
 USER root
@@ -28,6 +28,10 @@ RUN mkdir -p /opt/oracle && \
 RUN echo "airflow ALL=(ALL) NOPASSWD: ALL" > /etc/sudoers && \
     chmod 0440 /etc/sudoers
 
+# overwrite entrypoint
+COPY --chown=airflow:root  docker/scripts/entrypoint_prod.sh /entrypoint
+COPY --chown=airflow:root  docker/scripts/entrypoint_prod.py /entrypoint.py
+
 USER airflow
 ### <= --------------------------------------------- run as root ##
 
@@ -46,5 +50,31 @@ RUN pip install --user --upgrade psycopg2
 # install flask-bcrypt to enable use of the backend
 RUN pip install flask-bcrypt
 
-# Set environment variables
-ENV AIRFLOW__CORE__FERNET_KEY='Change me in production!'
+# Force using environment variables to set Fernet Key & Metadata Database conn
+ENV AIRFLOW__CORE__FERNET_KEY='Hello, I am AIRFLOW__CORE__FERNET_KEY and I need to be set in production!'
+ENV AIRFLOW__CORE__SQL_ALCHEMY_CONN='Hello, I am AIRFLOW__CORE__SQL_ALCHEMY_CONN and I need to be set in production!'
+
+# Let entrypoint know to install from bind-mounted volume
+ENV EWAH_IMAGE_TYPE='DEV'
+
+# FYI
+ENV EWAH_AIRFLOW_CONNS_YAML_PATH='You can set me as a path to a non-standard airflow connections yml file!'
+
+# Create a superuser for the airflow backend - overwrite as applicable
+ENV AIRFLOW__WEBSERVER__AUTHENTICATE=True
+ENV AIRFLOW__WEBSERVER__AUTH_BACKEND='airflow.contrib.auth.backends.password_auth'
+ENV EWAH_AIRFLOW_USER_SET=True
+ENV EWAH_AIRFLOW_USER_USER='ewah'
+ENV EWAH_AIRFLOW_USER_PASSWORD='ewah'
+ENV EWAH_AIRFLOW_USER_EMAIL='ewah@gemmaanalytics.com'
+
+###############################################################################
+## Multi-Stage build: for the publishable EWAH image, install EWAH from pip  ##
+###############################################################################
+FROM dev_build as prod_build
+
+# don't install from bind-mounted volume
+ENV EWAH_IMAGE_TYPE='PROD'
+
+# install from pip
+RUN pip install --user --upgrade ewah
