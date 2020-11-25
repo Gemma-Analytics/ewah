@@ -1,0 +1,47 @@
+base_config: # applied to all DAGs unless overwritten
+  dwh_engine: postgres
+  dwh_conn_id: dwh
+  airflow_conn_id: airflow
+  start_date: 2020-10-01 00:00:00+00:00
+  schedule_interval: !!python/object/apply:datetime.timedelta
+    - 1 # days
+    - 0 # seconds
+  schedule_interval_backfill: !!python/object/apply:datetime.timedelta
+    - 7
+  schedule_interval_future: !!python/object/apply:datetime.timedelta
+    - 0
+    - 3600
+  # For fullcremental loads
+  schedule_interval_full_refresh: !!python/object/apply:datetime.timedelta
+    - 1 # days
+    - 0 # seconds
+  schedule_interval_incremental: !!python/object/apply:datetime.timedelta
+    - 0 # days
+    - 3600 # seconds
+  additional_task_args:
+    retries: 1
+    retry_delay: !!python/object/apply:datetime.timedelta
+      - 0
+      - 30
+    email_on_retry: False
+    email_on_failure: False
+    # email: ['me+ewahairflowerror@mail.com']
+el_dags:
+
+  EL_FX:
+    incremental: False
+    el_operator: fx
+    target_schema_name: raw_fx
+    operator_config:
+      general_config:
+        frequency: daily
+        data_from: 2016-12-01 00:00:00+00:00
+      tables:
+        daily_fx_rates_usd_eur:
+          currency_pair: ['USD', 'EUR']
+        daily_fx_rates_usd_cad:
+          currency_pair: ['USD', 'CAD']
+        daily_fx_rates_usd_gbp:
+          currency_pair: ['USD', 'GBP']
+        daily_fx_rates_usd_chf:
+          currency_pair: ['USD', 'CHF']

@@ -2,6 +2,7 @@
 airflow/*
 !airflow/dags
 !airflow/airflow_connections.yml
+!airflow/kubernetes_dags_folder
 secret_dag_*.yml
 
 
