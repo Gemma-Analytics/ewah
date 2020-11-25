@@ -5,7 +5,7 @@ with open("README.md", "r") as fh:
 
 setuptools.setup(
     name="ewah",
-    version="0.2.20",
+    version="0.2.22",
     author="Bijan Soltani",
     author_email="bijan.soltani+ewah@gemmaanalytics.com",
     description="An ELT with airflow helper module: Ewah",
@@ -36,5 +36,6 @@ setuptools.setup(
           'sshtunnel>=0.2.2',
           'mailchimp3',
           'google-cloud-bigquery',
+          'stripe',
       ],
 )

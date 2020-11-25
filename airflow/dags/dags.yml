@@ -94,7 +94,6 @@ el_dags:
         quotes_table:
           object: quotes
 
-
   EL_Mailchimp:
     incremental: False
     el_operator: mailchimp
@@ -151,6 +150,28 @@ el_dags:
   # EL_S3: tbd
 
   # EL_Shopify: tbd
+
+  EL_Stripe:
+    incremental: False
+    el_operator: stripe
+    target_schema_name: raw_stripe
+    operator_config:
+      general_config:
+        source_conn_id: stripe
+      tables:
+        Account: {}
+        Balance: {} # resource defaults to table name
+        balance_transactions:
+          resource: BalanceTransaction
+        Customer: {}
+        Payout: {}
+        Charge:
+          expand: # expand a list of strings as required
+            - 'data.customer'
+        products:
+          resource: Product
+        refunds:
+          resource: Refund
 
   # EL_Zendesk: tbd
 

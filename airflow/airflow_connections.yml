@@ -13,5 +13,7 @@ connections:
     schema: postgres
     login: postgres
     password: postgres
-  - id: hubspot # Official demo API key 
+  - id: hubspot # Official demo API key
     password: demo
+  - id: stripe # Official demo API key
+    password: sk_test_4eC39HqLyjWDarjtT1zdp7dc
