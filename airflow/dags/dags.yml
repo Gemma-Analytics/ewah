@@ -160,7 +160,7 @@ el_dags:
         source_conn_id: stripe
       tables:
         Account: {}
-        #Balance: {} # resource defaults to table name
+        Balance: {} # resource defaults to table name
         balance_transactions:
           resource: BalanceTransaction
         Customer: {}

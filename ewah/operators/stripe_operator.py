@@ -47,7 +47,10 @@ class EWAHStripeOperator(EWAHBaseOperator):
                     self.upload_data(data)
                     data = []
         elif issubclass(resource, self._singleton):
-            data = resource.retrieve(expand=self.expand).to_dict_recursive()
+            data = [resource.retrieve(expand=self.expand).to_dict_recursive()]
+            # singletons have no id, but we need it as PK -> set it manually:
+            data[0]['id'] = 1
+            assert len(data) == 1, 'Not a singleton!'
         else:
             raise Exception('Invalid resource!')
 
