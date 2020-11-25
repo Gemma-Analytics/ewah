@@ -176,6 +176,7 @@ def dags_from_dict(
         'bq': EWAHBigQueryOperator,
         'bigquery': EWAHBigQueryOperator,
         'hubspot': EWAHHubspotOperator,
+        'stripe': EWAHStripeOperator,
     }
 
     allowed_dag_args = [
