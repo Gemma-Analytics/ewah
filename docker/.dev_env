@@ -1,0 +1,5 @@
+# Minimum required env variables
+AIRFLOW__CORE__SQL_ALCHEMY_CONN=postgresql+psycopg2://postgres:postgres@database:5432/ewah
+
+# Fernet key
+AIRFLOW__CORE__FERNET_KEY=kiQHALe31o7by-d9U-lzxhpDsmllTmu0DUagDuYQoWs=

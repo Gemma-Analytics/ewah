@@ -1,20 +1,17 @@
----
-
 connections:
-  - id: airflow
-    type: postgres
-    host: database
-    port: 5432
-    schema: ewah
-    login: postgres
-    password: postgres
-  # using the airflow metadata database as dev DWH
   - id: dwh
     type: postgres
     host: database
     port: 5432
-    schema: ewah
+    schema: postgres
     login: postgres
     password: postgres
-
-...
+  - id: airflow
+    type: postgres
+    host: database
+    port: 5432
+    schema: postgres
+    login: postgres
+    password: postgres
+  - id: hubspot # Official demo API key 
+    password: demo

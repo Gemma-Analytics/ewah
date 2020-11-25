@@ -58,3 +58,7 @@ try:
     from ewah.operators.bigquery_operator import EWAHBigQueryOperator
 except ImportError:
     from ewah.operators.base_operator import EWAHEmptyOperator as EWAHBigQueryOperator
+try:
+    from ewah.operators.hubspot_operator import EWAHHubspotOperator
+except ImportError:
+    from ewah.operators.base_operator import EWAHEmptyOperator as EWAHHubspotOperator
