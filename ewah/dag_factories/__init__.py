@@ -175,6 +175,7 @@ def dags_from_dict(
         'mailchimp': EWAHMailchimpOperator,
         'bq': EWAHBigQueryOperator,
         'bigquery': EWAHBigQueryOperator,
+        'hubspot': EWAHHubspotOperator,
     }
 
     allowed_dag_args = [

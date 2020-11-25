@@ -13,3 +13,5 @@ connections:
     schema: postgres
     login: postgres
     password: postgres
+  - id: hubspot # Official demo API key 
+    password: demo

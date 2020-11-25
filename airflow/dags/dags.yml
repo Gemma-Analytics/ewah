@@ -70,6 +70,31 @@ el_dags:
 
   # EL_GSheets: tbd
 
+  EL_Hubspot:
+    incremental: False
+    el_operator: hubspot
+    target_schema_name: raw_hubspot
+    operator_config:
+      general_config:
+        source_conn_id: hubspot
+      tables:
+        companies: {}
+        contacts:
+          properties:
+            - new_ip_address
+            - new_referer
+            - new_user_agent
+            - new_utm_campaign
+            - new_utm_content
+        deals: {}
+        feedback_submissions: {}
+        line_items: {}
+        products: {}
+        tickets: {}
+        quotes_table:
+          object: quotes
+
+
   EL_Mailchimp:
     incremental: False
     el_operator: mailchimp
