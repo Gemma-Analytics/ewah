@@ -63,4 +63,4 @@ class EWAHBigQueryOperator(EWAHSQLBaseOperator):
         if return_dict or not dict_result:
             return dict_result
         keys = dict_result[0].keys()
-        return [[row[key] for key in key] for row in dict_result]
+        return [[row[key] for key in keys] for row in dict_result]
