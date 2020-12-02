@@ -8,6 +8,7 @@ from datetime import datetime, timedelta
 
 import json
 import csv
+import gzip
 
 class EWAHS3Operator(EWAHBaseOperator):
     """Only implemented for JSON and CSV files from S3 right now!"""
@@ -35,6 +36,7 @@ class EWAHS3Operator(EWAHBaseOperator):
         data_until=None,
         csv_format_options={},
         csv_encoding='utf-8',
+        decompress=False,
     *args, **kwargs):
 
         if not file_format in self._IMPLEMENTED_FORMATS:
@@ -49,6 +51,8 @@ class EWAHS3Operator(EWAHBaseOperator):
         if not file_format == 'CSV' and csv_format_options:
             raise Exception('csv_format_options is only valid for CSV files!')
 
+        if decompress and not file_format == 'CSV':
+            raise exception('Can currently only decompress CSVs!')
 
 
         #if not self.drop_and_replace:
@@ -67,6 +71,7 @@ class EWAHS3Operator(EWAHBaseOperator):
         self.file_format = file_format
         self.csv_format_options = csv_format_options
         self.csv_encoding = csv_encoding
+        self.decompress = decompress
 
         super().__init__(*args, **kwargs)
 
@@ -116,7 +121,23 @@ class EWAHS3Operator(EWAHBaseOperator):
         hook = S3Hook(self.source_conn.conn_id)
         suffix = self.suffix
         if self.key_name:
-            data = hook.read_key(self.key_name, self.bucket_name)
+            obj = hook.get_key(self.key_name, self.bucket_name)
+            raw_data = obj.get()['Body'].read()
+            if self.decompress:
+                raw_data = gzip.decompress(raw_data)
+            if raw_data[:3] == self._BOM:
+                raw_data = raw_data[3:]
+                csv_encoding = 'utf-8'
+            else:
+                csv_encoding = self.csv_encoding
+            try:
+                raw_data = raw_data.decode(csv_encoding).splitlines()
+            except UnicodeDecodeError:
+                if csv_encoding == self.csv_encoding:
+                    raise
+                raw_data = raw_data.decode(self.csv_encoding).splitlines()
+            reader = csv.DictReader(raw_data, **self.csv_format_options)
+            data = list(reader)
             self.upload_data(data=data)
         else:
             objects = self._iterate_through_bucket(
@@ -136,6 +157,8 @@ class EWAHS3Operator(EWAHBaseOperator):
 
                 self.log.info('Loading data from file {0}'.format(obj.key))
                 raw_data = obj.get()['Body'].read()
+                if self.decompress:
+                    raw_data = gzip.decompress(raw_data)
                 # remove BOM if it exists
                 # also, if file has a BOM, it is 99.9% utf-9 encoded!
                 if raw_data[:3] == self._BOM:

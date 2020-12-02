@@ -147,7 +147,7 @@ el_dags:
 
   # EL_Postgres: tbd
 
-  # EL_S3: tbd
+  EL_S3: !yml_from_file secret_dag_s3.yml
 
   # EL_Shopify: tbd
 
