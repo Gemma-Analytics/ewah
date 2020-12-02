@@ -79,4 +79,9 @@ class EWAHHubspotOperator(EWAHBaseOperator):
             # keep going as long as a link is shipped in the response
             keepgoing = response.get('paging', {}).get('next', {}).get('after')
             params.update({'after': keepgoing})
-            self.upload_data(response['results'])
+            data = response['results'] or []
+            for datum in data:
+                # Expand the properties field! Otherwise, the properties are
+                # just a JSON in a single column called "properties"
+                datum.update(datum.pop('properties', {}))
+            self.upload_data(data)
