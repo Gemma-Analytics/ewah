@@ -126,6 +126,8 @@ el_dags:
     incremental: False
     el_operator: mailingwork
     target_schema_name: raw_mailingwork
+    dwh_conn_id: snowflake_conn
+    dwh_engine: snowflake
     operator_config:
       general_config:
         source_conn_id: mailingwork
@@ -140,83 +142,10 @@ el_dags:
           endpoint: getmedia
         export_recipients:
           endpoint: exportrecipients
+          primary_key_column_name: id
           iter_param:
             name: listId
             values:
-              - 241
-              - 239
-              - 237
-              - 235
-              - 233
-              - 231
-              - 229
-              - 227
-              - 225
-              - 223
-              - 221
-              - 219
-              - 217
-              - 211
-              - 209
-              - 205
-              - 203
-              - 201
-              - 199
-              - 197
-              - 195
-              - 193
-              - 191
-              - 189
-              - 187
-              - 185
-              - 183
-              - 181
-              - 179
-              - 177
-              - 175
-              - 173
-              - 171
-              - 169
-              - 167
-              - 165
-              - 163
-              - 161
-              - 159
-              - 157
-              - 155
-              - 153
-              - 151
-              - 149
-              - 147
-              - 145
-              - 143
-              - 119
-              - 117
-              - 115
-              - 113
-              - 111
-              - 107
-              - 105
-              - 103
-              - 101
-              - 99
-              - 97
-              - 95
-              - 93
-              - 91
-              - 89
-              - 87
-              - 71
-              - 61
-              - 59
-              - 19
-              - 14
-              - 13
-              - 10
-              - 8
-              - 7
-              - 6
-              - 5
               - 3
               - 2
 
