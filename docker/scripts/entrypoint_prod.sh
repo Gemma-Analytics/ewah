@@ -14,19 +14,25 @@ AIRFLOW_COMMAND="${1}"
 # 1)
 if [[ ${AIRFLOW_COMMAND} == "webserver" ]]; then
   # ensure metadata database is up to date
+  echo -e "\n\nUpgrading Metadata database:\n\n"
   airflow upgradedb
 fi
 
 # 2)
 if [[ ${EWAH_IMAGE_TYPE} == "DEV" ]]; then
   # install ewah from bind-mounted volume in /opt/ewah if development env
+  echo -e "\n\nInstalling EWAH from bind-mounted volume:\n\n"
   pip install --user --upgrade -e /opt/ewah
 fi
 
 # 3)
 if [[ ${AIRFLOW_COMMAND} == "webserver" ]]; then
+  echo -e "\n\nIf applicable, run support scripts:"
   if [[ ${EWAH_RUN_DEV_SUPPORT_SCRIPTS} == "1" ]]; then
+    echo -e "\n\n\tIndeed, run support scripts!\n\n"
     python /entrypoint.py
+  else
+    echo -e "\n\n\tNope, not running the scripts!\n\n"
   fi
 fi
 
