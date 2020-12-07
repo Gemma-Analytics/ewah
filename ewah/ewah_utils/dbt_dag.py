@@ -280,7 +280,8 @@ def dbt_dag_factory_new(
 
     sensor_sql = """
         SELECT
-            CASE WHEN COUNT(*) = 0 THEN 1 ELSE 0 END -- only run if exatly equal to 0
+            -- only run if exatly equal to 0
+            CASE WHEN COUNT(*) = 0 THEN 1 ELSE 0 END
         FROM public.dag_run
         WHERE dag_id IN ('{0}', '{1}')
         and state = 'running'
@@ -353,3 +354,53 @@ def dbt_dags_factory(*args, **kwargs):
         return dbt_dags_factory_legacy(*args, **kwargs)
     else:
         return dbt_dag_factory_new(*args, **kwargs)
+
+def dbt_snapshot_dag(
+    dwh_engine,
+    dwh_conn_id,
+    git_conn_id,
+    git_link,
+    git_branch=None,
+    database_name=None,
+    dbt_version='0.18.1',
+    subfolder=None,
+    threads=4,
+    schema_name='analytics', # for the profiles.yml
+    keepalives_idle=0,
+    dag_name='T_dbt_snapshots',
+    schedule_interval=timedelta(hours=1),
+    start_date=None,
+    default_args=None,
+    ssh_tunnel_id=None,
+):
+    # only PostgreSQL & Snowflake implemented as of now!
+    assert dwh_engine in (EC.DWH_ENGINE_POSTGRES, EC.DWH_ENGINE_SNOWFLAKE)
+
+    dag = DAG(dag_name,
+        schedule_interval=schedule_interval,
+        catchup=False,
+        max_active_runs=1,
+        start_date=start_date,
+        default_args=default_args,
+    )
+
+    task = EWAHdbtOperator(
+        dag=dag,
+        task_id='dbt_snapshot',
+        dbt_commands=['snapshot'],
+        repo_type='git',
+        dwh_engine=dwh_engine,
+        dwh_conn_id=dwh_conn_id,
+        git_conn_id=git_conn_id,
+        git_link=git_link,
+        git_branch=git_branch,
+        database_name=database_name,
+        dbt_version=dbt_version,
+        subfolder=subfolder,
+        threads=threads,
+        schema_name=schema_name,
+        keepalives_idle=keepalives_idle,
+        ssh_tunnel_id=ssh_tunnel_id,
+    )
+
+    return dag
