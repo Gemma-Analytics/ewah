@@ -5,6 +5,7 @@ from airflow.hooks.base_hook import BaseHook
 
 import requests
 import json
+import copy
 
 class EWAHMailingworkOperator(EWAHBaseOperator):
 
@@ -19,6 +20,7 @@ class EWAHMailingworkOperator(EWAHBaseOperator):
         endpoint, # String, appended to _BASE_URL
         normal_params=None, # any additional params other than credentials
         iter_param=None, # a param to iterate over
+        page_size=0, # 0 means no pagination at all!
     *args, **kwargs):
         if not normal_params is None:
             assert isinstance(normal_params, dict), 'normal_params must be dict'
@@ -36,20 +38,54 @@ class EWAHMailingworkOperator(EWAHBaseOperator):
             _msg = 'Must provide primary_key_column_name if using iter_param!'
             assert kwargs.get('primary_key_column_name'), _msg
 
+        _msg = 'page_size must be a non-negative integer!'
+        assert isinstance(page_size, int), _msg
+        assert page_size >= 0, _msg
+
         self.endpoint = endpoint
         self.normal_params = normal_params
         self.iter_param = iter_param
+        self.page_size = page_size
 
         super().__init__(*args, **kwargs)
 
     def ewah_execute(self, context):
 
-        def call_api(url, data):
-            request = requests.post(url, data=data)
-            assert request.status_code == 200, request.text
-            result = json.loads(request.text)
+        def get_mailingwork_data(url, data):
+            req = requests.post(url, data=data)
+            _m = 'Error {0} - Response Text: {1}'
+            assert req.status_code == 200, _m.format(req.status_code, req.text)
+            result = json.loads(req.text)
             assert result['error'] == 0, result['message']
             return result['result']
+
+        def call_api(url, data):
+            if self.page_size == 0:
+                return get_mailingwork_data(url=url, data=data)
+            else:
+                self.log.info('Paginating request!')
+                limit = self.page_size
+                offset = 0
+                keep_going = True
+                # don't change data in calling namespace
+                data = copy.deepcopy(data)
+                final_result = []
+                while keep_going:
+                    _log = 'Paginated request No. {0}\nlimit={1}, offset={2}...'
+                    self.log.info(_log.format(
+                        str(int(1 + offset / limit)),
+                        limit,
+                        offset,
+                    ))
+                    data.update({'advanced': {'limit': limit, 'start': offset}})
+                    result = get_mailingwork_data(url=url, data=data)
+                    if result:
+                        final_result += result
+                        offset += limit
+                    else:
+                        # reached the last page
+                        keep_going = False
+                return final_result
 
         post_data = {
             'username': self.source_conn.login,

@@ -143,9 +143,11 @@ el_dags:
         export_recipients:
           endpoint: exportrecipients
           primary_key_column_name: id
+          page_size: 2000
           iter_param:
             name: listId
             values:
+              - 227
               - 3
               - 2
 
