@@ -1,6 +1,7 @@
 from airflow import settings
 from airflow import models
 from airflow.models import Connection
+from airflow.configuration import conf
 from airflow.contrib.auth.backends.password_auth import PasswordUser
 
 from ewah.ewah_utils.yml_loader import Loader, Dumper
@@ -57,8 +58,10 @@ env = os.environ
 
 # The datatype of extra in the airflow metadata databse is constrained to 500
 # characters by default. Remove this constraint.
+print('\n\n')
 print('Altering metadata db: allowing arbitrary length extras in connections.')
-sql_conn_string = env.get('AIRFLOW__CORE__SQL_ALCHEMY_CONN')
+print('\n\n')
+sql_conn_string = conf.get('core', 'sql_alchemy_conn')
 engine = sqlalchemy.create_engine(sql_conn_string, echo=False)
 with engine.begin() as conn:
     conn.execute('ALTER TABLE connection ALTER COLUMN extra TYPE TEXT')
@@ -76,12 +79,15 @@ search_filepaths = [
 ]
 if env.get('EWAH_AIRFLOW_CONNS_YAML_PATH'):
     search_filepaths += [env['EWAH_AIRFLOW_CONNS_YAML_PATH']]
+
+print('\n\n')
 for filepath in search_filepaths:
     if os.path.isfile(filepath):
         print('Adding connection from file {0}...'.format(filepath))
         commit_conns(filepath)
     else:
         print('Not a valid filepath: {0}'.format(filepath))
+print('\n\n')
 
 
 # if applicable, set a default user for the airflow UI
@@ -90,6 +96,7 @@ if env.get('EWAH_AIRFLOW_USER_SET'):
     password = env.get('EWAH_AIRFLOW_USER_PASSWORD', 'ewah')
     email = env.get('EWAH_AIRFLOW_USER_EMAIL', 'ewah@ewah.com')
 
+    print('\n\n')
     try:
         user = PasswordUser(models.User())
         user.username = username
@@ -104,3 +111,4 @@ if env.get('EWAH_AIRFLOW_USER_SET'):
         print('Added Admin user {0}!'.format(username))
     except sqlalchemy.exc.IntegrityError:
         print('User {0} already exists!'.format(username))
+    print('\n\n')

@@ -122,6 +122,33 @@ el_dags:
             - status
             - sed_time
 
+  EL_Mailingwork:
+    incremental: False
+    el_operator: mailingwork
+    target_schema_name: raw_mailingwork
+    dwh_conn_id: snowflake_conn
+    dwh_engine: snowflake
+    operator_config:
+      general_config:
+        source_conn_id: mailingwork
+      tables:
+        fields:
+          endpoint: getfields
+        lists:
+          endpoint: getlists
+        mailings:
+          endpoint: getmailings
+        media:
+          endpoint: getmedia
+        export_recipients:
+          endpoint: exportrecipients
+          primary_key_column_name: id
+          iter_param:
+            name: listId
+            values:
+              - 3
+              - 2
+
   EL_MongoDB: !yml_from_file secret_dag_mongodb.yml
   EL_MongoDB_2: !yml_from_file secret_dag_mongodb_2.yml
 
@@ -147,7 +174,7 @@ el_dags:
 
   # EL_Postgres: tbd
 
-  # EL_S3: tbd
+  EL_S3: !yml_from_file secret_dag_s3.yml
 
   # EL_Shopify: tbd
 

@@ -66,3 +66,7 @@ try:
     from ewah.operators.stripe_operator import EWAHStripeOperator
 except ImportError:
     from ewah.operators.base_operator import EWAHEmptyOperator as EWAHStripeOperator
+try:
+    from ewah.operators.mailingwork_operator import EWAHMailingworkOperator
+except ImportError:
+    from ewah.operators.base_operator import EWAHEmptyOperator as EWAHMailingworkOperator

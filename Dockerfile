@@ -51,7 +51,7 @@ RUN pip install --user --upgrade --no-cache-dir psycopg2
 # install flask-bcrypt to enable use of the backend
 RUN pip install --user --upgrade --no-cache-dir flask-bcrypt
 
-# Force using environment variables to set Fernet Key & Metadata Database conn
+# Force using environment variables to set Fernet Key
 ENV AIRFLOW__CORE__FERNET_KEY='Hello, I am AIRFLOW__CORE__FERNET_KEY and I need to be set in production!'
 
 # Let entrypoint know to install from bind-mounted volume
@@ -82,14 +82,14 @@ ENV AIRFLOW__CORE__DAG_CONCURRENCY=16
 ENV AIRFLOW__WEBSERVER__BASE_URL="http://localhost:8080"
 
 # Email related
-ENV AIRFLOW__CORE__EMAIL_BACKEND=airflow.utils.email.send_email_smtp
-ENV AIRFLOW__CORE__SMTP_HOST=smtp.gmail.com
-ENV AIRFLOW__CORE__SMTP_STARTTLS=True
-ENV AIRFLOW__CORE__SMTP_SSL=False
-# ENV AIRFLOW__CORE__SMTP_USER=
-# ENV AIRFLOW__CORE__SMTP_PASSWORD=
-ENV AIRFLOW__CORE__SMTP_PORT=587
-# ENV AIRFLOW__CORE__SMTP_MAILFROM=
+ENV AIRFLOW__EMAIL__EMAIL_BACKEND=airflow.utils.email.send_email_smtp
+ENV AIRFLOW__SMTP__SMTP_HOST=smtp.gmail.com
+ENV AIRFLOW__SMTP__SMTP_STARTTLS=True
+ENV AIRFLOW__SMTP__SMTP_SSL=False
+# ENV AIRFLOW__SMTP__SMTP_USER=
+# ENV AIRFLOW__SMTP__SMTP_PASSWORD=
+ENV AIRFLOW__SMTP__SMTP_PORT=587
+# ENV AIRFLOW__SMTP__SMTP_MAILFROM=
 
 # Logging
 ENV AIRFLOW__CORE__REMOTE_LOGGING=False
@@ -102,6 +102,9 @@ ENV AIRFLOW__CORE__REMOTE_LOGGING=False
 ENV AIRFLOW__CORE__LOAD_EXAMPLES=False
 ENV AIRFLOW__CORE__LOAD_DEFAULT_CONNECTIONS=False
 ENV AIRFLOW__API__AUTH_BACKEND=airflow.api.auth.backend.deny_all
+ENV AIRFLOW__WEBSERVER__EXPOSE_CONFIG=False
+ENV AIRFLOW__WEBSERVER__RBAC=False
+ENV AIRFLOW__CORE__SECURE_MODE=True
 
 # Related to $AIRFLOW_HOME
 ENV AIRFLOW__CORE__DAGS_FOLDER=/opt/airflow/dags
@@ -110,7 +113,7 @@ ENV AIRFLOW__CORE__PLUGINS_FOLDER=/opt/airflow/plugins
 ENV AIRFLOW__CORE__DAG_PROCESSOR_MANAGER_LOG_LOCATION=/opt/airflow/logs/dag_processor_manager/dag_processor_manager.log
 ENV AIRFLOW__SCHEDULER__CHILD_PROCESS_LOG_DIRECTORY=/opt/airflow/logs/scheduler
 
-# Default value socket.getfqdn sometimes cannot resolve hostname and falls back to gehostname()
+# Default value socket.getfqdn sometimes cannot resolve hostname and falls back to gethostname()
 # If that happens, all tasks fail - just use gethostname() from the start instead
 ENV AIRFLOW__CORE__HOSTNAME_CALLABLE="socket:gethostname"
 
@@ -122,11 +125,15 @@ FROM dev_build as prod_build
 
 # don't install from bind-mounted volume
 ENV EWAH_IMAGE_TYPE='PROD'
+
 # don't run support scripts as default
+# Overwrite this ENV to '1' if you'd like to auto-upgrade the metadata db &
+# auto-set a default admin UI user (use ENV vars to set the credentials, namely:
+# EWAH_AIRFLOW_USER_USER, EWAH_AIRFLOW_USER_PASSWORD, EWAH_AIRFLOW_USER_EMAIL)
 ENV EWAH_RUN_DEV_SUPPORT_SCRIPTS='0'
 
 # install from pip
-RUN pip install --user --upgrade --no-cache-dir ewah==0.2.22
+RUN pip install --user --upgrade --no-cache-dir ewah==0.2.27
 
 # copy default EWAH files into the dags folder
 COPY airflow/kubernetes_dags_folder /opt/airflow/dags
