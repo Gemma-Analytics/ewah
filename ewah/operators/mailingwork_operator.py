@@ -22,6 +22,8 @@ class EWAHMailingworkOperator(EWAHBaseOperator):
         iter_param=None, # a param to iterate over
         page_size=0, # 0 means no pagination at all!
     *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
         if not normal_params is None:
             assert isinstance(normal_params, dict), 'normal_params must be dict'
         if not iter_param is None:
@@ -34,9 +36,9 @@ class EWAHMailingworkOperator(EWAHBaseOperator):
             assert isinstance(iter_param.get('name'), str), _msg
             assert isinstance(iter_param.get('values'), list), _msg
             _msg = 'Must add Metadata if using iter_param!'
-            assert kwargs.get('add_metadata', True), _msg
+            assert self.add_metadata, _msg
             _msg = 'Must provide primary_key_column_name if using iter_param!'
-            assert kwargs.get('primary_key_column_name'), _msg
+            assert self.primary_key_column_name, _msg
 
         _msg = 'page_size must be a non-negative integer!'
         assert isinstance(page_size, int), _msg
@@ -47,11 +49,10 @@ class EWAHMailingworkOperator(EWAHBaseOperator):
         self.iter_param = iter_param
         self.page_size = page_size
 
-        super().__init__(*args, **kwargs)
-
     def ewah_execute(self, context):
 
         def get_mailingwork_data(url, data):
+            # send request, assert success, and return the resulting data
             req = requests.post(url, data=data)
             _m = 'Error {0} - Response Text: {1}'
             assert req.status_code == 200, _m.format(req.status_code, req.text)
@@ -77,7 +78,13 @@ class EWAHMailingworkOperator(EWAHBaseOperator):
                         limit,
                         offset,
                     ))
-                    data.update({'advanced': {'limit': limit, 'start': offset}})
+                    # don't get confused by the notation - do NOT supply
+                    # a dict like advanced = {'limit': 100, 'start': 0}, instead
+                    # supply them like below as individual key-value pairs
+                    data.update({
+                        'advanced[limit]': limit,
+                        'advanced[start]': offset,
+                    })
                     result = get_mailingwork_data(url=url, data=data)
                     if result:
                         final_result += result
