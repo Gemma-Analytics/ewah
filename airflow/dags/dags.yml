@@ -143,9 +143,13 @@ el_dags:
         export_recipients:
           endpoint: exportrecipients
           primary_key_column_name: id
+          page_size: 2000
+          normal_params:
+            "advanced[compact]": 1
           iter_param:
             name: listId
             values:
+              - 227
               - 3
               - 2
 
@@ -171,6 +175,7 @@ el_dags:
 
   EL_Oracle: !yml_from_file secret_dag_oracle_to_snowflake.yml
   EL_Oracle_2: !yml_from_file secret_dag_oracle_fullcremental.yml
+  EL_Oracle_FR: !yml_from_file secret_dag_oracle_fr.yml
 
   # EL_Postgres: tbd
 
