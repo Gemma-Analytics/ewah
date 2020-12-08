@@ -89,6 +89,7 @@ class EWAHMailingworkOperator(EWAHBaseOperator):
                     if result:
                         final_result += result
                         offset += limit
+                        keep_going = (len(result) == limit)
                     else:
                         # reached the last page
                         keep_going = False
