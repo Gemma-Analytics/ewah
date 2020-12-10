@@ -20,6 +20,8 @@ base_config: # applied to all DAGs unless overwritten
   schedule_interval_incremental: !!python/object/apply:datetime.timedelta
     - 0 # days
     - 3600 # seconds
+  read_right_users:
+    - i_dont_exist
   additional_task_args:
     retries: 1
     retry_delay: !!python/object/apply:datetime.timedelta
@@ -81,7 +83,7 @@ el_dags:
 
   # EL_GMaps: tbd
 
-  # EL_GSheets: tbd
+  EL_GSheets: !yml_from_file secret_dag_gsheets.yml
 
   EL_Hubspot:
     incremental: False

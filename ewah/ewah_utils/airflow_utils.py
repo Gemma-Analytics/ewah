@@ -193,14 +193,31 @@ def etl_schema_tasks(
                 'schema_suffix': target_schema_suffix,
             })
 
+
+        # Don't fail final task just because a user or role that should
+        # be granted read rights does not exist!
+        grant_rights_sql = """
+            DO $$
+            BEGIN
+              GRANT USAGE ON SCHEMA "{target_schema_name}" TO {user};
+              GRANT SELECT ON ALL TABLES
+                IN SCHEMA "{target_schema_name}" TO {user};
+              EXCEPTION WHEN OTHERS THEN -- catches any error
+                RAISE NOTICE 'not granting rights - user does not exist!';
+            END
+            $$;
+        """
         if read_right_users:
-            if not type(read_right_users) == list:
+            if not isinstance(read_right_users, list):
                 raise Exception('Arg read_right_users must be of type List!')
             for user in read_right_users:
                 if re.search(r"\s", user) or (';' in user):
-                    raise ValueError('No whitespace or semicolons allowed in usernames!')
-                sql_final += f'\nGRANT USAGE ON SCHEMA "{target_schema_name}" TO {user};'
-                sql_final += f'\nGRANT SELECT ON ALL TABLES IN SCHEMA "{target_schema_name}" TO {user};'
+                    _msg = 'No whitespace or semicolons allowed in usernames!'
+                    raise ValueError(_msg)
+                sql_final += grant_rights_sql.format(
+                    target_schema_name=target_schema_name,
+                    user=user,
+                )
 
         task_1_args = deepcopy(additional_task_args)
         task_2_args = deepcopy(additional_task_args)
