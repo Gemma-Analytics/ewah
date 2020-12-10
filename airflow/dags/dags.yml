@@ -38,9 +38,12 @@ el_dags:
       general_config:
         source_conn_id: bq
         source_schema_name: ds1
+        source_database_name: gemma-287313
       tables:
         weights:
           source_table_name: bijan_weight
+
+  EL_BigQuery_events: !yml_from_file secret_dag_bq.yml
 
   EL_Facebook: !yml_from_file secret_dag_facebook.yml
 
@@ -61,6 +64,16 @@ el_dags:
           currency_pair: ['USD', 'GBP']
         daily_fx_rates_usd_chf:
           currency_pair: ['USD', 'CHF']
+        daily_fx_rates_usd_ars:
+          currency_pair: ['USD', 'ARS']
+        daily_fx_rates_usd_clp:
+          currency_pair: ['USD', 'CLP']
+        daily_fx_rates_usd_ron:
+          currency_pair: ['USD', 'RON']
+        daily_fx_rates_usd_myr:
+          currency_pair: ['USD', 'MYR']
+        daily_fx_rates_usd_xxx:
+          currency_pair: ['USD', 'XXX']
 
   # EL_GAds: tbd
 

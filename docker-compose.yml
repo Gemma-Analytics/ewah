@@ -33,7 +33,7 @@ services:
       - ./setup.cfg:/opt/ewah/setup.cfg
       - ./setup.py:/opt/ewah/setup.py
     ports:
-      - 8080:8080
+      - 8084:8080
 
   scheduler:
     build:
