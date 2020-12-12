@@ -169,6 +169,8 @@ def dag_factory_fullcremental(
         conn_id=airflow_conn_id,
         sql=sql_fr,
         dag=dags[0],
+        timeout=5*60,
+        mode='reschedule', # don't block a worker and pool slot
     **additional_task_args)
 
     # Sense if a previous instance is complete excepts if its the first, then
