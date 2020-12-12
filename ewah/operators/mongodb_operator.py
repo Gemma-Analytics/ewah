@@ -59,8 +59,6 @@ class EWAHMongoDBOperator(EWAHBaseOperator):
         self.mongoclient_extra_args = mongoclient_extra_args
 
         assert conn_style in ['uri', 'credentials']
-        if conn_style == 'uri' and ssh_conn_id:
-            raise Exception('SSH cannot be combined with supplying a URI!')
 
         chunking_field = chunking_field or timestamp_field
         if chunking_interval:
@@ -215,9 +213,7 @@ class EWAHMongoDBOperator(EWAHBaseOperator):
                             conn_kwargs['tlsCertificateKeyFilePassword'] = \
                                 ssl_conn.password
 
-
                     conn_kwargs.update(self.mongoclient_extra_args)
-                    print(conn_kwargs) # delete me
                     mdb_conn = MongoClient(**conn_kwargs)
                     database = mdb_conn.get_database(name=db_name)
 
