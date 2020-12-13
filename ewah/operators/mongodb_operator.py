@@ -138,8 +138,11 @@ class EWAHMongoDBOperator(EWAHBaseOperator):
 
     def ewah_execute(self, context):
         if not self.drop_and_replace and not self.test_if_target_table_exists():
-            self.data_from = self.reload_data_from
+            self.data_from = self.reload_data_from or context['dag'].start_date
             self.log.info('Reloading data from {0}'.format(str(self.data_from)))
+        if not self.drop_and_replace:
+            self.data_from = self.data_from or context['execution_date']
+            self.data_until = self.data_until or context['next_execution_date']
         self.data_from = airflow_datetime_adjustments(self.data_from)
         self.data_until = airflow_datetime_adjustments(self.data_until)
 
