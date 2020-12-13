@@ -142,7 +142,7 @@ def dbt_dags_factory_legacy(
         task_id='sense_dbt_conflict_avoided',
         conn_id=airflow_conn_id,
         sql=sensor_sql,
-        timeout=5*60,
+        poke_interval=5*60,
         mode='reschedule', # don't block a worker and pool slot
         dag=dag,
     )
@@ -195,7 +195,7 @@ def dbt_dags_factory_legacy(
         task_id='sense_dbt_conflict_avoided',
         conn_id=airflow_conn_id,
         sql=sensor_sql,
-        timeout=5*60,
+        poke_interval=5*60,
         mode='reschedule', # don't block a worker and pool slot
         dag=dag_full_refresh,
     )
@@ -300,7 +300,7 @@ def dbt_dag_factory_new(
         task_id='sense_dbt_conflict_avoided',
         conn_id=airflow_conn_id,
         sql=sensor_sql,
-        timeout=5*60,
+        poke_interval=5*60,
         mode='reschedule', # don't block a worker and pool slot
         dag=dag_1,
     )
@@ -308,7 +308,7 @@ def dbt_dag_factory_new(
         task_id='sense_dbt_conflict_avoided',
         conn_id=airflow_conn_id,
         sql=sensor_sql,
-        timeout=5*60,
+        poke_interval=5*60,
         mode='reschedule', # don't block a worker and pool slot
         dag=dag_2,
     )

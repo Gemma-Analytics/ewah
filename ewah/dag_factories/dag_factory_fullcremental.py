@@ -169,7 +169,7 @@ def dag_factory_fullcremental(
         conn_id=airflow_conn_id,
         sql=sql_fr,
         dag=dags[0],
-        timeout=5*60,
+        poke_interval=5*60,
         mode='reschedule', # don't block a worker and pool slot
     **additional_task_args)
 
@@ -185,6 +185,8 @@ def dag_factory_fullcremental(
         backfill_external_task_id=final_fr.task_id,
         backfill_execution_delta=schedule_interval_full_refresh,
         dag=dags[1],
+        poke_interval=5*60,
+        mode='reschedule', # don't block a worker and pool slot
     **additional_task_args)
 
     fr_snsr >> kickoff_fr
