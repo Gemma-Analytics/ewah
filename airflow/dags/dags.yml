@@ -74,8 +74,6 @@ el_dags:
           currency_pair: ['USD', 'RON']
         daily_fx_rates_usd_myr:
           currency_pair: ['USD', 'MYR']
-        daily_fx_rates_usd_xxx:
-          currency_pair: ['USD', 'XXX']
 
   # EL_GAds: tbd
 
