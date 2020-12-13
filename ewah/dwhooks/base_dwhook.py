@@ -10,12 +10,16 @@ from copy import deepcopy
 from collections import OrderedDict
 from psycopg2.extras import RealDictCursor
 from bson.json_util import dumps
+from decimal import Decimal
 
 class EWAHJSONEncoder(json.JSONEncoder):
     def default(self, obj):
         if isinstance(obj, bson.objectid.ObjectId):
             # MongoDB Object IDs - return just the ID itself as string
             return str(obj)
+        if isinstance(obj, Decimal):
+            return float(obj)
+        # Let the base class default method raise the TypeError
         return super().default(obj)
     def iterencode(self, o, _one_shot=False):
         """Overwrite the iterencode method because this is where the float
