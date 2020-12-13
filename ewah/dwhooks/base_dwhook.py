@@ -3,10 +3,49 @@ from airflow.hooks.base_hook import BaseHook
 from ewah.constants import EWAHConstants as EC
 
 import json
+import bson
+import math
 import hashlib
 from copy import deepcopy
 from collections import OrderedDict
 from psycopg2.extras import RealDictCursor
+from bson.json_util import dumps
+
+class EWAHJSONEncoder(json.JSONEncoder):
+    def default(self, obj):
+        if isinstance(obj, bson.objectid.ObjectId):
+            # MongoDB Object IDs - return just the ID itself as string
+            return str(obj)
+        return super().default(obj)
+    def iterencode(self, o, _one_shot=False):
+        """Overwrite the iterencode method because this is where the float
+            special cases are handled in the floatstr() function. Copy-pasted
+            original code and then adapted it to change floatstr() behavior.
+        """
+        if self.check_circular:
+            markers = {}
+        else:
+            markers = None
+        if self.ensure_ascii:
+            _encoder = json.encoder.encode_basestring_ascii
+        else:
+            _encoder = json.encoder.encode_basestring
+        def floatstr(o, allow_nan=self.allow_nan,
+                _repr=float.__repr__, _inf=float('inf'), _neginf=-float('inf')):
+            # Check for specials.  Note that this type of test is processor
+            # and/or platform-specific, so do tests which don't depend on the
+            # internals.
+            if not (o != o or o == _inf or o == _neginf):
+                return _repr(o)
+            if not allow_nan:
+                raise ValueError(
+                    "Out of range float values are not JSON compliant: " +
+                    repr(o))
+            return 'null'
+        return json.encoder._make_iterencode(
+                markers, self.default, _encoder, self.indent, floatstr,
+                self.key_separator, self.item_separator, self.sort_keys,
+                self.skipkeys, _one_shot)(o, 0)
 
 class EWAHBaseDWHook(BaseHook):
     """Extension of airflow's native Base Hook.
@@ -211,6 +250,9 @@ class EWAHBaseDWHook(BaseHook):
         database_name = database_name or \
             (getattr(self, 'database') if hasattr(self, 'database') else None)
 
+        mapped_types = EC.QBC_TYPE_MAPPING[self.dwh_engine].keys()
+        mapped_types = tuple([k for k in mapped_types if isinstance(k, type)])
+
         raw_row = {} # Used as template for params at execution
         sql_part_columns = [] # Used for CREATE and INSERT / UPDATE query
         jsonb_columns = [] # JSON columns require special treatment
@@ -270,20 +312,24 @@ class EWAHBaseDWHook(BaseHook):
                             # hash column!
                             pre_digest = hash_func(str(value).encode())
                             row[column_name] = pre_digest.hexdigest()
-                        else:
-                            # avoid edge case of data where all instances of a field
-                            #   are None, thus having data for a field missing
-                            #   in the columns_definition!
-                            value_type = type(value)
-                            if column_name in jsonb_columns and value:
-                                row[column_name] = json.dumps(value)
-                            elif value_type in [dict, OrderedDict, list]:
-                                row[column_name] = json.dumps(value)
-                            elif not (value == '\0'):
-                                if value_type == str:
+                        elif not value is None:
+                            # avoid edge case of data where all instances of a
+                            #   field are None, thus having data for a field
+                            #   missing in the columns_definition!
+                            if column_name in jsonb_columns or \
+                                isinstance(value, (dict, OrderedDict, list)) \
+                                or (not isinstance(value, mapped_types)):
+                                try:
+                                    row[column_name] = \
+                                        json.dumps(value, cls=EWAHJSONEncoder)
+                                except TypeError:
+                                    # try dumping with bson utility function
+                                    row[column_name] = dumps(value)
+                            elif isinstance(value, str):
+                                if not (value == '\0'):
                                     row[column_name] = value.replace('\x00', '')
-                                else:
-                                    row[column_name] = value
+                            else:
+                                row[column_name] = value
                 upload_data += [row]
             data_len = len(upload_data)
         else:
