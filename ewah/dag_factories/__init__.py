@@ -178,6 +178,7 @@ def dags_from_dict(
         'hubspot': EWAHHubspotOperator,
         'stripe': EWAHStripeOperator,
         'mailingwork': EWAHMailingworkOperator,
+        'dynamodb': EWAHDynamoDBOperator,
     }
 
     allowed_dag_args = [

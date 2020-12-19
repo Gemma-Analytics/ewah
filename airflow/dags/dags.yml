@@ -47,6 +47,21 @@ el_dags:
 
   EL_BigQuery_events: !yml_from_file secret_dag_bq.yml
 
+  EL_DynamoDB:
+    load_strategy: full-refresh
+    el_operator: dynamodb
+    target_schema_name: raw_dynamodb
+    operator_config:
+      general_config:
+        source_conn_id: dynamodb_conn
+        region_name: eu-central-1
+      tables:
+        admins:
+          primary_key_column_name: email
+        all_users:
+          primary_key_column_name: email
+          source_table_name: users
+
   EL_Facebook: !yml_from_file secret_dag_facebook.yml
 
   EL_FX:
