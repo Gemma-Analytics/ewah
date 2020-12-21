@@ -6,6 +6,8 @@ from ewah.dwhooks import get_dwhook
 from ewah.constants import EWAHConstants as EC
 from ewah.ewah_utils.ssh_tunnel import start_ssh_tunnel
 
+from datetime import datetime, timedelta
+import time
 import hashlib
 
 class EWAHBaseOperator(BaseOperator):
@@ -94,8 +96,12 @@ class EWAHBaseOperator(BaseOperator):
         target_ssh_tunnel_conn_id=None, # see source_ssh_tunnel_conn_id
         hash_columns=None, # str or list of str - columns to hash pre-upload
         hashlib_func_name='sha256', # specify hashlib hashing function
+        wait_for_seconds=0, # seconds past next_execution_date to wait until
+        # wait_for_seconds only applies for incremental loads
     *args, **kwargs):
         super().__init__(*args, **kwargs)
+
+        assert isinstance(wait_for_seconds, int) and wait_for_seconds >= 0
 
         if hash_columns and not clean_data_before_upload:
             _msg = 'column hashing is only possible with data cleaning!'
@@ -190,6 +196,7 @@ class EWAHBaseOperator(BaseOperator):
         self.target_ssh_tunnel_conn_id = target_ssh_tunnel_conn_id
         self.hash_columns = hash_columns
         self.hashlib_func_name = hashlib_func_name
+        self.wait_for_seconds = wait_for_seconds
 
         self.hook = get_dwhook(self.dwh_engine)
 
@@ -239,6 +246,22 @@ class EWAHBaseOperator(BaseOperator):
             # resolve conn id here & delete the object to avoid usage elsewhere
             self.source_conn = BaseHook.get_connection(self.source_conn_id)
         del self.source_conn_id
+
+        # Have an option to wait until a short period (e.g. 2 minutes) past
+        # the incremental loading range timeframe to ensure that all data is
+        # loaded, useful e.g. if APIs lag or if server timestamps are not
+        # perfectly accurate.
+        if self.wait_for_seconds and not self.drop_and_replace:
+            wait_until = context.get('next_execution_date')
+            if wait_until:
+                wait_until += timedelta(seconds=self.wait_for_seconds)
+                self.log.info('Awaiting execution until {0}...'.format(
+                    str(wait_until),
+                ))
+            while wait_until and datetime.now() < wait_until:
+                # Only sleep a maximum of 5s at a time
+                wait_for_timedelta = datetime.now() - wait_until
+                time.sleep(min(wait_for_timedelta.total_seconds(), 5))
 
         try:
             # execute operator

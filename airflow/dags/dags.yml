@@ -41,6 +41,7 @@ el_dags:
         source_conn_id: aircall
         reload_data_from: 2020-10-31 00:00:00+00:00
         drop_and_replace: True
+        wait_for_seconds: 120
       tables:
         users:
           resource: users
