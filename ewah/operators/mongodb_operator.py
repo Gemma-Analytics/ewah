@@ -6,11 +6,9 @@ from airflow.hooks.base_hook import BaseHook
 from airflow.utils.file import TemporaryDirectory
 
 import os
-import json
 from copy import deepcopy
 from datetime import timedelta
 from pymongo import MongoClient
-from bson.json_util import dumps
 from pymongo import ASCENDING as asc
 from tempfile import NamedTemporaryFile
 
@@ -59,8 +57,6 @@ class EWAHMongoDBOperator(EWAHBaseOperator):
         self.mongoclient_extra_args = mongoclient_extra_args
 
         assert conn_style in ['uri', 'credentials']
-        if conn_style == 'uri' and ssh_conn_id:
-            raise Exception('SSH cannot be combined with supplying a URI!')
 
         chunking_field = chunking_field or timestamp_field
         if chunking_interval:
@@ -116,42 +112,37 @@ class EWAHMongoDBOperator(EWAHBaseOperator):
         # adapted from https://www.codementor.io/@arpitbhayani/fast-and-efficient-pagination-in-mongodb-9095flbqr
         if page_size is None:
             # just get all data at once without pagination
-            self.upload_data(
-                json.loads(dumps(collection.find(filter_expressions)))
-            )
+            self.upload_data([i for i in collection.find(filter_expressions)])
             return
 
         # pagination!
-        fe = deepcopy(filter_expressions)
+        fe = deepcopy(filter_expressions or {})
         if last_id:
             # get next page
             fe.update({self.primary_key_column_name:{'$gt':last_id}})
-        next_id_data = [x for x in collection.find(fe) \
-                        .sort(self.primary_key_column_name, asc) \
-                        .skip(page_size - 1)
-                        .limit(1)
-        ]
-        data = json.loads(dumps(collection.find(fe)
+
+        data = [i for i in collection.find(fe)
                                     .sort(self.primary_key_column_name, asc) \
-                                    .limit(page_size)
-        ))
+                                    .limit(page_size)]
 
         if not len(data) == 0:
+            last_id = data[-1][self.primary_key_column_name]
             self.upload_data(data)
-            if not len(next_id_data) == 0:
-                last_id = next_id_data[0][self.primary_key_column_name]
-                # call recursively!
-                self.extract_and_load_paginated(
-                    collection=collection,
-                    filter_expressions=filter_expressions,
-                    page_size=page_size,
-                    last_id=last_id,
-                )
+            # call recursively!
+            self.extract_and_load_paginated(
+                collection=collection,
+                filter_expressions=filter_expressions,
+                page_size=page_size,
+                last_id=last_id,
+            )
 
     def ewah_execute(self, context):
         if not self.drop_and_replace and not self.test_if_target_table_exists():
-            self.data_from = self.reload_data_from
+            self.data_from = self.reload_data_from or context['dag'].start_date
             self.log.info('Reloading data from {0}'.format(str(self.data_from)))
+        if not self.drop_and_replace:
+            self.data_from = self.data_from or context['execution_date']
+            self.data_until = self.data_until or context['next_execution_date']
         self.data_from = airflow_datetime_adjustments(self.data_from)
         self.data_until = airflow_datetime_adjustments(self.data_until)
 
@@ -215,9 +206,7 @@ class EWAHMongoDBOperator(EWAHBaseOperator):
                             conn_kwargs['tlsCertificateKeyFilePassword'] = \
                                 ssl_conn.password
 
-
                     conn_kwargs.update(self.mongoclient_extra_args)
-                    print(conn_kwargs) # delete me
                     mdb_conn = MongoClient(**conn_kwargs)
                     database = mdb_conn.get_database(name=db_name)
 

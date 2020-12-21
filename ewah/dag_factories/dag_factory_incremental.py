@@ -100,7 +100,7 @@ def dag_factory_incremental_loading(
     if kwargs:
         for key, value in kwargs.items():
             print('unused config: {0}={1}'.format(key, str(value)))
-            
+
     additional_dag_args = additional_dag_args or {}
     additional_task_args = additional_task_args or {}
 
@@ -331,6 +331,8 @@ def dag_factory_incremental_loading(
             backfill_external_task_id=final_backfill.task_id,
             backfill_execution_delta=schedule_interval_backfill,
             dag=dags[0],
+            poke_interval=5*60,
+            mode='reschedule', # don't block a worker and pool slot
             **additional_task_args
         ),
         ExtendedETS(
@@ -340,6 +342,8 @@ def dag_factory_incremental_loading(
             external_task_id=final_backfill.task_id,
             execution_delta=schedule_interval_backfill,
             dag=dags[1],
+            poke_interval=5*60,
+            mode='reschedule', # don't block a worker and pool slot
             **additional_task_args
         )
     )

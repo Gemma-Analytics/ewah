@@ -20,6 +20,8 @@ base_config: # applied to all DAGs unless overwritten
   schedule_interval_incremental: !!python/object/apply:datetime.timedelta
     - 0 # days
     - 3600 # seconds
+  read_right_users:
+    - i_dont_exist
   additional_task_args:
     retries: 1
     retry_delay: !!python/object/apply:datetime.timedelta
@@ -29,6 +31,25 @@ base_config: # applied to all DAGs unless overwritten
     email_on_failure: False
     # email: ['me+ewahairflowerror@mail.com']
 el_dags:
+  EL_Aircall:
+    load_strategy: incremental
+    el_operator: aircall
+    target_schema_name: raw_aircall
+    start_date: 2020-10-31 00:00:00+00:00
+    operator_config:
+      general_config:
+        source_conn_id: aircall
+        reload_data_from: 2020-10-31 00:00:00+00:00
+        drop_and_replace: True
+      tables:
+        users:
+          resource: users
+        calls:
+          drop_and_replace: False
+        numbers: {}
+        contacts: {}
+        tags: {}
+        teams: {}
 
   EL_BigQuery:
     incremental: False
@@ -38,9 +59,27 @@ el_dags:
       general_config:
         source_conn_id: bq
         source_schema_name: ds1
+        source_database_name: gemma-287313
       tables:
         weights:
           source_table_name: bijan_weight
+
+  EL_BigQuery_events: !yml_from_file secret_dag_bq.yml
+
+  EL_DynamoDB:
+    load_strategy: full-refresh
+    el_operator: dynamodb
+    target_schema_name: raw_dynamodb
+    operator_config:
+      general_config:
+        source_conn_id: dynamodb_conn
+        region_name: eu-central-1
+      tables:
+        admins:
+          primary_key_column_name: email
+        all_users:
+          primary_key_column_name: email
+          source_table_name: users
 
   EL_Facebook: !yml_from_file secret_dag_facebook.yml
 
@@ -61,14 +100,22 @@ el_dags:
           currency_pair: ['USD', 'GBP']
         daily_fx_rates_usd_chf:
           currency_pair: ['USD', 'CHF']
+        daily_fx_rates_usd_ars:
+          currency_pair: ['USD', 'ARS']
+        daily_fx_rates_usd_clp:
+          currency_pair: ['USD', 'CLP']
+        daily_fx_rates_usd_ron:
+          currency_pair: ['USD', 'RON']
+        daily_fx_rates_usd_myr:
+          currency_pair: ['USD', 'MYR']
 
-  # EL_GAds: tbd
+  EL_GAds: !yml_from_file secret_dag_gads.yml
 
   EL_GA: !yml_from_file secret_dag_google_analytics.yml
 
   # EL_GMaps: tbd
 
-  # EL_GSheets: tbd
+  EL_GSheets: !yml_from_file secret_dag_gsheets.yml
 
   EL_Hubspot:
     incremental: False
@@ -143,14 +190,21 @@ el_dags:
         export_recipients:
           endpoint: exportrecipients
           primary_key_column_name: id
+          page_size: 2000
+          normal_params:
+            "advanced[compact]": 1
           iter_param:
             name: listId
             values:
+              - 227
               - 3
               - 2
 
   EL_MongoDB: !yml_from_file secret_dag_mongodb.yml
   EL_MongoDB_2: !yml_from_file secret_dag_mongodb_2.yml
+  EL_MongoDB_3: !yml_from_file secret_dag_mongodb_3.yml
+  EL_MongoDB_4: !yml_from_file secret_dag_mongodb_4.yml
+  EL_MongoDB_5: !yml_from_file secret_dag_mongodb_5.yml
 
   EL_MySQL_Shopware:
     incremental: False
@@ -171,6 +225,7 @@ el_dags:
 
   EL_Oracle: !yml_from_file secret_dag_oracle_to_snowflake.yml
   EL_Oracle_2: !yml_from_file secret_dag_oracle_fullcremental.yml
+  EL_Oracle_FR: !yml_from_file secret_dag_oracle_fr.yml
 
   # EL_Postgres: tbd
 
