@@ -74,3 +74,7 @@ try:
     from ewah.operators.dynamodb_operator import EWAHDynamoDBOperator
 except ImportError:
     from ewah.operators.base_operator import EWAHEmptyOperator as EWAHDynamoDBOperator
+try:
+    from ewah.operators.aircall_operator import EWAHAircallOperator
+except ImportError:
+    from ewah.operators.base_operator import EWAHEmptyOperator as EWAHAircallOperator

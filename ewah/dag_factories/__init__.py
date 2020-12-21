@@ -179,6 +179,7 @@ def dags_from_dict(
         'stripe': EWAHStripeOperator,
         'mailingwork': EWAHMailingworkOperator,
         'dynamodb': EWAHDynamoDBOperator,
+        'aircall': EWAHAircallOperator,
     }
 
     allowed_dag_args = [
