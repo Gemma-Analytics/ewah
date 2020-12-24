@@ -1,5 +1,5 @@
 from ewah.constants import EWAHConstants as EC
-from ewah.operators import *
+from ewah import operators as operator_classes
 from ewah.operators.base_operator import EWAHBaseOperator as EBO
 
 from .dag_factory_full_refresh import dag_factory_drop_and_replace
@@ -128,6 +128,7 @@ def dags_from_dict(
     ]
     _FR_ONLY = ['schedule_interval']
 
+    # enable some mis-spellings
     dwh_engines = {
         'postgres': EC.DWH_ENGINE_POSTGRES,
         'Postgres': EC.DWH_ENGINE_POSTGRES,
@@ -149,37 +150,7 @@ def dags_from_dict(
     }
 
     operators = {
-        'fx': EWAHFXOperator,
-        'ga': EWAHGAOperator,
-        'google_analytics': EWAHGAOperator,
-        'gads': EWAHGoogleAdsOperator,
-        'google_ads': EWAHGoogleAdsOperator,
-        'mysql': EWAHMySQLOperator,
-        'oracle': EWAHOracleSQLOperator,
-        'postgres': EWAHPostgresOperator,
-        'postgresql': EWAHPostgresOperator,
-        'pgsql': EWAHPostgresOperator,
-        's3': EWAHS3Operator,
-        'fb': EWAHFBOperator,
-        'facebook': EWAHFBOperator,
-        'gsheets': EWAHGSpreadOperator,
-        'google_sheets': EWAHGSpreadOperator,
-        'gs': EWAHGSpreadOperator,
-        'mongo': EWAHMongoDBOperator,
-        'mongodb': EWAHMongoDBOperator,
-        'shopify': EWAHShopifyOperator,
-        'zendesk': EWAHZendeskOperator,
-        'gmaps': EWAHGMapsOperator,
-        'googlemaps': EWAHGMapsOperator,
-        'mc': EWAHMailchimpOperator,
-        'mailchimp': EWAHMailchimpOperator,
-        'bq': EWAHBigQueryOperator,
-        'bigquery': EWAHBigQueryOperator,
-        'hubspot': EWAHHubspotOperator,
-        'stripe': EWAHStripeOperator,
-        'mailingwork': EWAHMailingworkOperator,
-        'dynamodb': EWAHDynamoDBOperator,
-        'aircall': EWAHAircallOperator,
+        k:getattr(operator_classes, v) for (k, v) in EC.OPERATORS_LIST.items()
     }
 
     allowed_dag_args = [
@@ -279,23 +250,16 @@ def dags_from_dict(
             'el_dags.{0}.additional_dag_args'.format(dag_name),
         )
         config.update(dag_config)
-        load_strategy_depr = config.pop('incremental', None)
         load_strategy = config.pop('load_strategy', None)
-        if (not load_strategy_depr is None) and load_strategy:
-            _msg = 'incremental kwarg is depcrecated and cannot be used '
-            _msg += 'simultaneously with load_strategy!'
+        if not config.pop('incremental', None) is None:
+            _msg = 'incremental kwarg is depcrecated and cannot be used!'
             raise Exception(_msg)
-        if load_strategy is None and load_strategy_depr is None:
+        if load_strategy is None:
             _msg = 'Must supply kwarg load_strategy!'
             raise Exception(_msg)
-        if not load_strategy_depr is None:
-            if load_strategy_depr:
-                load_strategy = 'inc'
-            else:
-                load_strategy = 'fr'
         dag_factory = factory_type.get(load_strategy.lower())
         if not dag_factory:
-            _msg = 'load_strategy={0} is invalid!'.format(load_strategy)
+            _msg = 'load_strategy "{0}" is invalid!'.format(load_strategy)
             raise Exception(_msg)
 
         try:

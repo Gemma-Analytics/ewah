@@ -56,8 +56,13 @@ class EWAHBaseOperator(BaseOperator):
     - Redshift
     """
 
-    _IS_INCREMENTAL = False # Child class must update these values accordingly.
-    _IS_FULL_REFRESH = False # Defines whether operator is usable in factories.
+    # Child class must update or overwrite these values
+    # A missing element is interpreted as False
+    _ACCEPTED_LOAD_STRATEGIES = {
+        EC.LS_FULL_REFRESH: False,
+        EC.LS_INCREMENTAL: False,
+        EC.LS_APPENDING: False,
+    }
 
     _REQUIRES_COLUMNS_DEFINITION = False # raise error if true an none supplied
 
@@ -70,20 +75,20 @@ class EWAHBaseOperator(BaseOperator):
 
     _metadata = {} # to be updated by operator, if applicable
 
-    def __init__(
-        self,
+    def __init__(self,
         source_conn_id,
         dwh_engine,
         dwh_conn_id,
+        load_strategy,
         target_table_name,
         target_schema_name,
         target_schema_suffix='_next',
         target_database_name=None, # Only for Snowflake
         columns_definition=None,
-        drop_and_replace=True,
         update_on_columns=None,
         primary_key_column_name=None,
         clean_data_before_upload=True,
+        # tbd: add_metadata always true, also regardless of columns_definition!
         add_metadata=True, # adds columns with metadata to all rows
         # Note: that metadata is specified by a dict on operator level!
         # metadata can only be added if no columns definition is given
@@ -118,11 +123,11 @@ class EWAHBaseOperator(BaseOperator):
                 + 'exclude_columns!')
 
         if not dwh_engine or not dwh_engine in EC.DWH_ENGINES:
-            raise Exception('Invalid DWH Engine: {0}\n\nAccapted Engines:{1}'
-                .format(
+            _msg = 'Invalid DWH Engine: {0}\n\nAccepted Engines:\n\t{1}'.format(
                 str(dwh_engine),
-                '\n'.join(EC.DWH_ENGINES),
-            ))
+                '\n\t'.join(EC.DWH_ENGINES),
+            )
+            raise Exception(_msg)
 
         if index_columns and not dwh_engine == EC.DWH_ENGINE_POSTGRES:
             raise Exception('Indices are only allowed for PostgreSQL DWHs!')
@@ -153,7 +158,9 @@ class EWAHBaseOperator(BaseOperator):
             raise Exception('Cannot supply BOTH primary_key_column_name AND' + \
                 ' update_on_columns!')
 
-        if not drop_and_replace:
+        if not load_strategy in (EC.LS_APPENDING, EC.LS_FULL_REFRESH):
+            # Required settings for incremental loads
+            # Update condition for new load strategies as required
             if not (
                 update_on_columns
                 or primary_key_column_name
@@ -174,12 +181,12 @@ class EWAHBaseOperator(BaseOperator):
         self.source_conn_id = source_conn_id
         self.dwh_engine = dwh_engine
         self.dwh_conn_id = dwh_conn_id
+        self.load_strategy = load_strategy
         self.target_table_name = target_table_name
         self.target_schema_name = target_schema_name
         self.target_schema_suffix = target_schema_suffix
         self.target_database_name = target_database_name
         self.columns_definition = columns_definition
-        self.drop_and_replace = drop_and_replace
         if (not update_on_columns) and primary_key_column_name:
             if type(primary_key_column_name) == str:
                 update_on_columns = [primary_key_column_name]
@@ -199,6 +206,11 @@ class EWAHBaseOperator(BaseOperator):
         self.wait_for_seconds = wait_for_seconds
 
         self.hook = get_dwhook(self.dwh_engine)
+
+        _msg = 'DWH operator does not support load strategy {0}!'.format(
+            load_strategy,
+        )
+        assert self.hook._ACCEPTED_LOAD_STRATEGIES.get(load_strategy), _msg
 
     def execute(self, context):
         """ Why this method is defined here:
@@ -251,7 +263,7 @@ class EWAHBaseOperator(BaseOperator):
         # the incremental loading range timeframe to ensure that all data is
         # loaded, useful e.g. if APIs lag or if server timestamps are not
         # perfectly accurate.
-        if self.wait_for_seconds and not self.drop_and_replace:
+        if self.wait_for_seconds and self.load_strategy == EC.LS_INCREMENTAL:
             wait_until = context.get('next_execution_date')
             if wait_until:
                 wait_until += timedelta(seconds=self.wait_for_seconds)
@@ -406,7 +418,8 @@ class EWAHBaseOperator(BaseOperator):
 
         hook = self.upload_hook
 
-        if (not self.drop_and_replace) or (self.upload_call_count > 1):
+        if (self.load_strategy == EC.LS_INCREMENTAL) \
+            or (self.upload_call_count > 1):
             self.log.info('Checking for, and applying schema changes.')
             _new_schema_name = self.target_schema_name+self.target_schema_suffix
             new_cols, del_cols = hook.detect_and_apply_schema_changes(
@@ -432,7 +445,7 @@ class EWAHBaseOperator(BaseOperator):
             schema_name=self.target_schema_name,
             schema_suffix=self.target_schema_suffix,
             database_name=self.target_database_name,
-            drop_and_replace=self.drop_and_replace and \
+            drop_and_replace=(self.load_strategy == EC.LS_FULL_REFRESH) and \
                 (self.upload_call_count == 1), # In case of chunking of uploads
             update_on_columns=self.update_on_columns,
             commit=False, # See note below for reason
@@ -450,8 +463,11 @@ class EWAHBaseOperator(BaseOperator):
         """
 
 class EWAHEmptyOperator(EWAHBaseOperator):
-    _IS_INCREMENTAL = True
-    _IS_FULL_REFRESH = True
+    _ACCEPTED_LOAD_STRATEGIES = {
+        EC.LS_FULL_REFRESH: True,
+        EC.LS_INCREMENTAL: True,
+        EC.LS_APPENDING: True,
+    }
     def __init__(self, *args, **kwargs):
         raise Exception('Failed to load operator! Probably missing' \
             + ' requirements for the operator in question.\n\nSupplied args:' \

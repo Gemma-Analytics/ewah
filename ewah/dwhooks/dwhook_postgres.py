@@ -27,6 +27,12 @@ class EWAHDWHookPostgres(EWAHBaseDWHook):
     """
     _QUERY_TABLE = 'SELECT * FROM "{schema_name}"."{table_name}"'
 
+    _ACCEPTED_LOAD_STRATEGIES = {
+        EC.LS_FULL_REFRESH: True,
+        EC.LS_INCREMENTAL: True,
+        EC.LS_APPENDING: False,
+    }
+
     def __init__(self, *args, **kwargs):
         super().__init__(EC.DWH_ENGINE_POSTGRES, *args, **kwargs)
 

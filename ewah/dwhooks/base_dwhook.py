@@ -59,6 +59,14 @@ class EWAHBaseDWHook(BaseHook):
     always a child of this class and contains logic that is DWH specific.
     """
 
+    # Just like each operator, child class must update or overwrite these values
+    # A missing element is interpreted as False
+    _ACCEPTED_LOAD_STRATEGIES = {
+        EC.LS_FULL_REFRESH: False,
+        EC.LS_INCREMENTAL: False,
+        EC.LS_APPENDING: False,
+    }
+
     def __init__(self, dwh_engine, dwh_conn, *args, logging_func=None, **kwarg):
         args = [dwh_conn.conn_id] + (args or [])
         super().__init__(*args, **kwarg)

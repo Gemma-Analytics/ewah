@@ -53,7 +53,7 @@ el_dags:
         teams: {}
 
   EL_BigQuery:
-    incremental: False
+    load_strategy: fr
     el_operator: bq
     target_schema_name: raw_bq
     operator_config:
@@ -85,7 +85,7 @@ el_dags:
   EL_Facebook: !yml_from_file secret_dag_facebook.yml
 
   EL_FX:
-    incremental: False
+    load_strategy: full refresh
     el_operator: fx
     target_schema_name: raw_fx
     operator_config:
@@ -119,7 +119,7 @@ el_dags:
   EL_GSheets: !yml_from_file secret_dag_gsheets.yml
 
   EL_Hubspot:
-    incremental: False
+    load_strategy: fr
     el_operator: hubspot
     target_schema_name: raw_hubspot
     operator_config:
@@ -143,7 +143,7 @@ el_dags:
           object: quotes
 
   EL_Mailchimp:
-    incremental: False
+    load_strategy: fr
     el_operator: mailchimp
     target_schema_name: raw_mailchimp
     dwh_conn_id: ssh_dwh
@@ -171,7 +171,7 @@ el_dags:
             - sed_time
 
   EL_Mailingwork:
-    incremental: False
+    load_strategy: fr
     el_operator: mailingwork
     target_schema_name: raw_mailingwork
     dwh_conn_id: snowflake_conn
@@ -208,7 +208,7 @@ el_dags:
   EL_MongoDB_5: !yml_from_file secret_dag_mongodb_5.yml
 
   EL_MySQL_Shopware:
-    incremental: False
+    load_strategy: fr
     el_operator: mysql
     target_schema_name: raw_shopware
     #dwh_conn_id: ssh_dwh
@@ -235,7 +235,7 @@ el_dags:
   # EL_Shopify: tbd
 
   EL_Stripe:
-    incremental: False
+    load_strategy: fr
     el_operator: stripe
     target_schema_name: raw_stripe
     operator_config:

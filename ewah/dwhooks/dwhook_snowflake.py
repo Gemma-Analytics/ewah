@@ -58,6 +58,12 @@ class EWAHDWHookSnowflake(EWAHBaseDWHook):
         SELECT * FROM "{database_name}"."{schema_name}"."{table_name}"
     """
 
+    _ACCEPTED_LOAD_STRATEGIES = {
+        EC.LS_FULL_REFRESH: True,
+        EC.LS_INCREMENTAL: True,
+        EC.LS_APPENDING: False,
+    }
+
     def __init__(self, *args, database=None, **kwargs):
         self.database = database
         super().__init__(EC.DWH_ENGINE_SNOWFLAKE, *args, **kwargs)

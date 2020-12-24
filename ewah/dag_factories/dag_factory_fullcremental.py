@@ -194,7 +194,8 @@ def dag_factory_fullcremental(
 
     for table in operator_config['tables'].keys():
         arg_dict_inc = deepcopy(additional_task_args)
-        arg_dict_inc.update({'drop_and_replace': False}) # may be overwritten
+        # load_strategy can be overwritten to LS_FULL_REFRESH on per-table level
+        arg_dict_inc.update({'load_strategy': EC.LS_INCREMENTAL})
         arg_dict_inc.update(operator_config.get('general_config', {}))
         op_conf = operator_config['tables'][table] or {}
         arg_dict_inc.update(op_conf)
@@ -209,7 +210,7 @@ def dag_factory_fullcremental(
             'target_ssh_tunnel_conn_id': dwh_ssh_tunnel_conn_id,
         })
         arg_dict_fr = deepcopy(arg_dict_inc)
-        arg_dict_fr.update({'drop_and_replace': True})
+        arg_dict_fr.update({'load_strategy': EC.LS_FULL_REFRESH})
 
         task_fr = el_operator(dag=dags[0], **arg_dict_fr)
         task_inc = el_operator(dag=dags[1], **arg_dict_inc)

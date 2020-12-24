@@ -31,6 +31,12 @@ class EWAHDWHookGSheets(EWAHBaseDWHook):
         - the target table name is the worksheet name
     """
 
+    _ACCEPTED_LOAD_STRATEGIES = {
+        EC.LS_FULL_REFRESH: True,
+        EC.LS_INCREMENTAL: False,
+        EC.LS_APPENDING: False,
+    }
+
     def __init__(self, *args, **kwargs):
         self._upload_call_count = 0
         super().__init__(EC.DWH_ENGINE_GS, *args, **kwargs)
@@ -67,7 +73,7 @@ class EWAHDWHookGSheets(EWAHBaseDWHook):
     ):
         if not pk_columns == []:
             raise Exception('Arg pk_columns invalidly supplied!')
-            
+
         def colnum_string(n):
             # adapted from https://stackoverflow.com/questions/23861680/convert-spreadsheet-number-to-column-letter
             string = ""

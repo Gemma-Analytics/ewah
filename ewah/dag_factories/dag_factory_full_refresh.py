@@ -30,7 +30,7 @@ def dag_factory_drop_and_replace(
     if kwargs:
         for key, value in kwargs.items():
             print('unused config: {0}={1}'.format(key, str(value)))
-            
+
     additional_dag_args = additional_dag_args or {}
     additional_task_args = additional_task_args or {}
 
@@ -79,11 +79,11 @@ def dag_factory_drop_and_replace(
                 'task_id': 'extract_load_'+re.sub(r'[^a-zA-Z0-9_]', '', table),
                 'dwh_engine': dwh_engine,
                 'dwh_conn_id': dwh_conn_id,
+                'load_strategy': EC.LS_FULL_REFRESH,
                 'target_table_name': operator_config['tables'][table].get('target_table_name', table),
                 'target_schema_name': target_schema_name,
                 'target_schema_suffix': target_schema_suffix,
                 'target_database_name': target_database_name,
-                'drop_and_replace': True,
                 'target_ssh_tunnel_conn_id': dwh_ssh_tunnel_conn_id,
             })
             table_task = el_operator(**table_config)
