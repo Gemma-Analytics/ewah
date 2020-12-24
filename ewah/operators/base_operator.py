@@ -8,6 +8,7 @@ from ewah.ewah_utils.ssh_tunnel import start_ssh_tunnel
 
 from datetime import datetime, timedelta
 import time
+import copy
 import hashlib
 
 class EWAHBaseOperator(BaseOperator):
@@ -88,10 +89,6 @@ class EWAHBaseOperator(BaseOperator):
         update_on_columns=None,
         primary_key_column_name=None,
         clean_data_before_upload=True,
-        # tbd: add_metadata always true, also regardless of columns_definition!
-        add_metadata=True, # adds columns with metadata to all rows
-        # Note: that metadata is specified by a dict on operator level!
-        # metadata can only be added if no columns definition is given
         exclude_columns=[], # list of columns to exclude, if no
         # columns_definition was supplied (e.g. for select * with sql)
         index_columns=[], # list of columns to create an index on. can be
@@ -196,7 +193,6 @@ class EWAHBaseOperator(BaseOperator):
         self.clean_data_before_upload = clean_data_before_upload
         self.primary_key_column_name = primary_key_column_name # may be used ...
         #   ... by a child class at execution!
-        self.add_metadata = add_metadata
         self.exclude_columns = exclude_columns
         self.index_columns = index_columns
         self.source_ssh_tunnel_conn_id = source_ssh_tunnel_conn_id
@@ -220,6 +216,10 @@ class EWAHBaseOperator(BaseOperator):
             the child operators shall have an ewah_execute() function which is
             called by this general execute() method.
         """
+
+        # used for metadata in data upload
+        self._execution_time = datetime.now()
+        self._context = context
 
         def close_ssh_tunnels():
             # close SSH tunnels if they exist
@@ -349,8 +349,6 @@ class EWAHBaseOperator(BaseOperator):
 
         result = {}
         for datum in data:
-            if self.add_metadata and self._metadata:
-                datum.update(self._metadata)
             for field in datum.keys():
                 if field in self.exclude_columns:
                     datum[field] = None
@@ -395,6 +393,20 @@ class EWAHBaseOperator(BaseOperator):
             str(len(data)),
             str(self.upload_call_count),
         ))
+
+        self.log.info('Adding metadata...')
+        metadata = copy.deepcopy(self._metadata) # from individual operator
+        # for all operators alike
+        metadata.update({
+            '_ewah_executed_at': self._execution_time,
+            '_ewah_execution_chunk': self.upload_call_count,
+            '_ewah_dag_id': self._context['dag'].dag_id,
+            '_ewah_dag_run_id': self._context['run_id'],
+            '_ewah_dag_run_execution_date': self._context['execution_date'],
+            '_ewah_dag_run_next_execution_date': self._context['next_execution_date'],
+        })
+        for datum in data:
+            datum.update(metadata)
 
         columns_definition = columns_definition or self.columns_definition
         if not columns_definition:

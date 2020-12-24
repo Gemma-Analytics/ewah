@@ -35,8 +35,6 @@ class EWAHMailingworkOperator(EWAHBaseOperator):
             assert isinstance(iter_param, dict), _msg
             assert isinstance(iter_param.get('name'), str), _msg
             assert isinstance(iter_param.get('values'), list), _msg
-            _msg = 'Must add Metadata if using iter_param!'
-            assert self.add_metadata, _msg
             _msg = 'Must provide primary_key_column_name if using iter_param!'
             assert self.primary_key_column_name, _msg
 
