@@ -9,8 +9,11 @@ class EWAHFXOperator(EWAHBaseOperator):
 
     template_fields = ('data_from', 'data_until')
 
-    _IS_INCREMENTAL = False
-    _IS_FULL_REFRESH = True
+    _ACCEPTED_LOAD_STRATEGIES = {
+        EC.LS_FULL_REFRESH: True,
+        EC.LS_INCREMENTAL: True,
+        EC.LS_APPENDING: False,
+    }
 
     def __init__(
         self,

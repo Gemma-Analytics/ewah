@@ -8,8 +8,11 @@ import time
 
 class EWAHAircallOperator(EWAHBaseOperator):
 
-    _IS_INCREMENTAL = True
-    _IS_FULL_REFRESH = True
+    _ACCEPTED_LOAD_STRATEGIES = {
+        EC.LS_FULL_REFRESH: True,
+        EC.LS_INCREMENTAL: True,
+        EC.LS_APPENDING: False,
+    }
 
     _REQUIRES_COLUMNS_DEFINITION = False
 
@@ -66,7 +69,7 @@ class EWAHAircallOperator(EWAHBaseOperator):
         params = {
             'per_page': 50, # maximum page size is 50
         }
-        if not self.drop_and_replace \
+        if self.load_strategy == EC.LS_INCREMENTAL \
             and self._RESOURCES[self.resource].get('incremental'):
             # incremental load
             dag = context['dag']

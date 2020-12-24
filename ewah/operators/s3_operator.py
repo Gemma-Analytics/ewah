@@ -15,8 +15,11 @@ class EWAHS3Operator(EWAHBaseOperator):
 
     template_fields = ('data_from', 'data_until')
 
-    _IS_INCREMENTAL = True
-    _IS_FULL_REFRESH = True
+    _ACCEPTED_LOAD_STRATEGIES = {
+        EC.LS_FULL_REFRESH: True,
+        EC.LS_INCREMENTAL: True,
+        EC.LS_APPENDING: False,
+    }
 
     _IMPLEMENTED_FORMATS = [
         'JSON',
@@ -54,14 +57,6 @@ class EWAHS3Operator(EWAHBaseOperator):
         if decompress and not file_format == 'CSV':
             raise exception('Can currently only decompress CSVs!')
 
-
-        #if not self.drop_and_replace:
-        #    if not (data_from and data_until):
-        #        raise Exception('For incremental loading, you must specify ' \
-        #            + 'both data_from and data_until')
-        # if incrementally loading with data_from and data_until: default
-        #   to execution dates!
-
         self.bucket_name = bucket_name
         self.prefix = prefix
         self.suffix = suffix
@@ -90,7 +85,7 @@ class EWAHS3Operator(EWAHBaseOperator):
                     yield item
 
     def ewah_execute(self, context):
-        if not self.drop_and_replace and not self.key_name:
+        if not self.load_strategy == EC.LS_FULL_REFRESH and not self.key_name:
             self.data_from = self.data_from or context['execution_date']
             self.data_until = self.data_until or context['next_execution_date']
 

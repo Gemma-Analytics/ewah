@@ -103,7 +103,12 @@ class EWAHBaseOperator(BaseOperator):
     *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-        assert isinstance(wait_for_seconds, int) and wait_for_seconds >= 0
+        _msg = 'param "wait_for_seconds" must be a nonnegative integer!'
+        assert isinstance(wait_for_seconds, int) and wait_for_seconds >= 0, _msg
+        _msg = 'load_strategy {0} not accepted for this operator!'.format(
+            load_strategy,
+        )
+        assert self._ACCEPTED_LOAD_STRATEGIES.get(load_strategy), _msg
 
         if hash_columns and not clean_data_before_upload:
             _msg = 'column hashing is only possible with data cleaning!'
@@ -203,7 +208,7 @@ class EWAHBaseOperator(BaseOperator):
 
         self.hook = get_dwhook(self.dwh_engine)
 
-        _msg = 'DWH operator does not support load strategy {0}!'.format(
+        _msg = 'DWH hook does not support load strategy {0}!'.format(
             load_strategy,
         )
         assert self.hook._ACCEPTED_LOAD_STRATEGIES.get(load_strategy), _msg

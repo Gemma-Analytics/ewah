@@ -18,8 +18,11 @@ class EWAHShopifyOperator(EWAHBaseOperator):
 
     # template_fields = ()
 
-    _IS_INCREMENTAL = True
-    _IS_FULL_REFRESH = False
+    _ACCEPTED_LOAD_STRATEGIES = {
+        EC.LS_FULL_REFRESH: False,
+        EC.LS_INCREMENTAL: True,
+        EC.LS_APPENDING: False,
+    }
 
     _acceptable_api_versions = [
         '2020-07',
@@ -123,7 +126,7 @@ class EWAHShopifyOperator(EWAHBaseOperator):
                 ))
 
         if self._accepted_objects[shopify_object].get('_is_drop_and_replace'):
-            kwargs['drop_and_replace'] = True
+            kwargs['load_strategy'] = EC.LS_FULL_REFRESH
 
         if not auth_type in ['access_token', 'basic_auth']:
             raise Exception('auth_type must be access_token or basic_auth!')
@@ -194,7 +197,7 @@ class EWAHShopifyOperator(EWAHBaseOperator):
         }
         params.update(self.filter_fields)
         params.update({'limit': self.page_limit})
-        if not self.drop_and_replace:
+        if not self.load_strategy == EC.LS_FULL_REFRESH:
             timestamp_fields = object_metadata.get(
                 '_timestamp_fields',
                 self._default_timestamp_fields,

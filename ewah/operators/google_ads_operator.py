@@ -13,8 +13,11 @@ class EWAHGoogleAdsOperator(EWAHBaseOperator):
 
     template_fields = ('data_from', 'data_until')
 
-    _IS_INCREMENTAL = True
-    _IS_FULL_REFRESH = False
+    _ACCEPTED_LOAD_STRATEGIES = {
+        EC.LS_FULL_REFRESH: False,
+        EC.LS_INCREMENTAL: True,
+        EC.LS_APPENDING: False,
+    }
 
     _REQUIRED_KEYS = (
         'developer_token',

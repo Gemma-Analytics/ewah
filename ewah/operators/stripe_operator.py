@@ -7,8 +7,11 @@ import stripe
 
 class EWAHStripeOperator(EWAHBaseOperator):
 
-    _IS_INCREMENTAL = False
-    _IS_FULL_REFRESH = True
+    _ACCEPTED_LOAD_STRATEGIES = {
+        EC.LS_FULL_REFRESH: True,
+        EC.LS_INCREMENTAL: False,
+        EC.LS_APPENDING: False,
+    }
 
     _REQUIRES_COLUMNS_DEFINITION = False
 

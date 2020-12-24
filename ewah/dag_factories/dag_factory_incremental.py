@@ -106,10 +106,6 @@ def dag_factory_incremental_loading(
 
     if dwh_ssh_tunnel_conn_id and not dwh_engine == EC.DWH_ENGINE_POSTGRES:
         raise Exception('DWH tunneling only implemented for PostgreSQL DWHs!')
-    if not hasattr(el_operator, '_IS_INCREMENTAL'):
-        raise Exception('Invalid operator supplied!')
-    if not el_operator._IS_INCREMENTAL:
-        raise Exception('Operator does not support incremental loading!')
     if not type(schedule_interval_future) == timedelta:
         raise Exception('Schedule intervals must be datetime.timedelta!')
     if not type(schedule_interval_backfill) == timedelta:

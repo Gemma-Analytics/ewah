@@ -13,8 +13,11 @@ import time
 
 class EWAHZendeskOperator(EWAHBaseOperator):
 
-    _IS_INCREMENTAL = True
-    _IS_FULL_REFRESH = False
+    _ACCEPTED_LOAD_STRATEGIES = {
+        EC.LS_FULL_REFRESH: False,
+        EC.LS_INCREMENTAL: True,
+        EC.LS_APPENDING: False,
+    }
 
     _base_url = 'https://{support_url}.zendesk.com/{endpoint}'
     # _base_url = \
@@ -64,7 +67,7 @@ class EWAHZendeskOperator(EWAHBaseOperator):
             kwargs.get('primary_key_column_name', 'id')
 
         if self._accepted_resources[resource].get('drop_and_replace'):
-            kwargs['drop_and_replace'] = True
+            kwargs['load_strategy'] = EC.LS_FULL_REFRESH
 
         super().__init__(*args, **kwargs)
 

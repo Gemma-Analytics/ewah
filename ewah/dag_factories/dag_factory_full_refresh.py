@@ -36,10 +36,6 @@ def dag_factory_drop_and_replace(
 
     if dwh_ssh_tunnel_conn_id and not dwh_engine == EC.DWH_ENGINE_POSTGRES:
         raise Exception('DWH tunneling only implemented for PostgreSQL DWHs!')
-    if not hasattr(el_operator, '_IS_FULL_REFRESH'):
-        raise Exception('Invalid operator supplied!')
-    if not el_operator._IS_FULL_REFRESH:
-        raise Exception('Operator does not support full refreshs!')
     if not read_right_users is None:
         if type(read_right_users) == str:
             read_right_users = read_right_users.split(',')

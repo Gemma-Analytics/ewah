@@ -18,8 +18,11 @@ class EWAHGMapsOperator(EWAHBaseOperator):
 
     template_fields = ('address_sql',)
 
-    _IS_INCREMENTAL = True
-    _IS_FULL_REFRESH = True
+    _ACCEPTED_LOAD_STRATEGIES = {
+        EC.LS_FULL_REFRESH: True,
+        EC.LS_INCREMENTAL: True,
+        EC.LS_APPENDING: False,
+    }
 
     def __init__(self,
         address_sql,

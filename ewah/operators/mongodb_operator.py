@@ -16,8 +16,11 @@ class EWAHMongoDBOperator(EWAHBaseOperator):
 
     template_fields = ('data_from', 'data_until', 'reload_data_from')
 
-    _IS_INCREMENTAL = True
-    _IS_FULL_REFRESH = True
+    _ACCEPTED_LOAD_STRATEGIES = {
+        EC.LS_FULL_REFRESH: True,
+        EC.LS_INCREMENTAL: True,
+        EC.LS_APPENDING: False,
+    }
 
     _REQUIRES_COLUMNS_DEFINITION = False
 
@@ -81,9 +84,9 @@ class EWAHMongoDBOperator(EWAHBaseOperator):
             if kwargs.get('columns_definition'):
                 raise Exception('single_column_mode is not compatible with '\
                     + 'columns_definition!')
-            if not kwargs.get('drop_and_replace', True):
+            if not kwargs.get('load_strategy') == EC.LS_FULL_REFRESH:
                 raise Exception('single_column_mode is only compatible with ' \
-                    + 'drop_and_replace!')
+                    + 'load_strategy = {0}!'.format(EC.LS_FULL_REFRESH))
             if kwargs.get('update_on_columns'):
                 raise Exception('single_column_mode is not compatible with ' \
                     + 'update_on_columns!')
@@ -137,10 +140,10 @@ class EWAHMongoDBOperator(EWAHBaseOperator):
             )
 
     def ewah_execute(self, context):
-        if not self.drop_and_replace and not self.test_if_target_table_exists():
+        if not self.load_strategy == EC.LS_FULL_REFRESH and not self.test_if_target_table_exists():
             self.data_from = self.reload_data_from or context['dag'].start_date
             self.log.info('Reloading data from {0}'.format(str(self.data_from)))
-        if not self.drop_and_replace:
+        if not self.load_strategy == EC.LS_FULL_REFRESH:
             self.data_from = self.data_from or context['execution_date']
             self.data_until = self.data_until or context['next_execution_date']
         self.data_from = airflow_datetime_adjustments(self.data_from)

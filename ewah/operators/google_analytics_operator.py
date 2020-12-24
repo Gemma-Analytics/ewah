@@ -20,8 +20,11 @@ class EWAHGAOperator(EWAHBaseOperator):
 
     template_fields = ('data_from', 'data_until')
 
-    _IS_INCREMENTAL = True
-    _IS_FULL_REFRESH = False
+    _ACCEPTED_LOAD_STRATEGIES = {
+        EC.LS_FULL_REFRESH: False,
+        EC.LS_INCREMENTAL: True,
+        EC.LS_APPENDING: False,
+    }
 
     _API_CORE_V3 = 'core_v3'
     _API_CORE_V4 = 'core_v4'
@@ -156,7 +159,7 @@ class EWAHGAOperator(EWAHBaseOperator):
         self.reload_data_from = \
             airflow_datetime_adjustments(self.reload_data_from)
 
-        if self.drop_and_replace or (not self.test_if_target_table_exists()):
+        if self.load_strategy == EC.LS_FULL_REFRESH or (not self.test_if_target_table_exists()):
             self.chunking_interval = self.reload_data_chunking \
                 or self.chunking_interval \
                 or (self.data_until - self.data_from)

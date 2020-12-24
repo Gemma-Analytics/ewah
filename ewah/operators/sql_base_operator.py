@@ -28,8 +28,11 @@ class EWAHSQLBaseOperator(EWAHBaseOperator):
         _BQ,
     ]
 
-    _IS_INCREMENTAL = True
-    _IS_FULL_REFRESH = True
+    _ACCEPTED_LOAD_STRATEGIES = {
+        EC.LS_FULL_REFRESH: True,
+        EC.LS_INCREMENTAL: True,
+        EC.LS_APPENDING: False,
+    }
 
     def __init__(self,
         source_schema_name=None, # string
@@ -167,7 +170,7 @@ class EWAHSQLBaseOperator(EWAHBaseOperator):
     def ewah_execute(self, context):
         str_format = '%Y-%m-%dT%H:%M:%SZ'
 
-        if not self.drop_and_replace and \
+        if not self.load_strategy == EC.LS_FULL_REFRESH and \
             self.use_execution_date_for_incremental_loading:
             self.data_from = context['execution_date']
             self.data_until = context['next_execution_date']
@@ -177,7 +180,7 @@ class EWAHSQLBaseOperator(EWAHBaseOperator):
         self.reload_data_from = \
                 airflow_datetime_adjustments(self.reload_data_from)
 
-        if self.drop_and_replace:
+        if self.load_strategy == EC.LS_FULL_REFRESH:
             self.log.info('Loading data as full refresh.')
         else:
             self.data_from = self.data_from or context['execution_date']
@@ -199,7 +202,7 @@ class EWAHSQLBaseOperator(EWAHBaseOperator):
 
         params = {}
         # _SQL_PARAMS
-        if self.drop_and_replace:
+        if self.load_strategy == EC.LS_FULL_REFRESH:
             sql_base = self.base_select
             if self.data_from:
                 sql_base = sql_base.format('{0} >= {1} AND {{0}}'.format(
@@ -231,7 +234,7 @@ class EWAHSQLBaseOperator(EWAHBaseOperator):
             else:
                 chunking_column = self.chunking_column
 
-            if self.drop_and_replace:
+            if self.load_strategy == EC.LS_FULL_REFRESH:
                 previous_chunk, max_chunk = self._get_data_from_sql(
                     sql=self._SQL_MINMAX_CHUNKS.format(**{
                         'column': chunking_column,
