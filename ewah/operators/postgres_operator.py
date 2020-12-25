@@ -4,6 +4,8 @@ from ewah.dwhooks.dwhook_postgres import EWAHDWHookPostgres
 
 class EWAHPostgresOperator(EWAHSQLBaseOperator):
 
+    _NAMES = ['pgsql', 'postgres', 'postgresql']
+
     _SQL_BASE = \
         'SELECT\n{columns}\nFROM "{schema}"."{table}"\nWHERE {where_clause}'
     _SQL_BASE_SELECT = \

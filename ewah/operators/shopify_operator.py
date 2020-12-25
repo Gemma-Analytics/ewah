@@ -15,7 +15,7 @@ import copy
 
 class EWAHShopifyOperator(EWAHBaseOperator):
 
-    # template_fields = ()
+    _NAMES = ['shopify']
 
     _ACCEPTED_LOAD_STRATEGIES = {
         EC.LS_FULL_REFRESH: False,

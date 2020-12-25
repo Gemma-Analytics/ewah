@@ -19,41 +19,6 @@ class EWAHConstants:
         DWH_ENGINE_GS,
     ]
 
-    # Available Operators (smallcap only)
-    OPERATORS_LIST = {
-        'aircall': 'EWAHAircallOperator',
-        'bigquery': 'EWAHBigQueryOperator',
-        'bq': 'EWAHBigQueryOperator',
-        'dynamodb': 'EWAHDynamoDBOperator',
-        'facebook': 'EWAHFBOperator',
-        'fb': 'EWAHFBOperator',
-        'fx': 'EWAHFXOperator',
-        'ga': 'EWAHGAOperator',
-        'gads': 'EWAHGoogleAdsOperator',
-        'gmaps': 'EWAHGMapsOperator',
-        'google_ads': 'EWAHGoogleAdsOperator',
-        'google_analytics': 'EWAHGAOperator',
-        'google_sheets': 'EWAHGSpreadOperator',
-        'googlemaps': 'EWAHGMapsOperator',
-        'gs': 'EWAHGSpreadOperator',
-        'gsheets': 'EWAHGSpreadOperator',
-        'hubspot': 'EWAHHubspotOperator',
-        'mailchimp': 'EWAHMailchimpOperator',
-        'mailingwork': 'EWAHMailingworkOperator',
-        'mc': 'EWAHMailchimpOperator',
-        'mongo': 'EWAHMongoDBOperator',
-        'mongodb': 'EWAHMongoDBOperator',
-        'mysql': 'EWAHMySQLOperator',
-        'oracle': 'EWAHOracleSQLOperator',
-        'pgsql': 'EWAHPostgresOperator',
-        'postgres': 'EWAHPostgresOperator',
-        'postgresql': 'EWAHPostgresOperator',
-        's3': 'EWAHS3Operator',
-        'shopify': 'EWAHShopifyOperator',
-        'stripe': 'EWAHStripeOperator',
-        'zendesk': 'EWAHZendeskOperator',
-    }
-
     # Available Load Strategies
     LS_FULL_REFRESH = 'full-refresh'
     LS_INCREMENTAL = 'incremental'

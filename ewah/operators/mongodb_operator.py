@@ -13,6 +13,8 @@ from tempfile import NamedTemporaryFile
 
 class EWAHMongoDBOperator(EWAHBaseOperator):
 
+    _NAMES = ['mongo', 'mongodb']
+
     _ACCEPTED_LOAD_STRATEGIES = {
         EC.LS_FULL_REFRESH: True,
         EC.LS_INCREMENTAL: True,

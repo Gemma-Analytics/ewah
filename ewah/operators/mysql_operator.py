@@ -7,6 +7,8 @@ import pymysql
 
 class EWAHMySQLOperator(EWAHSQLBaseOperator):
 
+    _NAMES = ['mysql']
+
     _SQL_BASE = \
         'SELECT\n{columns}\nFROM `{schema}`.`{table}`\nWHERE {where_clause}'
     _SQL_BASE_SELECT = \

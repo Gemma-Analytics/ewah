@@ -10,6 +10,8 @@ from copy import deepcopy
 
 class EWAHGoogleAdsOperator(EWAHBaseOperator):
 
+    _NAMES = ['gads', 'google_ads']
+
     _ACCEPTED_LOAD_STRATEGIES = {
         EC.LS_FULL_REFRESH: False,
         EC.LS_INCREMENTAL: True,

@@ -8,6 +8,8 @@ import time
 
 class EWAHAircallOperator(EWAHBaseOperator):
 
+    _NAMES = ['aircall']
+
     _ACCEPTED_LOAD_STRATEGIES = {
         EC.LS_FULL_REFRESH: True,
         EC.LS_INCREMENTAL: True,

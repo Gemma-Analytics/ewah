@@ -5,7 +5,7 @@ import boto3
 
 class EWAHDynamoDBOperator(EWAHBaseOperator):
 
-    # template_fields =
+    _NAMES = ['dynamodb']
 
     # For incremental loading, use Kinesis Firehose to push changes to S3
     # and use S3 operator instead

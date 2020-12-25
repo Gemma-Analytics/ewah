@@ -14,6 +14,8 @@ import time
 
 class EWAHFBOperator(EWAHBaseOperator):
 
+    _NAMES = ['facebook', 'fb']
+
     _ACCEPTED_LOAD_STRATEGIES = {
         EC.LS_FULL_REFRESH: False,
         EC.LS_INCREMENTAL: True,

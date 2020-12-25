@@ -9,6 +9,8 @@ from oauth2client.service_account import ServiceAccountCredentials as SAC
 
 class EWAHGSpreadOperator(EWAHBaseOperator):
 
+    _NAMES = ['google_sheets', 'gs', 'gsheets']
+
     _ACCEPTED_LOAD_STRATEGIES = {
         EC.LS_FULL_REFRESH: True,
         EC.LS_INCREMENTAL: False,

@@ -7,6 +7,8 @@ import stripe
 
 class EWAHStripeOperator(EWAHBaseOperator):
 
+    _NAMES = ['stripe']
+
     _ACCEPTED_LOAD_STRATEGIES = {
         EC.LS_FULL_REFRESH: True,
         EC.LS_INCREMENTAL: False,

@@ -11,6 +11,8 @@ import time
 
 class EWAHHubspotOperator(EWAHBaseOperator):
 
+    _NAMES = ['hubspot']
+
     _ACCEPTED_LOAD_STRATEGIES = {
         EC.LS_FULL_REFRESH: True,
         EC.LS_INCREMENTAL: False,

@@ -15,6 +15,8 @@ class EWAHGMapsOperator(EWAHBaseOperator):
             such a column will cause failure of the operator.
     """
 
+    _NAMES = ['gmaps', 'google_maps', 'googlemaps']
+
     _ACCEPTED_LOAD_STRATEGIES = {
         EC.LS_FULL_REFRESH: True,
         EC.LS_INCREMENTAL: True,

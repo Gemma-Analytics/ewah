@@ -10,6 +10,8 @@ relevant_files = [
     if f.endswith('.py') and not f in ['base_operator.py', '__init__.py']
 ]
 
+operator_list = {}
+
 for py_file in relevant_files:
     mod = __import__('.'.join([__name__, py_file]), fromlist=[py_file])
     classes = [
@@ -18,4 +20,8 @@ for py_file in relevant_files:
     ]
     for cls in classes:
         if issubclass(cls, EWAHBaseOperator) and not cls == EWAHBaseOperator:
-            setattr(sys.modules[__name__], cls.__name__, cls)
+            names = cls._NAMES
+            if isinstance(names, str):
+                names = [names]
+            for name in names:
+                operator_list.update({name: cls})

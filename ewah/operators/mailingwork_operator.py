@@ -9,6 +9,8 @@ import copy
 
 class EWAHMailingworkOperator(EWAHBaseOperator):
 
+    _NAMES = ['mailingwork']
+
     _ACCEPTED_LOAD_STRATEGIES = {
         EC.LS_FULL_REFRESH: True,
         EC.LS_INCREMENTAL: False,

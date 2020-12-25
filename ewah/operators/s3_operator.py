@@ -12,6 +12,8 @@ import gzip
 class EWAHS3Operator(EWAHBaseOperator):
     """Only implemented for JSON and CSV files from S3 right now!"""
 
+    _NAMES = ['s3']
+
     _ACCEPTED_LOAD_STRATEGIES = {
         EC.LS_FULL_REFRESH: True,
         EC.LS_INCREMENTAL: True,

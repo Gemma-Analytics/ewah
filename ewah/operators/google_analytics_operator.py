@@ -17,6 +17,8 @@ from oauth2client.service_account import ServiceAccountCredentials as SAC
 
 class EWAHGAOperator(EWAHBaseOperator):
 
+    _NAMES = ['ga', 'google_analytics']
+
     _ACCEPTED_LOAD_STRATEGIES = {
         EC.LS_FULL_REFRESH: False,
         EC.LS_INCREMENTAL: True,

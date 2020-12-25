@@ -12,6 +12,8 @@ import time
 
 class EWAHZendeskOperator(EWAHBaseOperator):
 
+    _NAMES = ['zendesk']
+
     _ACCEPTED_LOAD_STRATEGIES = {
         EC.LS_FULL_REFRESH: False,
         EC.LS_INCREMENTAL: True,

@@ -58,6 +58,10 @@ class EWAHBaseOperator(BaseOperator):
     - Redshift
     """
 
+    # Overwrite _NAMES with a list of names that work as aliases when defining
+    # DAGs via YAML
+    _NAMES = []
+
     # in child classes, don't overwrite this but add values within __init__!
     template_fields = (
         'load_data_from',

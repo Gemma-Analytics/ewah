@@ -6,6 +6,8 @@ from ewah.operators.base_operator import EWAHBaseOperator
 
 class EWAHFXOperator(EWAHBaseOperator):
 
+    _NAMES = ['fx']
+
     _ACCEPTED_LOAD_STRATEGIES = {
         EC.LS_FULL_REFRESH: True,
         EC.LS_INCREMENTAL: True,

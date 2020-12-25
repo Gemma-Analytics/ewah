@@ -10,6 +10,8 @@ import os
 
 class EWAHBigQueryOperator(EWAHSQLBaseOperator):
 
+    _NAMES = ['bq', 'bigquery']
+
     _SQL_BASE = \
         'SELECT\n{columns}\nFROM `{schema}`.`{table}`\nWHERE {where_clause}'
     _SQL_BASE_SELECT = \

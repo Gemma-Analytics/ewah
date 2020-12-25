@@ -1,5 +1,5 @@
 from ewah.constants import EWAHConstants as EC
-from ewah import operators as operator_classes
+from ewah.operators import operator_list as operators
 from ewah.operators.base_operator import EWAHBaseOperator as EBO
 
 from .dag_factory_full_refresh import dag_factory_drop_and_replace
@@ -147,10 +147,6 @@ def dags_from_dict(
         # 'bigquery': EC.DWH_ENGINE_BIGQUERY,
         # 'redshift': EC.DWH_ENGINE_REDSHIFT,
         # 's3': EC.DWH_ENGINE_S3,
-    }
-
-    operators = {
-        k:getattr(operator_classes, v) for (k, v) in EC.OPERATORS_LIST.items()
     }
 
     allowed_dag_args = [

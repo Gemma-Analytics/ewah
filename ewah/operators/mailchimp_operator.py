@@ -7,6 +7,8 @@ import mailchimp3
 
 class EWAHMailchimpOperator(EWAHBaseOperator):
 
+    _NAMES = ['mailchimp', 'mc']
+
     _ACCEPTED_LOAD_STRATEGIES = {
         EC.LS_FULL_REFRESH: True,
         EC.LS_INCREMENTAL: False,
