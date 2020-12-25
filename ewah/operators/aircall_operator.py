@@ -1,7 +1,7 @@
-from ewah.ewah_utils.airflow_utils import airflow_datetime_adjustments
 from ewah.operators.base_operator import EWAHBaseOperator
 from ewah.constants import EWAHConstants as EC
 
+from datetime import timedelta
 import requests
 import json
 import time
@@ -30,7 +30,6 @@ class EWAHAircallOperator(EWAHBaseOperator):
     def __init__(self,
         resource=None,
         wait_between_pages=1,
-        reload_data_from=None,
         reload_data_chunking=None,
     *args, **kwargs):
         kwargs['primary_key_column_name'] = 'id'
@@ -39,8 +38,9 @@ class EWAHAircallOperator(EWAHBaseOperator):
 
         assert resource in self._RESOURCES, 'Invalid resource!'
         self.resource = resource
+        assert isinstance(wait_between_pages, int) and wait_between_pages >= 0
         self.wait_between_pages = wait_between_pages
-        self.reload_data_from = reload_data_from
+        assert isinstance(reload_data_chunking, (type(None), timedelta))
         self.reload_data_chunking = reload_data_chunking
 
     def _upload_aircall_data(self, url, params, auth):
@@ -72,14 +72,8 @@ class EWAHAircallOperator(EWAHBaseOperator):
         if self.load_strategy == EC.LS_INCREMENTAL \
             and self._RESOURCES[self.resource].get('incremental'):
             # incremental load
-            dag = context['dag']
-            if self.test_if_target_table_exists():
-                data_from = context['execution_date']
-            else:
-                data_from = self.reload_data_from or dag.start_date
-            data_from = airflow_datetime_adjustments(data_from)
-            data_until = context['next_execution_date'] or dag.end_date
-            data_until = airflow_datetime_adjustments(data_until)
+            data_from = self.load_data_from
+            data_until = self.load_data_until
 
             # The API may only return max 10k records, thus enable usage of
             # chunking to reduce chunk-size to <10k records per time interval

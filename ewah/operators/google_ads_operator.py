@@ -1,5 +1,4 @@
 from ewah.operators.base_operator import EWAHBaseOperator
-from ewah.ewah_utils.airflow_utils import airflow_datetime_adjustments
 from ewah.ewah_utils.python_utils import is_iterable_not_string
 from ewah.constants import EWAHConstants as EC
 
@@ -10,8 +9,6 @@ from datetime import datetime, timedelta
 from copy import deepcopy
 
 class EWAHGoogleAdsOperator(EWAHBaseOperator):
-
-    template_fields = ('data_from', 'data_until')
 
     _ACCEPTED_LOAD_STRATEGIES = {
         EC.LS_FULL_REFRESH: False,
@@ -32,8 +29,6 @@ class EWAHGoogleAdsOperator(EWAHBaseOperator):
         resource, # name of the resource, e.g. ad_group
         client_id,
         conditions=None, # list of conditions, e.g. ["ad_group.status = 'ENABLED'"]
-        data_from=None, # can be datetime or timedelta relative to data_until
-        data_until=None,
     *args, **kwargs):
         """
             recommendation: leave data_until=None and use a timedelta for
@@ -64,8 +59,6 @@ class EWAHGoogleAdsOperator(EWAHBaseOperator):
         self.resource = resource
         self.client_id = str(client_id)
         self.conditions = conditions
-        self.data_from = data_from
-        self.data_until = data_until
 
         super().__init__(*args, **kwargs)
 
@@ -127,15 +120,6 @@ class EWAHGoogleAdsOperator(EWAHBaseOperator):
                             })
             return data
 
-
-        self.data_until = airflow_datetime_adjustments(self.data_until)
-        self.data_until = self.data_until or context['next_execution_date']
-        if isinstance(self.data_from, timedelta):
-            self.data_from = self.data_until - self.data_from
-        else:
-            self.data_from = airflow_datetime_adjustments(self.data_from)
-            self.data_from = self.data_from or context['execution_date']
-
         conn = self.source_conn.extra_dejson
         credentials = {}
         for key in self._REQUIRED_KEYS:
@@ -150,8 +134,8 @@ class EWAHGoogleAdsOperator(EWAHBaseOperator):
             ', '.join(self.fields_list),
             self.resource,
             "BETWEEN '{0}' AND '{1}'".format(
-                self.data_from.strftime('%Y-%m-%d'),
-                self.data_until.strftime('%Y-%m-%d'),
+                self.load_data_from.strftime('%Y-%m-%d'),
+                self.load_data_until.strftime('%Y-%m-%d'),
             ),
             ('AND' + ' AND '.join(self.conditions)) if self.conditions else '',
         )

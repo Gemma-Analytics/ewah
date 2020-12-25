@@ -1,5 +1,4 @@
 from ewah.operators.base_operator import EWAHBaseOperator
-from ewah.ewah_utils.airflow_utils import airflow_datetime_adjustments
 from ewah.ewah_utils.python_utils import is_iterable_not_string
 from ewah.constants import EWAHConstants as EC
 
@@ -209,14 +208,14 @@ class EWAHShopifyOperator(EWAHBaseOperator):
             params.update({
                 # Pendulum by coincidence converts to the correct string format
                 timestamp_fields[1]: datetime_to_string(
-                        context['next_execution_date'],
+                        self.load_data_until,
                         timestamp_format_string,
                     ),
             })
-            if self.test_if_target_table_exists():
+            if self.load_data_from:
                 params.update({
                     timestamp_fields[0]: datetime_to_string(
-                        context['execution_date'],
+                        self.load_data_from,
                         timestamp_format_string,
                     ),
                 })

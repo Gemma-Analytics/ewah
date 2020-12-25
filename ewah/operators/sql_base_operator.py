@@ -1,5 +1,4 @@
 from ewah.operators.base_operator import EWAHBaseOperator
-from ewah.ewah_utils.airflow_utils import airflow_datetime_adjustments
 from ewah.constants import EWAHConstants as EC
 
 from airflow.hooks.base_hook import BaseHook
@@ -12,8 +11,6 @@ from pytz import timezone
 import os
 
 class EWAHSQLBaseOperator(EWAHBaseOperator):
-
-    template_fields = ('data_from', 'data_until', 'reload_data_from')
 
     # implemented SQL sources - set self.sql_engine to this value in operator
     _MYSQL = 'MySQL'
@@ -38,16 +35,12 @@ class EWAHSQLBaseOperator(EWAHBaseOperator):
         source_schema_name=None, # string
         source_table_name=None, # string, defaults to same as target_table_name
         sql_select_statement=None, # SQL as alternative to source_table_name
-        data_from=None, # datetime, ISO datetime string, or airflow JINJA macro
-        data_until=None, # datetime, ISO datetime string, or airflow JINJA macro
         use_execution_date_for_incremental_loading=False, # use context instead
         #   of data_from and data_until
         timestamp_column=None, # name of column to increment and/or chunk by
         chunking_interval=None, # can be datetime.timedelta or integer
         chunking_column=None, # defaults to primary key if integer
         # also potentially used: primary_key_column_name of parent operator
-        reload_data_from=None, # If a new table is added in production, and
-        #   it is loading incrementally, where to start loading data? datetime
         reload_data_chunking=None, # must be timedelta
         where_clause='1 = 1',
     *args, **kwargs):
@@ -62,17 +55,6 @@ class EWAHSQLBaseOperator(EWAHBaseOperator):
             raise Exception('Operator invalid: need attribute sql_engine!')
         if not self.sql_engine in self._ACCEPTED_SOURCES:
             raise Exception('Operator invalid: SQL engine not implemented!')
-
-        if reload_data_from and not (reload_data_chunking or chunking_interval):
-            raise Exception('When setting reload_data_from, must also set ' \
-                + 'either reload_data_chunking or chunking_interval!')
-
-        if data_from or data_until or \
-            use_execution_date_for_incremental_loading:
-            if not timestamp_column:
-                raise Exception("If you used data_from and/or data_until, you" \
-                    + " must also use timestamp_column to specify the column" \
-                    + " that is being used!")
 
         if chunking_interval:
             if type(chunking_interval) == timedelta:
@@ -113,18 +95,27 @@ class EWAHSQLBaseOperator(EWAHBaseOperator):
                 raise Exception("Arg chunking_interval must be integer or "\
                     + "datetime.timedelta!")
 
-        self.data_from = data_from
-        self.data_until = data_until
         self.use_execution_date_for_incremental_loading = \
             use_execution_date_for_incremental_loading
         self.timestamp_column = timestamp_column
         self.chunking_interval = chunking_interval
         self.chunking_column = chunking_column
-        self.reload_data_from = reload_data_from
         self.reload_data_chunking = reload_data_chunking or chunking_interval
 
         # run after setting class properties for templating
         super().__init__(*args, **kwargs)
+
+        if self.reload_data_from and \
+            not (reload_data_chunking or chunking_interval):
+            raise Exception('When setting reload_data_from, must also set ' \
+                + 'either reload_data_chunking or chunking_interval!')
+
+        if self.load_data_from or self.load_data_until or \
+            use_execution_date_for_incremental_loading:
+            if not timestamp_column:
+                raise Exception("If you used data_from and/or data_until, you" \
+                    + " must also use timestamp_column to specify the column" \
+                    + " that is being used!")
 
         # self.base_select is a SELECT statement (i.e. a string) ending in a
         #   WHERE {0} -> the extract process can add conditions!
@@ -170,30 +161,20 @@ class EWAHSQLBaseOperator(EWAHBaseOperator):
     def ewah_execute(self, context):
         str_format = '%Y-%m-%dT%H:%M:%SZ'
 
-        if not self.load_strategy == EC.LS_FULL_REFRESH and \
-            self.use_execution_date_for_incremental_loading:
-            self.data_from = context['execution_date']
-            self.data_until = context['next_execution_date']
-        else:
-            self.data_from = airflow_datetime_adjustments(self.data_from)
-            self.data_until = airflow_datetime_adjustments(self.data_until)
-        self.reload_data_from = \
-                airflow_datetime_adjustments(self.reload_data_from)
-
         if self.load_strategy == EC.LS_FULL_REFRESH:
             self.log.info('Loading data as full refresh.')
+            self.data_from = None
+            self.data_until = None
         else:
-            self.data_from = self.data_from or context['execution_date']
-            n_e_d = context['next_execution_date']
-            self.data_until = self.data_until or n_e_d
+            self.data_from = self.load_data_from
+            self.data_until = self.load_data_until
             if not self.test_if_target_table_exists():
                 self.chunking_interval = self.reload_data_chunking \
                     or self.chunking_interval \
-                    or (self.data_until - self.data_from)
-                self.data_from = self.reload_data_from \
-                    or context['dag'].start_date
-                if type(self.data_from) == str:
-                    self.data_from = datetime_from_string(self.data_from)
+                    or (
+                        context['next_execution_date']
+                        - context['execution_date']
+                    )
 
             self.log.info('Incrementally loading data from {0} to {1}.'.format(
                 self.data_from.strftime(str_format),

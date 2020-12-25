@@ -5,6 +5,7 @@ from airflow.utils.decorators import apply_defaults
 from ewah.dwhooks import get_dwhook
 from ewah.constants import EWAHConstants as EC
 from ewah.ewah_utils.ssh_tunnel import start_ssh_tunnel
+from ewah.ewah_utils.airflow_utils import airflow_datetime_adjustments as ada
 
 from datetime import datetime, timedelta
 import time
@@ -57,6 +58,13 @@ class EWAHBaseOperator(BaseOperator):
     - Redshift
     """
 
+    # in child classes, don't overwrite this but add values within __init__!
+    template_fields = (
+        'load_data_from',
+        'load_data_until',
+        'reload_data_from',
+    )
+
     # Child class must update or overwrite these values
     # A missing element is interpreted as False
     _ACCEPTED_LOAD_STRATEGIES = {
@@ -85,6 +93,11 @@ class EWAHBaseOperator(BaseOperator):
         target_schema_name,
         target_schema_suffix='_next',
         target_database_name=None, # Only for Snowflake
+        load_data_from=None, # defaults to execution_date if incremental
+        reload_data_from=None, # used preferentially if loading table anew
+        load_data_from_relative=None, # optional timedelta
+        load_data_until=None, # defaults to next_execution_date if incremental
+        load_data_until_relative=None, # optional timedelta
         columns_definition=None,
         update_on_columns=None,
         primary_key_column_name=None,
@@ -92,7 +105,7 @@ class EWAHBaseOperator(BaseOperator):
         exclude_columns=[], # list of columns to exclude, if no
         # columns_definition was supplied (e.g. for select * with sql)
         index_columns=[], # list of columns to create an index on. can be
-        # an expression, must be quoted in list of quoting is required.
+        # an expression, must be quoted in list if quoting is required.
         source_ssh_tunnel_conn_id=None, # create SSH tunnel if set; uses host
         # and port from source_conn_id as remote host and port
         target_ssh_tunnel_conn_id=None, # see source_ssh_tunnel_conn_id
@@ -180,6 +193,11 @@ class EWAHBaseOperator(BaseOperator):
                     + " the primary key(s)"
                 )
 
+        _msg = 'load_data_from_relative and load_data_until_relative must be'
+        _msg += ' timedelta if supplied!'
+        assert isinstance(load_data_from_relative, (type(None), timedelta)), _msg
+        assert isinstance(load_data_until_relative, (type(None), timedelta)), _msg
+
         self.source_conn_id = source_conn_id
         self.dwh_engine = dwh_engine
         self.dwh_conn_id = dwh_conn_id
@@ -188,6 +206,11 @@ class EWAHBaseOperator(BaseOperator):
         self.target_schema_name = target_schema_name
         self.target_schema_suffix = target_schema_suffix
         self.target_database_name = target_database_name
+        self.load_data_from = load_data_from
+        self.reload_data_from = reload_data_from
+        self.load_data_from_relative = load_data_from_relative
+        self.load_data_until = load_data_until
+        self.load_data_until_relative = load_data_until_relative
         self.columns_definition = columns_definition
         if (not update_on_columns) and primary_key_column_name:
             if type(primary_key_column_name) == str:
@@ -222,10 +245,6 @@ class EWAHBaseOperator(BaseOperator):
             called by this general execute() method.
         """
 
-        # used for metadata in data upload
-        self._execution_time = datetime.now()
-        self._context = context
-
         def close_ssh_tunnels():
             # close SSH tunnels if they exist
             if hasattr(self, 'source_ssh_tunnel_forwarder'):
@@ -234,6 +253,11 @@ class EWAHBaseOperator(BaseOperator):
             if hasattr(self, 'target_ssh_tunnel_forwarder'):
                 self.target_ssh_tunnel_forwarder.stop()
                 del self.target_ssh_tunnel_forwarder
+
+        # required for metadata in data upload
+        self._execution_time = datetime.now()
+        self._context = context
+
 
         # the upload hook is used in the self.upload_data() function
         # which is called by the child's ewah_execute function whenever there is
@@ -263,6 +287,40 @@ class EWAHBaseOperator(BaseOperator):
             # resolve conn id here & delete the object to avoid usage elsewhere
             self.source_conn = BaseHook.get_connection(self.source_conn_id)
         del self.source_conn_id
+
+
+        # set load_data_from and load_data_until as required
+        if self.load_strategy == EC.LS_INCREMENTAL:
+            _tdz = timedelta(days=0) # aka timedelta zero
+
+            if self.test_if_target_table_exists():
+                if not self.load_data_from:
+                    self.load_data_from = context['execution_date']
+                self.load_data_from = ada(self.load_data_from)
+                self.load_data_from -= self.load_data_from_relative or _tdz
+            else:
+                # Load data from scratch!
+                if self.reload_data_from:
+                    self.load_data_from = ada(self.reload_data_from)
+                else:
+                    self.load_data_from = ada(context['dag'].start_date)
+
+            if not self.load_data_until:
+                self.load_data_until = context['next_execution_date']
+            self.load_data_until = ada(self.load_data_until)
+            self.load_data_until += self.load_data_until_relative or _tdz
+
+
+        elif self.load_strategy == EC.LS_FULL_REFRESH:
+            # Values may still be set as static values
+            self.load_data_from = self.reload_data_from or self.load_data_from
+            self.load_data_from = ada(self.load_data_from)
+            self.load_data_until = ada(self.load_data_until)
+
+        else:
+            _msg = 'Must define load_data_from etc. behavior for load strategy!'
+            raise Exception(_msg)
+
 
         # Have an option to wait until a short period (e.g. 2 minutes) past
         # the incremental loading range timeframe to ensure that all data is

@@ -1,5 +1,4 @@
 from ewah.operators.base_operator import EWAHBaseOperator
-from ewah.ewah_utils.airflow_utils import airflow_datetime_adjustments
 from ewah.constants import EWAHConstants as EC
 
 from airflow.hooks.S3_hook import S3Hook
@@ -12,8 +11,6 @@ import gzip
 
 class EWAHS3Operator(EWAHBaseOperator):
     """Only implemented for JSON and CSV files from S3 right now!"""
-
-    template_fields = ('data_from', 'data_until')
 
     _ACCEPTED_LOAD_STRATEGIES = {
         EC.LS_FULL_REFRESH: True,
@@ -35,19 +32,18 @@ class EWAHS3Operator(EWAHBaseOperator):
         prefix='', # use for subfolder structures
         suffix=None, # use e.g. for file types
         key_name=None, # if not specified, uses data_from and data_until
-        data_from=None,
-        data_until=None,
         csv_format_options={},
         csv_encoding='utf-8',
         decompress=False,
     *args, **kwargs):
+        super().__init__(*args, **kwargs)
 
         if not file_format in self._IMPLEMENTED_FORMATS:
             raise Exception('File format not implemented! Available formats:' \
                 + ' {0}'.format(str(self._IMPLEMENTED_FORMATS)))
 
         if key_name:
-            if data_from or data_until:
+            if self.load_data_from or self.load_data_until:
                 raise Exception('Both key_name and either data_from or data_' \
                     + 'until specified! Cannot have both specified.')
 
@@ -61,14 +57,10 @@ class EWAHS3Operator(EWAHBaseOperator):
         self.prefix = prefix
         self.suffix = suffix
         self.key_name = key_name
-        self.data_from = data_from
-        self.data_until = data_until
         self.file_format = file_format
         self.csv_format_options = csv_format_options
         self.csv_encoding = csv_encoding
         self.decompress = decompress
-
-        super().__init__(*args, **kwargs)
 
     def _iterate_through_bucket(self, s3hook, bucket, prefix):
         """ The bucket.objects.filter() method only returns a max of 1000
@@ -85,10 +77,6 @@ class EWAHS3Operator(EWAHBaseOperator):
                     yield item
 
     def ewah_execute(self, context):
-        if not self.load_strategy == EC.LS_FULL_REFRESH and not self.key_name:
-            self.data_from = self.data_from or context['execution_date']
-            self.data_until = self.data_until or context['next_execution_date']
-
         if self.file_format == 'JSON':
             return self.execute_json(
                 context=context,
@@ -111,8 +99,6 @@ class EWAHS3Operator(EWAHBaseOperator):
             raise Exception('File format not implemented!')
 
     def execute_csv(self, context):
-        self.data_from = airflow_datetime_adjustments(self.data_from)
-        self.data_until = airflow_datetime_adjustments(self.data_until)
         hook = S3Hook(self.source_conn.conn_id)
         suffix = self.suffix
         if self.key_name:
@@ -143,9 +129,11 @@ class EWAHS3Operator(EWAHBaseOperator):
             for obj_iter in objects:
                 # skip all files outside of loading scope
                 obj = hook.get_key(obj_iter['Key'], self.bucket_name)
-                if self.data_from and obj.last_modified < self.data_from:
+                if self.load_data_from and \
+                    obj.last_modified < self.load_data_from:
                     continue
-                if self.data_until and obj.last_modified >= self.data_until:
+                if self.load_data_until and \
+                    obj.last_modified >= self.load_data_until:
                     continue
                 if suffix and not suffix == obj.key[-len(suffix):]:
                     continue
@@ -155,7 +143,7 @@ class EWAHS3Operator(EWAHBaseOperator):
                 if self.decompress:
                     raw_data = gzip.decompress(raw_data)
                 # remove BOM if it exists
-                # also, if file has a BOM, it is 99.9% utf-9 encoded!
+                # also, if file has a BOM, it is 99.9% utf-8 encoded!
                 if raw_data[:3] == self._BOM:
                     raw_data = raw_data[3:]
                     csv_encoding = 'utf-8'
@@ -179,9 +167,6 @@ class EWAHS3Operator(EWAHBaseOperator):
                 self.upload_data(data=data)
 
     def execute_json(self, context, f_get_data):
-        self.data_from = airflow_datetime_adjustments(self.data_from)
-        self.data_until = airflow_datetime_adjustments(self.data_until)
-
         hook = S3Hook(self.source_conn.conn_id)
         suffix = self.suffix
 
@@ -201,9 +186,11 @@ class EWAHS3Operator(EWAHBaseOperator):
             )
             for obj_iter in objects:
                 obj = hook.get_key(obj_iter['Key'], self.bucket_name)
-                if self.data_from and obj.last_modified < self.data_from:
+                if self.load_data_from and \
+                    obj.last_modified < self.load_data_from:
                     continue
-                if self.data_until and obj.last_modified >= self.data_until:
+                if self.load_data_until and \
+                    obj.last_modified >= self.load_data_until:
                     continue
                 if suffix and not suffix == obj.key[-len(suffix):]:
                     continue

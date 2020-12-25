@@ -1,6 +1,5 @@
 from ewah.constants import EWAHConstants as EC
 from ewah.operators.base_operator import EWAHBaseOperator
-from ewah.ewah_utils.airflow_utils import airflow_datetime_adjustments
 
 import boto3
 
@@ -15,7 +14,7 @@ class EWAHDynamoDBOperator(EWAHBaseOperator):
         EC.LS_INCREMENTAL: False,
         EC.LS_APPENDING: False,
     }
-    
+
     _REQUIRES_COLUMNS_DEFINITION = False
 
     def __init__(self,
@@ -35,6 +34,8 @@ class EWAHDynamoDBOperator(EWAHBaseOperator):
         self.filter_expression = filter_expression
 
     def ewah_execute(self, context):
+        # TODO: create / update filter_expression with load_data_from / until
+
         # Get credentials and connect to table
         conn = self.source_conn
         resource_kwargs = {

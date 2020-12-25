@@ -1,5 +1,4 @@
 from ewah.operators.base_operator import EWAHBaseOperator
-from ewah.ewah_utils.airflow_utils import airflow_datetime_adjustments
 from ewah.constants import EWAHConstants as EC
 
 from airflow.hooks.base_hook import BaseHook
@@ -17,6 +16,19 @@ class EWAHGSpreadOperator(EWAHBaseOperator):
     }
 
     _REQUIRES_COLUMNS_DEFINITION = True
+
+    _SAMPLE_JSON = {"client_secrets":{
+        "type": "service_account",
+        "project_id": "abc-123",
+        "private_key_id": "123456abcder",
+        "private_key": "-----BEGIN PRIVATE KEY-----\nxxx\n-----END PRIVATE KEY-----\n",
+        "client_email": "xyz@abc-123.iam.gserviceaccount.com",
+        "client_id": "123457",
+        "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+        "token_uri": "https://oauth2.googleapis.com/token",
+        "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
+        "client_x509_cert_url": "https://www.googleapis.com/robot/v1/metadata/x509/xyz%40abc-123.iam.gserviceaccount.com"
+    }}
 
     def _translate_alphanumeric_column(self, column_identifier):
         if type(column_identifier) == str:
@@ -46,22 +58,15 @@ class EWAHGSpreadOperator(EWAHBaseOperator):
         super().__init__(*args, **kwargs)
 
         credentials = BaseHook.get_connection(self.source_conn_id).extra_dejson
-        if not credentials.get('client_secrets'):
-            raise Exception('Google Analytics Credentials misspecified!' \
-                + ' Example of a correct specifidation: {0}'.format(
-                    json.dumps({"client_secrets":{
-                        "type": "service_account",
-                        "project_id": "abc-123",
-                        "private_key_id": "123456abcder",
-                        "private_key": "-----BEGIN PRIVATE KEY-----\nxxx\n-----END PRIVATE KEY-----\n",
-                        "client_email": "xyz@abc-123.iam.gserviceaccount.com",
-                        "client_id": "123457",
-                        "auth_uri": "https://accounts.google.com/o/oauth2/auth",
-                        "token_uri": "https://oauth2.googleapis.com/token",
-                        "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
-                        "client_x509_cert_url": "https://www.googleapis.com/robot/v1/metadata/x509/xyz%40abc-123.iam.gserviceaccount.com"
-                    }})
-                ))
+        credentials = credentials.get('client_secrets', credentials)
+
+        _msg = 'Google Service Account Credentials misspecified!'
+        _msg += ' Example of a correct specifidation: {0}'.format(
+                json.dumps(self._SAMPLE_JSON)
+        )
+        for key in self._SAMPLE_JSON['client_secrets']:
+            if not key in credentials:
+                raise Exception(_msg)
 
         column_match = {}
         for col_key, col_def in self.columns_definition.items():
@@ -77,7 +82,7 @@ class EWAHGSpreadOperator(EWAHBaseOperator):
                 ): col_key,
             })
 
-        self.client_secrets = credentials['client_secrets']
+        self.client_secrets = credentials
         self.column_match = column_match
         self.workbook_key = workbook_key
         self.sheet_key = sheet_key

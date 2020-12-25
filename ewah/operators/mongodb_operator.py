@@ -1,6 +1,5 @@
 from ewah.constants import EWAHConstants as EC
 from ewah.operators.base_operator import EWAHBaseOperator
-from ewah.ewah_utils.airflow_utils import airflow_datetime_adjustments
 
 from airflow.hooks.base_hook import BaseHook
 from airflow.utils.file import TemporaryDirectory
@@ -14,8 +13,6 @@ from tempfile import NamedTemporaryFile
 
 class EWAHMongoDBOperator(EWAHBaseOperator):
 
-    template_fields = ('data_from', 'data_until', 'reload_data_from')
-
     _ACCEPTED_LOAD_STRATEGIES = {
         EC.LS_FULL_REFRESH: True,
         EC.LS_INCREMENTAL: True,
@@ -27,8 +24,6 @@ class EWAHMongoDBOperator(EWAHBaseOperator):
     def __init__(self,
         source_collection_name=None, # defaults to target_table_name
         source_database_name=None, # Not required if specified in connection uri
-        data_from=None, # string (can be templated) or datetime
-        data_until=None, # as data_from
         timestamp_field=None, # required for use with data_from and data_until
         chunking_field=None, # defaults to timestamp_field if None
         chunking_interval=None, # timedelta or integer
@@ -45,15 +40,7 @@ class EWAHMongoDBOperator(EWAHBaseOperator):
         self.source_collection_name = src
         self.source_database_name = source_database_name
 
-        if data_from or data_until or reload_data_from:
-            if not timestamp_field:
-                err_msg = 'If using reload_data_from, data_from, or data_until, '
-                err_msg += 'you must also specify timestamp_field!'
-                raise Exception(err_msg)
         self.timestamp_field = timestamp_field
-        self.data_from = data_from
-        self.data_until = data_until
-        self.reload_data_from = reload_data_from
         self.ssl = ssl or bool(ssl_conn_id)
         self.ssl_conn_id = ssl_conn_id
         self.conn_style = conn_style
@@ -96,6 +83,12 @@ class EWAHMongoDBOperator(EWAHBaseOperator):
         self.single_column_mode = single_column_mode
 
         super().__init__(*args, **kwargs)
+
+        if self.load_data_from or self.load_data_until or self.reload_data_from:
+            if not timestamp_field:
+                err_msg = 'If using reload_data_from, load_data_from, or load_'
+                err_msg += 'data_until, you must also specify timestamp_field!'
+                raise Exception(err_msg)
 
     def upload_data(self, data):
         if self.single_column_mode:
@@ -140,27 +133,18 @@ class EWAHMongoDBOperator(EWAHBaseOperator):
             )
 
     def ewah_execute(self, context):
-        if not self.load_strategy == EC.LS_FULL_REFRESH and not self.test_if_target_table_exists():
-            self.data_from = self.reload_data_from or context['dag'].start_date
-            self.log.info('Reloading data from {0}'.format(str(self.data_from)))
-        if not self.load_strategy == EC.LS_FULL_REFRESH:
-            self.data_from = self.data_from or context['execution_date']
-            self.data_until = self.data_until or context['next_execution_date']
-        self.data_from = airflow_datetime_adjustments(self.data_from)
-        self.data_until = airflow_datetime_adjustments(self.data_until)
-
         self.log.info('Creating filter expression...')
         base_filters = []
 
         # data_from and data_until filter expression
         if self.timestamp_field:
-            if self.data_from:
+            if self.load_data_from:
                 base_filters += [{
-                    self.timestamp_field: {'$gte': self.data_from}
+                    self.timestamp_field: {'$gte': self.load_data_from}
                 }]
-            if self.data_until:
+            if self.load_data_until:
                 base_filters += [{
-                    self.timestamp_field: {'$lt': self.data_until}
+                    self.timestamp_field: {'$lt': self.load_data_until}
                 }]
 
         self.log.info('Connecting to MongoDB Database...')

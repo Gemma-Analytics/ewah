@@ -1,5 +1,4 @@
 from ewah.operators.base_operator import EWAHBaseOperator
-from ewah.ewah_utils.airflow_utils import airflow_datetime_adjustments
 from ewah.constants import EWAHConstants as EC
 
 from airflow.hooks.base_hook import BaseHook
@@ -27,7 +26,6 @@ class EWAHZendeskOperator(EWAHBaseOperator):
         support_url,
         resource,
         auth_type,
-        data_from=None,
     *args, **kwargs):
 
         self._accepted_resources = {
@@ -57,17 +55,14 @@ class EWAHZendeskOperator(EWAHBaseOperator):
         if not auth_type in ['basic_auth']:
             raise Exception('auth_type must be basic_auth!')
 
-        #if not type(page_limit) == int or page_limit < 1 or page_limit > 100:
-        #    raise Exception('page_limit must be a positive interger <= 100!')
-
-        if not type(data_from) == datetime:
-            raise Exception('data_from must be a datetime object!')
-
         kwargs['primary_key_column_name'] = \
             kwargs.get('primary_key_column_name', 'id')
 
         if self._accepted_resources[resource].get('drop_and_replace'):
             kwargs['load_strategy'] = EC.LS_FULL_REFRESH
+
+        # API data is delayed by about 60s according to official docs
+        kwargs['wait_for_seconds'] = max(kwargs.get('wait_for_seconds', 0), 70)
 
         super().__init__(*args, **kwargs)
 
@@ -78,15 +73,8 @@ class EWAHZendeskOperator(EWAHBaseOperator):
         #self.page_limit = page_limit
 
     def ewah_execute(self, context):
-        # Make sure it is at least 70 seconds after next_execution_date!
-        # Reason: Immediate execution may miss the latest tickets
-        td70 = timedelta(seconds=70)
-        while datetime.now() < (context['next_execution_date'] + td70):
-            self.log.info('delaying execution...')
-            time.sleep(5)
-
-        self.data_from = self.make_unix_datetime(self.get_data_from(context))
-        self.data_until= self.make_unix_datetime(context['next_execution_date'])
+        self.data_from = self.make_unix_datetime(self.load_data_from)
+        self.data_until= self.make_unix_datetime(self.load_data_until)
 
         conn = self.source_conn
         if self.auth_type == 'basic_auth':
@@ -98,12 +86,6 @@ class EWAHZendeskOperator(EWAHBaseOperator):
 
         # run correct execute function
         return self._accepted_resources[self.resource]['function'](context,self)
-
-    def get_data_from(self, context):
-        if self.test_if_target_table_exists():
-            return context['execution_date']
-        else:
-            return self.data_from or context['execution_date']
 
     def make_unix_datetime(self, dt):
         return str(int(time.mktime(dt.timetuple())))
@@ -150,8 +132,8 @@ class EWAHZendeskOperator(EWAHBaseOperator):
 
         first_call = True
         while first_call or req.status_code == 200:
-            if first_call:
-                first_call = False
+            first_call = False
+
             self.log.info('Requesting a page of data...')
             req = requests.get(url, params=params, auth=self.auth)
             response = json.loads(req.text)
@@ -164,7 +146,7 @@ class EWAHZendeskOperator(EWAHBaseOperator):
                     )
                     self.upload_data(data)
                 if response.get('end_of_stream') or \
-                    last_updated_at > context['next_execution_date']:
+                    last_updated_at > self.load_data_until:
                     break
                 params = {'cursor': response.get('after_cursor')}
 

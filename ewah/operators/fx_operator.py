@@ -3,11 +3,8 @@ from yahoofinancials import YahooFinancials
 
 from ewah.constants import EWAHConstants as EC
 from ewah.operators.base_operator import EWAHBaseOperator
-from ewah.ewah_utils.airflow_utils import airflow_datetime_adjustments
 
 class EWAHFXOperator(EWAHBaseOperator):
-
-    template_fields = ('data_from', 'data_until')
 
     _ACCEPTED_LOAD_STRATEGIES = {
         EC.LS_FULL_REFRESH: True,
@@ -18,17 +15,8 @@ class EWAHFXOperator(EWAHBaseOperator):
     def __init__(
         self,
         currency_pair, # iterable of length 2
-        data_from=None, # data_from defaults to start_date
-        data_until=None, # data_until defaults to now
         frequency='daily', # daily, weekly, or monthly
     *args, **kwargs):
-
-        if not type(data_from) in (str, datetime, type(None)):
-            raise Exception('If supplied, data_from must be string, datetime' \
-                + ', or None!')
-        if not type(data_until) in (str, datetime, type(None)):
-            raise Exception('If supplied, data_until must be string, datetime' \
-                + ', or None!')
 
         if not frequency in ('daily', 'weekly', 'monthly'):
             raise Exception('Frequency must be one of: daily, weekly, monthly')
@@ -49,24 +37,19 @@ class EWAHFXOperator(EWAHBaseOperator):
         kwargs['update_on_columns'] = ['date']
 
         self.currency_pair = currency_pair
-        self.data_from = data_from
-        self.data_until = data_until
         self.frequency = frequency
 
         super().__init__(*args, **kwargs)
 
     def ewah_execute(self, context):
-        self.data_from = self.data_from or context['dag'].start_date
-        self.data_until = self.data_until or datetime.now()
-
-        self.data_from = airflow_datetime_adjustments(self.data_from)
-        self.data_until = airflow_datetime_adjustments(self.data_until)
+        data_from = self.load_data_from or context['dag'].start_date
+        data_until = self.load_data_until or datetime.now()
 
         format_str = '%Y-%m-%d'
         currency_str = '{0}{1}=X'.format(*self.currency_pair)
         data = YahooFinancials([currency_str]).get_historical_price_data(
-            self.data_from.strftime(format_str),
-            self.data_until.strftime(format_str),
+            data_from.strftime(format_str),
+            data_until.strftime(format_str),
             self.frequency,
         )
         self.upload_data(data[currency_str]['prices'])

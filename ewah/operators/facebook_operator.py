@@ -1,5 +1,4 @@
 from ewah.operators.base_operator import EWAHBaseOperator
-from ewah.ewah_utils.airflow_utils import airflow_datetime_adjustments
 from ewah.constants import EWAHConstants as EC
 
 from airflow.hooks.base_hook import BaseHook
@@ -15,8 +14,6 @@ import time
 
 class EWAHFBOperator(EWAHBaseOperator):
 
-    template_fields = ('data_from', 'data_until')
-
     _ACCEPTED_LOAD_STRATEGIES = {
         EC.LS_FULL_REFRESH: False,
         EC.LS_INCREMENTAL: True,
@@ -31,15 +28,12 @@ class EWAHFBOperator(EWAHBaseOperator):
         account_ids,
         insight_fields,
         level,
-        data_from=None,
-        data_until=None,
         time_increment=1,
         breakdowns=None,
         execution_waittime_seconds=15, # wait for a while before execution
         #   between account_ids to avoid hitting rate limits during backfill
         pagination_limit=1000,
         async_job_read_frequency_seconds=5,
-        reload_data_from=None,
     *args, **kwargs):
 
         if kwargs.get('update_on_columns'):
@@ -95,9 +89,6 @@ class EWAHFBOperator(EWAHBaseOperator):
                     '\n\t'.join(allowed_insight_fields)
                 ))
 
-        self.data_from = data_from
-        self.data_until = data_until
-
         super().__init__(*args, **kwargs)
 
         credentials = BaseHook.get_connection(self.source_conn_id)
@@ -124,25 +115,14 @@ class EWAHFBOperator(EWAHBaseOperator):
         self.execution_waittime_seconds = execution_waittime_seconds
         self.pagination_limit = pagination_limit
         self.async_job_read_frequency_seconds = async_job_read_frequency_seconds
-        self.reload_data_from = reload_data_from
 
     def _clean_response_data(self, response):
         return [dict(datum) for datum in list(response)]
 
     def ewah_execute(self, context):
-        if not self.test_if_target_table_exists():
-            if self.reload_data_from:
-                self.data_from = self.reload_data_from
-
-        self.data_from = self.data_from or context['execution_date']
-        self.data_until = self.data_until or context['next_execution_date']
-        self.data_from = airflow_datetime_adjustments(self.data_from)
-        self.data_until = airflow_datetime_adjustments(self.data_until)
-
-
         time_range = {
-            'since': self.data_from.strftime('%Y-%m-%d'),
-            'until': self.data_until.strftime('%Y-%m-%d'),
+            'since': self.load_data_from.strftime('%Y-%m-%d'),
+            'until': self.load_data_until.strftime('%Y-%m-%d'),
         }
 
         FacebookAdsApi.init(**self.credentials)

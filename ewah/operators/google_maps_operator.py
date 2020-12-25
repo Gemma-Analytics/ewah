@@ -1,5 +1,4 @@
 from ewah.operators.base_operator import EWAHBaseOperator
-from ewah.ewah_utils.airflow_utils import airflow_datetime_adjustments
 from ewah.constants import EWAHConstants as EC
 
 from airflow.hooks.base_hook import BaseHook
@@ -16,8 +15,6 @@ class EWAHGMapsOperator(EWAHBaseOperator):
             such a column will cause failure of the operator.
     """
 
-    template_fields = ('address_sql',)
-
     _ACCEPTED_LOAD_STRATEGIES = {
         EC.LS_FULL_REFRESH: True,
         EC.LS_INCREMENTAL: True,
@@ -27,7 +24,7 @@ class EWAHGMapsOperator(EWAHBaseOperator):
     def __init__(self,
         address_sql,
     *args, **kwargs):
-
+        self.template_fields.add('address_sql')
         kwargs['primary_key_column_name'] = 'address'
         super().__init__(*args, **kwargs)
 
