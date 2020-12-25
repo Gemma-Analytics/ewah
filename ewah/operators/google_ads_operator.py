@@ -19,6 +19,7 @@ class EWAHGoogleAdsOperator(EWAHBaseOperator):
     }
 
     _REQUIRED_KEYS = (
+        # You must have a developer_token to use the Google Ads API!
         'developer_token',
         'client_id',
         'client_secret',

@@ -32,7 +32,6 @@ class EWAHAircallOperator(EWAHBaseOperator):
     def __init__(self,
         resource=None,
         wait_between_pages=1,
-        reload_data_chunking=None,
     *args, **kwargs):
         kwargs['primary_key_column_name'] = 'id'
         resource = resource or kwargs.get('target_table_name')
@@ -42,11 +41,12 @@ class EWAHAircallOperator(EWAHBaseOperator):
         self.resource = resource
         assert isinstance(wait_between_pages, int) and wait_between_pages >= 0
         self.wait_between_pages = wait_between_pages
-        assert isinstance(reload_data_chunking, (type(None), timedelta))
-        self.reload_data_chunking = reload_data_chunking
+        if self.load_strategy == EC.LS_INCREMENTAL:
+            _msg = '"{0}" cannot be loaded incrementally!'.format(resource)
+            assert self._RESOURCES[resource].get('incremental'), _msg
 
     def _upload_aircall_data(self, url, params, auth):
-        # implement pagination, return data as list of dicts
+        # implement pagination & upload data
         i = 0
         data = []
         while url:
@@ -59,6 +59,8 @@ class EWAHAircallOperator(EWAHBaseOperator):
             url = response.get('meta', {}).get('next_page_link')
             data += response.get(self.resource, [])
             if len(data) >= 10000:
+                # Multiple API endpoints have 10k limits when used without
+                # the "to" and "from" params! Explicitly fail in that case!
                 raise Exception('Error! 10k limit reached! Introduce chunking!')
         return self.upload_data(data)
 
@@ -71,21 +73,9 @@ class EWAHAircallOperator(EWAHBaseOperator):
         params = {
             'per_page': 50, # maximum page size is 50
         }
-        if self.load_strategy == EC.LS_INCREMENTAL \
-            and self._RESOURCES[self.resource].get('incremental'):
-            # incremental load
-            data_from = self.load_data_from
-            data_until = self.load_data_until
-
-            # The API may only return max 10k records, thus enable usage of
-            # chunking to reduce chunk-size to <10k records per time interval
-            chunking = self.reload_data_chunking or (data_until - data_from)
-            while data_from < data_until:
-                params.update({
-                    'from': int(time.mktime(data_from.timetuple())),
-                    'to': int(time.mktime((data_from + chunking).timetuple())),
-                })
-                self._upload_aircall_data(url=url, params=params, auth=auth)
-                data_from += chunking
-        else:
-            self._upload_aircall_data(url=url, params=params, auth=auth)
+        if self.load_strategy == EC.LS_INCREMENTAL:
+            params.update({
+                'from': int(time.mktime(self.load_data_from.timetuple())),
+                'to': int(time.mktime((self.load_data_until).timetuple())),
+            })
+        self._upload_aircall_data(url=url, params=params, auth=auth)

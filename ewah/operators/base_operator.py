@@ -77,7 +77,7 @@ class EWAHBaseOperator(BaseOperator):
         EC.LS_APPENDING: False,
     }
 
-    _REQUIRES_COLUMNS_DEFINITION = False # raise error if true an none supplied
+    _REQUIRES_COLUMNS_DEFINITION = False # raise error if true and None supplied
 
     _INDEX_QUERY = '''
         CREATE INDEX IF NOT EXISTS {0}
@@ -102,6 +102,7 @@ class EWAHBaseOperator(BaseOperator):
         load_data_from_relative=None, # optional timedelta
         load_data_until=None, # defaults to next_execution_date if incremental
         load_data_until_relative=None, # optional timedelta
+        load_data_chunking_timedelta=None, # optional timedelta to chunk by
         columns_definition=None,
         update_on_columns=None,
         primary_key_column_name=None,
@@ -199,8 +200,19 @@ class EWAHBaseOperator(BaseOperator):
 
         _msg = 'load_data_from_relative and load_data_until_relative must be'
         _msg += ' timedelta if supplied!'
-        assert isinstance(load_data_from_relative, (type(None), timedelta)), _msg
-        assert isinstance(load_data_until_relative, (type(None), timedelta)), _msg
+        assert isinstance(
+            load_data_from_relative,
+            (type(None), timedelta),
+        ), _msg
+        assert isinstance(
+            load_data_until_relative,
+            (type(None), timedelta),
+        ), _msg
+        _msg = 'load_data_chunking_timedelta must be timedelta!'
+        assert isinstance(
+            load_data_chunking_timedelta,
+            (type(None), timedelta),
+        ), _msg
 
         self.source_conn_id = source_conn_id
         self.dwh_engine = dwh_engine
@@ -215,6 +227,7 @@ class EWAHBaseOperator(BaseOperator):
         self.load_data_from_relative = load_data_from_relative
         self.load_data_until = load_data_until
         self.load_data_until_relative = load_data_until_relative
+        self.load_data_chunking_timedelta = load_data_chunking_timedelta
         self.columns_definition = columns_definition
         if (not update_on_columns) and primary_key_column_name:
             if type(primary_key_column_name) == str:
@@ -344,7 +357,19 @@ class EWAHBaseOperator(BaseOperator):
 
         try:
             # execute operator
-            result = self.ewah_execute(context)
+            if self.load_data_chunking_timedelta and self.load_data_from and self.load_data_until:
+                # Chunking to avoid OOM
+                _data_until = self.load_data_until
+                assert _data_until > self.load_data_from
+                assert self.load_data_chunking_timedelta > timedelta(days=0)
+                while self.load_data_from < _data_until:
+                    self.load_data_until = self.load_data_from
+                    self.load_data_until += self.load_data_chunking_timedelta
+                    self.load_data_until = min(self.load_data_until,_data_until)
+                    self.ewah_execute(context)
+                    self.load_data_from += self.load_data_chunking_timedelta
+            else:
+                self.ewah_execute(context)
 
             # if PostgreSQL and arg given: create indices
             for column in self.index_columns:
@@ -380,8 +405,6 @@ class EWAHBaseOperator(BaseOperator):
 
         # everything worked, now close SSH tunnels
         close_ssh_tunnels()
-
-        return result
 
     def test_if_target_table_exists(self):
         hook = self.hook(self.dwh_conn)

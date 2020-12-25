@@ -41,9 +41,9 @@ class EWAHSQLBaseOperator(EWAHBaseOperator):
         chunking_interval=None, # can be datetime.timedelta or integer
         chunking_column=None, # defaults to primary key if integer
         # also potentially used: primary_key_column_name of parent operator
-        reload_data_chunking=None, # must be timedelta
-        where_clause='1 = 1',
+        where_clause=None, # restrict data loaded by operator
     *args, **kwargs):
+        where_clause = where_clause or '1 = 1'
 
         # allow setting schema in general config w/out throwing an error
         if sql_select_statement:
@@ -100,15 +100,13 @@ class EWAHSQLBaseOperator(EWAHBaseOperator):
         self.timestamp_column = timestamp_column
         self.chunking_interval = chunking_interval
         self.chunking_column = chunking_column
-        self.reload_data_chunking = reload_data_chunking or chunking_interval
 
+        if kwargs.get('reload_data_from') and not chunking_interval:
+            raise Exception('When setting reload_data_from, must also set ' \
+                + 'chunking_interval!')
+        
         # run after setting class properties for templating
         super().__init__(*args, **kwargs)
-
-        if self.reload_data_from and \
-            not (reload_data_chunking or chunking_interval):
-            raise Exception('When setting reload_data_from, must also set ' \
-                + 'either reload_data_chunking or chunking_interval!')
 
         if self.load_data_from or self.load_data_until or \
             use_execution_date_for_incremental_loading:
@@ -169,12 +167,8 @@ class EWAHSQLBaseOperator(EWAHBaseOperator):
             self.data_from = self.load_data_from
             self.data_until = self.load_data_until
             if not self.test_if_target_table_exists():
-                self.chunking_interval = self.reload_data_chunking \
-                    or self.chunking_interval \
-                    or (
-                        context['next_execution_date']
-                        - context['execution_date']
-                    )
+                self.chunking_interval = self.chunking_interval \
+                    or (self.data_from - self.data_until)
 
             self.log.info('Incrementally loading data from {0} to {1}.'.format(
                 self.data_from.strftime(str_format),
@@ -210,10 +204,9 @@ class EWAHSQLBaseOperator(EWAHBaseOperator):
 
 
         if self.chunking_interval:
+            chunking_column = self.chunking_column
             if isinstance(self.chunking_interval, timedelta):
-                chunking_column = self.timestamp_column or self.chunking_column
-            else:
-                chunking_column = self.chunking_column
+                chunking_column = chunking_column or self.timestamp_column
 
             if self.load_strategy == EC.LS_FULL_REFRESH:
                 previous_chunk, max_chunk = self._get_data_from_sql(

@@ -29,7 +29,6 @@ class EWAHMongoDBOperator(EWAHBaseOperator):
         timestamp_field=None, # required for use with data_from and data_until
         chunking_field=None, # defaults to timestamp_field if None
         chunking_interval=None, # timedelta or integer
-        reload_data_from=None, # string (can be templated), datetime or None
         pagination_limit=None, # integer
         single_column_mode=False, # If True, throw all data as json into one col
         ssl=False,

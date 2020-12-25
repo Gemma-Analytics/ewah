@@ -76,7 +76,7 @@ class EWAHZendeskOperator(EWAHBaseOperator):
 
     def ewah_execute(self, context):
         self.data_from = self.make_unix_datetime(self.load_data_from)
-        self.data_until= self.make_unix_datetime(self.load_data_until)
+        self.data_until = self.make_unix_datetime(self.load_data_until)
 
         conn = self.source_conn
         if self.auth_type == 'basic_auth':
