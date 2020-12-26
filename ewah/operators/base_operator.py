@@ -291,10 +291,6 @@ class EWAHBaseOperator(BaseOperator):
 
         # open SSH tunnel for the data source connection, if applicable
         if self.source_ssh_tunnel_conn_id:
-            #if self.target_ssh_tunnel_conn_id:
-            #    local_port = self.dwh_conn.port + 1
-            #else:
-            #    local_port = 0 # random assignment
             self.log.info('Opening SSH tunnel to source...')
             self.source_ssh_tunnel_forwarder, self.source_conn=start_ssh_tunnel(
                 ssh_conn_id=self.source_ssh_tunnel_conn_id,
