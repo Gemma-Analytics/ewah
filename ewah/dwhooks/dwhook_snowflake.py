@@ -58,6 +58,11 @@ class EWAHDWHookSnowflake(EWAHBaseDWHook):
         SELECT * FROM "{database_name}"."{schema_name}"."{table_name}"
     """
 
+    _COPY_TABLE = """
+        CREATE OR REPLACE TABLE "{database_name}"."{new_schema}"."{new_table}"
+            CLONE "{database_name}"."{old_schema}"."{old_table}";
+    """
+
     _ACCEPTED_LOAD_STRATEGIES = {
         EC.LS_FULL_REFRESH: True,
         EC.LS_INCREMENTAL: True,

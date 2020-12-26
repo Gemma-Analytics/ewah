@@ -115,83 +115,27 @@ def etl_schema_tasks(
         target_schema_name,
         target_schema_suffix='_next',
         target_database_name=None,
-        copy_schema=False,
         read_right_users=None, # Only for PostgreSQL
         ssh_tunnel_conn_id=None,
         **additional_task_args
     ):
 
     if dwh_engine == EC.DWH_ENGINE_POSTGRES:
-        if copy_schema:
-            sql_kickoff = '''
-                /*
-                 * Clone schema function found here: https://wiki.postgresql.org/wiki/Clone_schema
-                 * Accessed 9 March 2019
-                 * The function is created/replaced in this query to make sure it is
-                 * available when called thereafter.
-                 * Added an INSERT statement to copy data into the new schema as well.
-                 */
-                CREATE SCHEMA IF NOT EXISTS "{schema_name}" /* for edge case where schema is created for the first time! */;
-                CREATE OR REPLACE FUNCTION "{schema_name}".clone_schema(source_schema text, dest_schema text) RETURNS void AS
-                $$
-
-                DECLARE
-                  object text;
-                  buffer text;
-                  default_ text;
-                  column_ text;
-                BEGIN
-                  EXECUTE 'CREATE SCHEMA "' || dest_schema || '"';
-
-                  -- TODO: Find a way to make this sequence's owner is the correct table.
-                  FOR object IN
-                    SELECT sequence_name::text FROM information_schema.SEQUENCES WHERE sequence_schema = source_schema
-                  LOOP
-                    EXECUTE 'CREATE SEQUENCE "' || dest_schema || '"."' || object || '"';
-                  END LOOP;
-
-                  FOR object IN
-                    SELECT TABLE_NAME::text FROM information_schema.TABLES WHERE table_schema = source_schema
-                  LOOP
-                    buffer := '"' || dest_schema || '"."' || object || '"';
-                    EXECUTE 'CREATE TABLE ' || buffer || ' (LIKE "' || source_schema || '"."' || object || '" INCLUDING CONSTRAINTS INCLUDING INDEXES INCLUDING DEFAULTS)';
-
-                    FOR column_, default_ IN
-                      SELECT column_name::text, REPLACE(column_default::text, source_schema, dest_schema) FROM information_schema.COLUMNS WHERE table_schema = dest_schema AND TABLE_NAME = object AND column_default LIKE 'nextval(%' || source_schema || '%::regclass)'
-                    LOOP
-                      EXECUTE 'ALTER TABLE ' || buffer || ' ALTER COLUMN "' || column_ || '" SET DEFAULT ' || default_;
-                    END LOOP;
-                    EXECUTE 'INSERT INTO ' || buffer || ' SELECT * FROM "' || source_schema || '"."' || object || '"';
-                  END LOOP;
-
-                END;
-
-                $$ LANGUAGE plpgsql VOLATILE;
-
-                /*
-                 * Clone the schema
-                 */
-                DROP SCHEMA IF EXISTS "{schema_name}{schema_suffix}" CASCADE;
-                SELECT "{schema_name}".clone_schema('{schema_name}', '{schema_name}{schema_suffix}');
-                '''.format(**{
-                    'schema_name': target_schema_name,
-                    'schema_suffix': target_schema_suffix,
-                })
-        else:
-            sql_kickoff = ''' /* Create a new, empty schema */
-                DROP SCHEMA IF EXISTS "{schema_name}{schema_suffix}" CASCADE;
-                CREATE SCHEMA "{schema_name}{schema_suffix}";
-                '''.format(**{
-                    'schema_name': target_schema_name,
-                    'schema_suffix': target_schema_suffix,
-                })
+        sql_kickoff = '''
+            DROP SCHEMA IF EXISTS "{schema_name}{schema_suffix}" CASCADE;
+            CREATE SCHEMA "{schema_name}{schema_suffix}";
+        '''.format(
+            schema_name=target_schema_name,
+            schema_suffix=target_schema_suffix,
+        )
         sql_final = '''
             DROP SCHEMA IF EXISTS "{schema_name}" CASCADE;
-            ALTER SCHEMA "{schema_name}{schema_suffix}" RENAME TO "{schema_name}";
-            '''.format(**{
-                'schema_name': target_schema_name,
-                'schema_suffix': target_schema_suffix,
-            })
+            ALTER SCHEMA "{schema_name}{schema_suffix}"
+                RENAME TO "{schema_name}";
+        '''.format(
+            schema_name=target_schema_name,
+            schema_suffix=target_schema_suffix,
+        )
 
 
         # Don't fail final task just because a user or role that should
@@ -243,35 +187,24 @@ def etl_schema_tasks(
     elif dwh_engine == EC.DWH_ENGINE_SNOWFLAKE:
         target_database_name = target_database_name or (BaseHook \
                 .get_connection(dwh_conn_id).extra_dejson.get('database'))
-        if copy_schema:
-            sql_kickoff = '''
-                /*Make sure there is something to clone in step 2*/
-                DROP SCHEMA IF EXISTS "{database}"."{schema_name}{schema_suffix}" CASCADE;
-                CREATE SCHEMA IF NOT EXISTS "{database}"."{schema_name}";
-                CREATE SCHEMA "{database}"."{schema_name}{schema_suffix}"
-                CLONE "{database}"."{schema_name}";
-                '''.format(**{
-                    'database': target_database_name,
-                    'schema_name': target_schema_name,
-                    'schema_suffix': target_schema_suffix,
-                })
-        else:
-            sql_kickoff = '''
-                DROP SCHEMA IF EXISTS "{database}"."{schema_name}{schema_suffix}" CASCADE;
-                CREATE SCHEMA "{database}"."{schema_name}{schema_suffix}";
-                '''.format(**{
-                    'database': target_database_name,
-                    'schema_name': target_schema_name,
-                    'schema_suffix': target_schema_suffix,
-                })
+        sql_kickoff = '''
+            DROP SCHEMA IF EXISTS
+                "{database}"."{schema_name}{schema_suffix}" CASCADE;
+            CREATE SCHEMA "{database}"."{schema_name}{schema_suffix}";
+        '''.format(
+            database=target_database_name,
+            schema_name=target_schema_name,
+            schema_suffix=target_schema_suffix,
+        )
         sql_final = '''
             DROP SCHEMA IF EXISTS "{database}"."{schema_name}" CASCADE;
-            ALTER SCHEMA "{database}"."{schema_name}{schema_suffix}" RENAME TO "{schema_name}";
-            '''.format(**{
-                'database': target_database_name,
-                'schema_name': target_schema_name,
-                'schema_suffix': target_schema_suffix,
-            })
+            ALTER SCHEMA "{database}"."{schema_name}{schema_suffix}"
+                RENAME TO "{schema_name}";
+        '''.format(
+            database=target_database_name,
+            schema_name=target_schema_name,
+            schema_suffix=target_schema_suffix,
+        )
 
         def execute_snowflake(sql, conn_id, **kwargs):
             hook = EWAHDWHookSnowflake(BaseHook.get_connection(conn_id))

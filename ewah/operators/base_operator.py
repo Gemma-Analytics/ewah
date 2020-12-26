@@ -356,8 +356,25 @@ class EWAHBaseOperator(BaseOperator):
                 time.sleep(min(wait_for_timedelta.total_seconds(), 5))
 
         try:
+            temp_schema_name = self.target_schema_name+self.target_schema_suffix
+            # Create a new copy of the target table.
+            # This is so data is loaded into a new table and if data loading
+            # fails, the original data is not corrupted. At a new try or re-run,
+            # the original table is just copited anew.
+            if not self.load_strategy == EC.LS_FULL_REFRESH:
+                # Full refresh always drops and replaces the tables completely
+                self.upload_hook.copy_table(
+                    old_schema=self.target_schema_name,
+                    old_table=self.target_table_name,
+                    new_schema=temp_schema_name,
+                    new_table=self.target_table_name,
+                    database_name=self.target_database_name,
+                )
+
             # execute operator
-            if self.load_data_chunking_timedelta and self.load_data_from and self.load_data_until:
+            if self.load_data_chunking_timedelta \
+                and self.load_data_from \
+                and self.load_data_until:
                 # Chunking to avoid OOM
                 _data_until = self.load_data_until
                 assert _data_until > self.load_data_from
@@ -373,14 +390,14 @@ class EWAHBaseOperator(BaseOperator):
 
             # if PostgreSQL and arg given: create indices
             for column in self.index_columns:
+                assert self.dwh_engine == EC.DWH_ENGINE_POSTGRES
                 # Use hashlib to create a unique 63 character string as index
                 # name to avoid breaching index name length limits & accidental
                 # duplicates / missing indices due to name truncation leading to
                 # identical index names.
                 self.hook.execute(self._INDEX_QUERY.format(
                     '__ewah_' + hashlib.blake2b(
-                        (self.target_schema_name
-                            + self.target_schema_suffix
+                        (temp_schema_name
                             + '.'
                             + self.target_table_name
                             + '.'

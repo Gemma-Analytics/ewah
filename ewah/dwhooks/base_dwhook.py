@@ -113,6 +113,25 @@ class EWAHBaseDWHook(BaseHook):
         if self.conn:
             self.conn.close()
 
+    def copy_table(self,
+        old_schema,
+        old_table,
+        new_schema,
+        new_table,
+        database_name=None,
+    ):
+        if self.test_if_table_exists(old_table, old_schema):
+            self.execute(
+                sql=self._COPY_TABLE.format(
+                    old_schema=old_schema,
+                    old_table=old_table,
+                    new_schema=new_schema,
+                    new_table=new_table,
+                    database_name=database_name,
+                ),
+                commit=False,
+            )
+
     def execute(self, sql, params=None, commit=False, cursor=None):
         self.logging_func('\nExecuting SQL:\n\n{0}'.format(sql))
         kwargs = {}

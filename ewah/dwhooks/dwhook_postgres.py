@@ -27,6 +27,17 @@ class EWAHDWHookPostgres(EWAHBaseDWHook):
     """
     _QUERY_TABLE = 'SELECT * FROM "{schema_name}"."{table_name}"'
 
+    _COPY_TABLE = """
+        -- Drop a previous version of the table if it exists
+        DROP TABLE IF EXISTS "{new_schema}"."{new_table}";
+        CREATE TABLE "{new_schema}"."{new_table}"
+            (LIKE "{old_schema}"."{old_table}"
+            INCLUDING CONSTRAINTS INCLUDING INDEXES INCLUDING DEFAULTS);
+        INSERT INTO "{new_schema}"."{new_table}"
+            SELECT * FROM "{old_schema}"."{old_table}";
+    """
+
+
     _ACCEPTED_LOAD_STRATEGIES = {
         EC.LS_FULL_REFRESH: True,
         EC.LS_INCREMENTAL: True,

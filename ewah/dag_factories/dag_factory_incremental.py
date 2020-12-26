@@ -291,7 +291,6 @@ def dag_factory_incremental_loading(
     kickoff, final = etl_schema_tasks(
         dag=dags[0],
         dwh_engine=dwh_engine,
-        copy_schema=True,
         target_schema_name=target_schema_name,
         target_schema_suffix=target_schema_suffix,
         target_database_name=target_database_name,
@@ -305,7 +304,6 @@ def dag_factory_incremental_loading(
     kickoff_backfill, final_backfill = etl_schema_tasks(
         dag=dags[1],
         dwh_engine=dwh_engine,
-        copy_schema=True,
         target_schema_name=target_schema_name,
         target_schema_suffix=target_schema_suffix,
         target_database_name=target_database_name,

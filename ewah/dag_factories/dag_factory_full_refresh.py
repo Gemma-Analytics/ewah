@@ -60,7 +60,6 @@ def dag_factory_drop_and_replace(
         target_schema_name=target_schema_name,
         target_schema_suffix=target_schema_suffix,
         target_database_name=target_database_name,
-        copy_schema=False,
         read_right_users=read_right_users,
         ssh_tunnel_conn_id=dwh_ssh_tunnel_conn_id,
         **additional_task_args
