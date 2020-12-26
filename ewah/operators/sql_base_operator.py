@@ -34,6 +34,7 @@ class EWAHSQLBaseOperator(EWAHBaseOperator):
     def __init__(self,
         source_schema_name=None, # string
         source_table_name=None, # string, defaults to same as target_table_name
+        source_database_name=None, # bigquery: project id
         sql_select_statement=None, # SQL as alternative to source_table_name
         use_execution_date_for_incremental_loading=False, # use context instead
         #   of data_from and data_until
@@ -48,6 +49,7 @@ class EWAHSQLBaseOperator(EWAHBaseOperator):
         # allow setting schema in general config w/out throwing an error
         if sql_select_statement:
             source_schema_name = None
+            source_database_name = None
 
         target_table_name = kwargs.get('target_table_name')
 
@@ -141,6 +143,7 @@ class EWAHSQLBaseOperator(EWAHBaseOperator):
                         )
                         + self._SQL_COLUMN_QUOTE
                     ),
+                    'database': source_database_name,
                     'schema': source_schema_name,
                     'table': source_table_name,
                     'where_clause': where_clause,
@@ -148,6 +151,7 @@ class EWAHSQLBaseOperator(EWAHBaseOperator):
             else:
                 self.base_sql = self._SQL_BASE.format(**{
                     'columns': '\t*',
+                    'database': source_database_name,
                     'schema': source_schema_name,
                     'table': source_table_name,
                     'where_clause': where_clause,
