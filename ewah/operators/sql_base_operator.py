@@ -106,7 +106,7 @@ class EWAHSQLBaseOperator(EWAHBaseOperator):
         if kwargs.get('reload_data_from') and not chunking_interval:
             raise Exception('When setting reload_data_from, must also set ' \
                 + 'chunking_interval!')
-        
+
         # run after setting class properties for templating
         super().__init__(*args, **kwargs)
 
@@ -163,21 +163,19 @@ class EWAHSQLBaseOperator(EWAHBaseOperator):
     def ewah_execute(self, context):
         str_format = '%Y-%m-%dT%H:%M:%SZ'
 
+        self.data_from = self.load_data_from
+        self.data_until = self.load_data_until
         if self.load_strategy == EC.LS_FULL_REFRESH:
             self.log.info('Loading data as full refresh.')
-            self.data_from = None
-            self.data_until = None
         else:
-            self.data_from = self.load_data_from
-            self.data_until = self.load_data_until
-            if not self.test_if_target_table_exists():
-                self.chunking_interval = self.chunking_interval \
-                    or (self.data_from - self.data_until)
-
             self.log.info('Incrementally loading data from {0} to {1}.'.format(
                 self.data_from.strftime(str_format),
                 self.data_until.strftime(str_format),
             ))
+            if not self.test_if_target_table_exists():
+                self.chunking_interval = self.chunking_interval \
+                    or (self.data_from - self.data_until)
+
 
         params = {}
         # _SQL_PARAMS
@@ -208,9 +206,7 @@ class EWAHSQLBaseOperator(EWAHBaseOperator):
 
 
         if self.chunking_interval:
-            chunking_column = self.chunking_column
-            if isinstance(self.chunking_interval, timedelta):
-                chunking_column = chunking_column or self.timestamp_column
+            chunking_column = self.chunking_column or self.timestamp_column
 
             if self.load_strategy == EC.LS_FULL_REFRESH:
                 previous_chunk, max_chunk = self._get_data_from_sql(

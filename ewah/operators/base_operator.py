@@ -272,7 +272,7 @@ class EWAHBaseOperator(BaseOperator):
                 del self.target_ssh_tunnel_forwarder
 
         # required for metadata in data upload
-        self._execution_time = datetime.now()
+        self._execution_time = datetime.utcnow()
         self._context = context
 
 

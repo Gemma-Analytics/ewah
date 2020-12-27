@@ -77,8 +77,8 @@ class EWAHConstants:
             date: 'date',
         },
         DWH_ENGINE_SNOWFLAKE: {
-            QBC_TYPE_MAPPING_DEFAULT: 'VARIANT',
-            QBC_TYPE_MAPPING_INCONSISTENT: 'VARIANT',
+            QBC_TYPE_MAPPING_DEFAULT: 'VARCHAR',
+            QBC_TYPE_MAPPING_INCONSISTENT: 'VARCHAR',
             str: 'VARCHAR',
             int: 'NUMBER',
             float: 'NUMBER',

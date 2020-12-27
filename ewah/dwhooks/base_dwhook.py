@@ -120,7 +120,10 @@ class EWAHBaseDWHook(BaseHook):
         new_table,
         database_name=None,
     ):
-        if self.test_if_table_exists(old_table, old_schema):
+        kwargs = {'table_name': old_table, 'schema_name': old_schema}
+        if database_name:
+            kwargs.update({'database_name': database_name})
+        if self.test_if_table_exists(**kwargs):
             self.execute(
                 sql=self._COPY_TABLE.format(
                     old_schema=old_schema,
