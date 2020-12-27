@@ -259,7 +259,7 @@ class EWAHDWHookSnowflake(EWAHBaseDWHook):
         database_name=None,
     ):
         self.execute('USE DATABASE {0}'.format(
-            database_name or self.database_name,
+            database_name or self.database,
         ))
         return 0 < len(self.execute_and_return_result(
             """
@@ -267,7 +267,7 @@ class EWAHDWHookSnowflake(EWAHBaseDWHook):
             WHERE table_schema LIKE '{1}'
             AND table_name LIKE '{2}'
             """.format(
-                database_name or self.database_name,
+                database_name or self.database,
                 schema_name,
                 table_name,
             )
