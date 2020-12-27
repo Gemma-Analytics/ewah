@@ -32,7 +32,6 @@ class EWAHBigQueryOperator(EWAHSQLBaseOperator):
     _SQL_PARAMS = '@{0}'
 
     def __init__(self, *args, is_sharded=False, **kwargs):
-        self.sql_engine = self._BQ
 
         # Special case: getting a sharded table; then source_table_name shall be
         # the base name, e.g. events_ if getting events_*

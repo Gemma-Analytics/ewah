@@ -23,10 +23,6 @@ class EWAHMySQLOperator(EWAHSQLBaseOperator):
     '''
     _SQL_PARAMS = '%({0})s'
 
-    def __init__(self, *args, **kwargs):
-        self.sql_engine = self._MYSQL
-        super().__init__(*args, **kwargs)
-
     def _get_data_from_sql(self, sql, params=None, return_dict=True):
         if return_dict:
             cursor_class = pymysql.cursors.DictCursor

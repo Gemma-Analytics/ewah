@@ -26,10 +26,6 @@ class EWAHOracleSQLOperator(EWAHSQLBaseOperator):
     '''
     _SQL_PARAMS = ':{0}'
 
-    def __init__(self, *args, **kwargs):
-        self.sql_engine = self._ORACLE
-        super().__init__(*args, **kwargs)
-
     def _get_data_from_sql(self,
             sql,
             params={},

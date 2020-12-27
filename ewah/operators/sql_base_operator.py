@@ -12,19 +12,6 @@ import os
 
 class EWAHSQLBaseOperator(EWAHBaseOperator):
 
-    # implemented SQL sources - set self.sql_engine to this value in operator
-    _MYSQL = 'MySQL'
-    _PGSQL = 'PostgreSQL'
-    _ORACLE = 'OracleSQL'
-    _BQ = 'BigQuery'
-
-    _ACCEPTED_SOURCES = [
-        _MYSQL,
-        _PGSQL,
-        _ORACLE,
-        _BQ,
-    ]
-
     _ACCEPTED_LOAD_STRATEGIES = {
         EC.LS_FULL_REFRESH: True,
         EC.LS_INCREMENTAL: True,
@@ -52,11 +39,6 @@ class EWAHSQLBaseOperator(EWAHBaseOperator):
             source_database_name = None
 
         target_table_name = kwargs.get('target_table_name')
-
-        if not hasattr(self, 'sql_engine'):
-            raise Exception('Operator invalid: need attribute sql_engine!')
-        if not self.sql_engine in self._ACCEPTED_SOURCES:
-            raise Exception('Operator invalid: SQL engine not implemented!')
 
         if chunking_interval:
             if type(chunking_interval) == timedelta:
@@ -172,7 +154,8 @@ class EWAHSQLBaseOperator(EWAHBaseOperator):
                 self.data_from.strftime(str_format),
                 self.data_until.strftime(str_format),
             ))
-            if not self.test_if_target_table_exists():
+            if not self.test_if_target_table_exists() and \
+                self.data_from and self.data_until:
                 self.chunking_interval = self.chunking_interval \
                     or (self.data_from - self.data_until)
 
@@ -205,8 +188,8 @@ class EWAHSQLBaseOperator(EWAHBaseOperator):
             params.update({'data_until': self.data_until})
 
 
-        if self.chunking_interval:
-            chunking_column = self.chunking_column or self.timestamp_column
+        chunking_column = self.chunking_column or self.timestamp_column
+        if self.chunking_interval and chunking_column:
 
             if self.load_strategy == EC.LS_FULL_REFRESH:
                 previous_chunk, max_chunk = self._get_data_from_sql(

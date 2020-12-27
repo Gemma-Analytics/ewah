@@ -22,10 +22,6 @@ class EWAHPostgresOperator(EWAHSQLBaseOperator):
     '''
     _SQL_PARAMS = '%({0})s'
 
-    def __init__(self, *args, **kwargs):
-        self.sql_engine = self._PGSQL
-        super().__init__(*args, **kwargs)
-
     def _get_data_from_sql(self, sql, params=None, return_dict=True):
         hook = EWAHDWHookPostgres(self.source_conn)
         self.log.info('Executing:\n{0}\n\nWith params:\n{1}'.format(
