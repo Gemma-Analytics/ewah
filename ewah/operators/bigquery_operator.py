@@ -11,6 +11,8 @@ import os
 
 class EWAHBigQueryOperator(EWAHSQLBaseOperator):
 
+    _NAMES = ['bq', 'biqguery']
+
     _SQL_BASE = '''
         SELECT
             {columns}
@@ -29,19 +31,21 @@ class EWAHBigQueryOperator(EWAHSQLBaseOperator):
     '''
     _SQL_PARAMS = '@{0}'
 
-    def __init__(self, *args, is_sharded=False, sharding_column=None, **kwargs):
+    def __init__(self, *args, is_sharded=False, **kwargs):
         self.sql_engine = self._BQ
 
         # Special case: getting a sharded table; then source_table_name shall be
         # the base name, e.g. events_ if getting events_*
         # To be refactored in the future!
         if is_sharded:
-            if kwargs.get('drop_and_replace', True):
+            assert False, "Sharding Feature not yet implemented!"
+            if kwargs.get('load_strategy') == EC.LS_FULL_REFRESH:
                 self.is_sharded = False
                 kwargs['source_table_name'] += '*' # get all at full refresh!
             else:
+                # These kwargs are not saved by default but are needed
+                # if getting data from a sharded table
                 self.is_sharded = True
-                self.sharding_column = sharding_column
                 self.bq_table_name = kwargs['source_table_name']
                 self.bq_schema_name = kwargs['source_schema_name']
                 self.bq_dataset_name = kwargs['source_database_name']
@@ -49,13 +53,9 @@ class EWAHBigQueryOperator(EWAHSQLBaseOperator):
             self.is_sharded = False
 
 
-        _msg = "Must supply source_database_name!"
+        _msg = "Must supply source_database_name (=dataset name)!"
         assert kwargs.get('source_database_name'), _msg
         super().__init__(*args, **kwargs)
-
-        if self.is_sharded:
-            _msg = "Sharded tables must be an incremental load!"
-            assert not self.drop_and_replace, _msg
 
     def _get_data_from_sql(self, sql, params=None, return_dict=True):
 
@@ -105,18 +105,9 @@ class EWAHBigQueryOperator(EWAHSQLBaseOperator):
             return super().ewah_execute(context)
 
         # code below only runs if is_sharded
-        if self.test_if_target_table_exists():
-            date_from = self.date_from or context['execution_date']
-            # date_from -= timedelta(days=1) # get data from previous day as well
-        else:
-            date_from = self.reload_data_from or context['start_date']
-        date_until = self.date_until or context['execution_date']
-        # don't use next_execution_date: just run this once a day incrementally
-        # and get the previous day's data, otherwise it might lead to duplicates
-
-        date_from = airflow_datetime_adjustments(date_from)
-        date_until = airflow_datetime_adjustments(date_until)
-
+        # loop through the relevant days day by day
+        date_from = self.load_data_from.date()
+        date_until = self.load_data_until.date()
         while date_from <= date_until:
             self.upload_data(data=self._get_data_from_sql(
                 sql=self._SQL_BASE.format(
