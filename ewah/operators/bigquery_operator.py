@@ -23,7 +23,7 @@ class EWAHBigQueryOperator(EWAHSQLBaseOperator):
         'SELECT * FROM ({select_sql}) t WHERE {{0}}'
     _SQL_COLUMN_QUOTE = '`'
     _SQL_MINMAX_CHUNKS = '''
-        SELECT MIN(`{column}`), MAX(`{column}`) FROM ({base}) t
+        SELECT MIN({column}), MAX({column}) FROM ({base}) t
     '''
     _SQL_CHUNKING_CLAUSE = '''
         AND {column} >= @from_value

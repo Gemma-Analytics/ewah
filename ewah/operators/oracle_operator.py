@@ -17,12 +17,12 @@ class EWAHOracleSQLOperator(EWAHSQLBaseOperator):
     _SQL_COLUMN_QUOTE = '"'
     _SQL_MINMAX_CHUNKS = '''
         WITH base AS ({base})
-        SELECT MIN("{column}"), MAX("{column}")
+        SELECT MIN({column}), MAX({column})
         FROM base
     '''
     _SQL_CHUNKING_CLAUSE = '''
-        AND "{column}" >= :from_value
-        AND "{column}" <{equal_sign} :until_value
+        AND {column} >= :from_value
+        AND {column} <{equal_sign} :until_value
     '''
     _SQL_PARAMS = ':{0}'
 
