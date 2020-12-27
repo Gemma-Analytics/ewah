@@ -17,9 +17,8 @@ class EWAHFBOperator(EWAHBaseOperator):
     _NAMES = ['facebook', 'fb']
 
     _ACCEPTED_LOAD_STRATEGIES = {
-        EC.LS_FULL_REFRESH: False,
-        EC.LS_INCREMENTAL: True,
-        EC.LS_APPENDING: False,
+        EC.ES_FULL_REFRESH: False,
+        EC.ES_INCREMENTAL: True,
     }
 
     class levels:
@@ -123,8 +122,8 @@ class EWAHFBOperator(EWAHBaseOperator):
 
     def ewah_execute(self, context):
         time_range = {
-            'since': self.load_data_from.strftime('%Y-%m-%d'),
-            'until': self.load_data_until.strftime('%Y-%m-%d'),
+            'since': self.data_from.strftime('%Y-%m-%d'),
+            'until': self.data_until.strftime('%Y-%m-%d'),
         }
 
         FacebookAdsApi.init(**self.credentials)

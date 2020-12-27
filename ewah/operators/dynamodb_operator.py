@@ -10,9 +10,8 @@ class EWAHDynamoDBOperator(EWAHBaseOperator):
     # For incremental loading, use Kinesis Firehose to push changes to S3
     # and use S3 operator instead
     _ACCEPTED_LOAD_STRATEGIES = {
-        EC.LS_FULL_REFRESH: True,
-        EC.LS_INCREMENTAL: False,
-        EC.LS_APPENDING: False,
+        EC.ES_FULL_REFRESH: True,
+        EC.ES_INCREMENTAL: False,
     }
 
     _REQUIRES_COLUMNS_DEFINITION = False
@@ -34,7 +33,7 @@ class EWAHDynamoDBOperator(EWAHBaseOperator):
         self.filter_expression = filter_expression
 
     def ewah_execute(self, context):
-        # TODO: create / update filter_expression with load_data_from / until
+        # TODO: create / update filter_expression with data_from / data_until
 
         # Get credentials and connect to table
         conn = self.source_conn
@@ -45,19 +44,19 @@ class EWAHDynamoDBOperator(EWAHBaseOperator):
         if isinstance(conn.extra_dejson, dict):
             resource_kwargs.update(conn.extra_dejson)
         if self.region_name:
-            resource_kwargs.update({'region_name': self.region_name})
+            resource_kwargs['region_name'] = self.region_name
         resource = boto3.resource('dynamodb', **resource_kwargs)
         table = resource.Table(self.source_table_name)
 
         # Paginate through table
         scan_kwargs = {}
         if self.pagination_limit:
-            scan_kwargs.update({'Limit': self.pagination_limit})
+            scan_kwargs['Limit'] = self.pagination_limit
         if self.filter_expression:
-            scan_kwargs.update({'FilterExpression': self.filter_expression})
+            scan_kwargs['FilterExpression'] = self.filter_expression
         keep_going = True
         while keep_going:
             response = table.scan(**scan_kwargs)
             self.upload_data(response.get('Items'))
             keep_going = response.get('LastEvaluatedKey') or False
-            scan_kwargs.update({'ExclusiveStartKey': keep_going})
+            scan_kwargs['ExclusiveStartKey'] = keep_going

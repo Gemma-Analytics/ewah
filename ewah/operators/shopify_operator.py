@@ -18,9 +18,8 @@ class EWAHShopifyOperator(EWAHBaseOperator):
     _NAMES = ['shopify']
 
     _ACCEPTED_LOAD_STRATEGIES = {
-        EC.LS_FULL_REFRESH: False,
-        EC.LS_INCREMENTAL: True,
-        EC.LS_APPENDING: False,
+        EC.ES_FULL_REFRESH: False,
+        EC.ES_INCREMENTAL: True,
     }
 
     _acceptable_api_versions = [
@@ -125,7 +124,7 @@ class EWAHShopifyOperator(EWAHBaseOperator):
                 ))
 
         if self._accepted_objects[shopify_object].get('_is_drop_and_replace'):
-            kwargs['load_strategy'] = EC.LS_FULL_REFRESH
+            kwargs['load_strategy'] = EC.ES_FULL_REFRESH
 
         if not auth_type in ['access_token', 'basic_auth']:
             raise Exception('auth_type must be access_token or basic_auth!')
@@ -195,30 +194,26 @@ class EWAHShopifyOperator(EWAHBaseOperator):
             if not val is None and not key[:1] == '_'
         }
         params.update(self.filter_fields)
-        params.update({'limit': self.page_limit})
-        if not self.load_strategy == EC.LS_FULL_REFRESH:
-            timestamp_fields = object_metadata.get(
-                '_timestamp_fields',
-                self._default_timestamp_fields,
+        params['limit'] = self.page_limit
+
+        timestamp_fields = object_metadata.get(
+            '_timestamp_fields',
+            self._default_timestamp_fields,
+        )
+        timestamp_format_string = object_metadata.get(
+            '_datetime_format',
+            self._default_datetime_format,
+        )
+        if self.data_until:
+            params[timestamp_fields[1]] = datetime_to_string(
+                self.data_until,
+                timestamp_format_string,
             )
-            timestamp_format_string = object_metadata.get(
-                '_datetime_format',
-                self._default_datetime_format,
-            )
-            params.update({
-                # Pendulum by coincidence converts to the correct string format
-                timestamp_fields[1]: datetime_to_string(
-                        self.load_data_until,
-                        timestamp_format_string,
-                    ),
-            })
-            if self.load_data_from:
-                params.update({
-                    timestamp_fields[0]: datetime_to_string(
-                        self.load_data_from,
-                        timestamp_format_string,
-                    ),
-                })
+        if self.data_from:
+            params[timestamp_fields[0]] = datetime_to_string(
+                self.data_from,
+                timestamp_format_string,
+            ),
 
         source_conn_id = self.source_conn.conn_id
         auth_type = self.auth_type

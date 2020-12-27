@@ -66,15 +66,14 @@ class EWAHBaseOperator(BaseOperator):
     template_fields = (
         'load_data_from',
         'load_data_until',
-        'reload_data_from',
     )
 
     # Child class must update or overwrite these values
     # A missing element is interpreted as False
     _ACCEPTED_LOAD_STRATEGIES = {
-        EC.LS_FULL_REFRESH: False,
-        EC.LS_INCREMENTAL: False,
-        EC.LS_APPENDING: False,
+        EC.ES_FULL_REFRESH: False,
+        EC.ES_INCREMENTAL: False,
+        EC.ES_GET_NEXT: False,
     }
 
     _REQUIRES_COLUMNS_DEFINITION = False # raise error if true and None supplied
@@ -97,11 +96,11 @@ class EWAHBaseOperator(BaseOperator):
         target_schema_name,
         target_schema_suffix='_next',
         target_database_name=None, # Only for Snowflake
-        load_data_from=None, # defaults to execution_date if incremental
-        reload_data_from=None, # used preferentially if loading table anew
-        load_data_from_relative=None, # optional timedelta
-        load_data_until=None, # defaults to next_execution_date if incremental
-        load_data_until_relative=None, # optional timedelta
+        load_data_from=None, # set a minimum date e.g. for reloading of data
+        reload_data_from=None, # load data from this date for new tables
+        load_data_from_relative=None, # optional timedelta for incremental
+        load_data_until=None, # set a maximum date
+        load_data_until_relative=None, # optional timedelta for incremental
         load_data_chunking_timedelta=None, # optional timedelta to chunk by
         columns_definition=None,
         update_on_columns=None,
@@ -120,6 +119,11 @@ class EWAHBaseOperator(BaseOperator):
         # wait_for_seconds only applies for incremental loads
     *args, **kwargs):
         super().__init__(*args, **kwargs)
+
+        for item in EWAHBaseOperator.template_fields:
+            # Make sure template_fields was not overwritten
+            _msg = 'Operator must not overwrite template_fields!'
+            assert item in self.template_fields, _msg
 
         _msg = 'param "wait_for_seconds" must be a nonnegative integer!'
         assert isinstance(wait_for_seconds, int) and wait_for_seconds >= 0, _msg
@@ -178,7 +182,7 @@ class EWAHBaseOperator(BaseOperator):
             raise Exception('Cannot supply BOTH primary_key_column_name AND' + \
                 ' update_on_columns!')
 
-        if not load_strategy in (EC.LS_APPENDING, EC.LS_FULL_REFRESH):
+        if not load_strategy in [EC.ES_FULL_REFRESH]:
             # Required settings for incremental loads
             # Update condition for new load strategies as required
             if not (
@@ -301,45 +305,67 @@ class EWAHBaseOperator(BaseOperator):
             self.source_conn = BaseHook.get_connection(self.source_conn_id)
         del self.source_conn_id
 
+        temp_schema_name = self.target_schema_name+self.target_schema_suffix
+        # Create a new copy of the target table.
+        # This is so data is loaded into a new table and if data loading
+        # fails, the original data is not corrupted. At a new try or re-run,
+        # the original table is just copited anew.
+        if not self.load_strategy == EC.ES_FULL_REFRESH:
+            # Full refresh always drops and replaces the tables completely
+            self.upload_hook.copy_table(
+                old_schema=self.target_schema_name,
+                old_table=self.target_table_name,
+                new_schema=temp_schema_name,
+                new_table=self.target_table_name,
+                database_name=self.target_database_name,
+            )
+
 
         # set load_data_from and load_data_until as required
-        if self.load_strategy == EC.LS_INCREMENTAL:
+        data_from = ada(self.load_data_from)
+        data_until = ada(self.load_data_until)
+        if self.load_strategy == EC.ES_INCREMENTAL:
             _tdz = timedelta(days=0) # aka timedelta zero
+            _ed = context['execution_date']
+            _ned = context['next_execution_date']
 
             if self.test_if_target_table_exists():
-                if not self.load_data_from:
-                    self.load_data_from = context['execution_date']
-                self.load_data_from = ada(self.load_data_from)
-                self.load_data_from -= self.load_data_from_relative or _tdz
+                # normal incremental load
+                _ed -= self.load_data_from_relative or _tdz
+                data_from = max(_ed, data_from or _ed)
             else:
                 # Load data from scratch!
-                if self.reload_data_from:
-                    self.load_data_from = ada(self.reload_data_from)
-                else:
-                    self.load_data_from = ada(context['dag'].start_date)
+                data_from = ada(self.reload_data_from) or data_from
+                # Table does not actually exist yet - this is a full refresh!
+                self.load_strategy = EC.ES_FULL_REFRESH
 
-            if not self.load_data_until:
-                self.load_data_until = context['next_execution_date']
-            self.load_data_until = ada(self.load_data_until)
-            self.load_data_until += self.load_data_until_relative or _tdz
+            _ned += self.load_data_until_relative or _tdz
+            data_until = min(_ned, data_until or _ned)
 
 
-        elif self.load_strategy == EC.LS_FULL_REFRESH:
+        elif self.load_strategy == EC.ES_FULL_REFRESH:
             # Values may still be set as static values
-            self.load_data_from = self.reload_data_from or self.load_data_from
-            self.load_data_from = ada(self.load_data_from)
-            self.load_data_until = ada(self.load_data_until)
+            data_from = ada(self.reload_data_from or self.load_data_from)
+            data_until = ada(self.load_data_until)
 
         else:
             _msg = 'Must define load_data_from etc. behavior for load strategy!'
             raise Exception(_msg)
+        self.data_from = data_from
+        self.data_until = data_until
+        # del variables to make sure they are not used later on
+        del self.load_data_from
+        del self.reload_data_from
+        del self.load_data_until
+        del self.load_data_from_relative
+        del self.load_data_until_relative
 
 
         # Have an option to wait until a short period (e.g. 2 minutes) past
         # the incremental loading range timeframe to ensure that all data is
         # loaded, useful e.g. if APIs lag or if server timestamps are not
         # perfectly accurate.
-        if self.wait_for_seconds and self.load_strategy == EC.LS_INCREMENTAL:
+        if self.wait_for_seconds and self.load_strategy == EC.ES_INCREMENTAL:
             wait_until = context.get('next_execution_date')
             if wait_until:
                 wait_until += timedelta(seconds=self.wait_for_seconds)
@@ -352,35 +378,17 @@ class EWAHBaseOperator(BaseOperator):
                 time.sleep(min(wait_for_timedelta.total_seconds(), 5))
 
         try:
-            temp_schema_name = self.target_schema_name+self.target_schema_suffix
-            # Create a new copy of the target table.
-            # This is so data is loaded into a new table and if data loading
-            # fails, the original data is not corrupted. At a new try or re-run,
-            # the original table is just copited anew.
-            if not self.load_strategy == EC.LS_FULL_REFRESH:
-                # Full refresh always drops and replaces the tables completely
-                self.upload_hook.copy_table(
-                    old_schema=self.target_schema_name,
-                    old_table=self.target_table_name,
-                    new_schema=temp_schema_name,
-                    new_table=self.target_table_name,
-                    database_name=self.target_database_name,
-                )
-
             # execute operator
-            if self.load_data_chunking_timedelta \
-                and self.load_data_from \
-                and self.load_data_until:
+            if self.load_data_chunking_timedelta and data_from and data_until:
                 # Chunking to avoid OOM
-                _data_until = self.load_data_until
-                assert _data_until > self.load_data_from
+                assert data_until > data_from
                 assert self.load_data_chunking_timedelta > timedelta(days=0)
-                while self.load_data_from < _data_until:
-                    self.load_data_until = self.load_data_from
-                    self.load_data_until += self.load_data_chunking_timedelta
-                    self.load_data_until = min(self.load_data_until,_data_until)
+                while self.data_from < data_until:
+                    self.data_until = self.data_from
+                    self.data_until += self.load_data_chunking_timedelta
+                    self.data_until = min(self.data_until, data_until)
                     self.ewah_execute(context)
-                    self.load_data_from += self.load_data_chunking_timedelta
+                    self.data_from += self.load_data_chunking_timedelta
             else:
                 self.ewah_execute(context)
 
@@ -533,7 +541,7 @@ class EWAHBaseOperator(BaseOperator):
 
         hook = self.upload_hook
 
-        if (self.load_strategy == EC.LS_INCREMENTAL) \
+        if (self.load_strategy == EC.ES_INCREMENTAL) \
             or (self.upload_call_count > 1):
             self.log.info('Checking for, and applying schema changes.')
             _new_schema_name = self.target_schema_name+self.target_schema_suffix
@@ -560,7 +568,7 @@ class EWAHBaseOperator(BaseOperator):
             schema_name=self.target_schema_name,
             schema_suffix=self.target_schema_suffix,
             database_name=self.target_database_name,
-            drop_and_replace=(self.load_strategy == EC.LS_FULL_REFRESH) and \
+            drop_and_replace=(self.load_strategy == EC.ES_FULL_REFRESH) and \
                 (self.upload_call_count == 1), # In case of chunking of uploads
             update_on_columns=self.update_on_columns,
             commit=False, # See note below for reason
@@ -579,9 +587,8 @@ class EWAHBaseOperator(BaseOperator):
 
 class EWAHEmptyOperator(EWAHBaseOperator):
     _ACCEPTED_LOAD_STRATEGIES = {
-        EC.LS_FULL_REFRESH: True,
-        EC.LS_INCREMENTAL: True,
-        EC.LS_APPENDING: True,
+        EC.ES_FULL_REFRESH: True,
+        EC.ES_INCREMENTAL: True,
     }
     def __init__(self, *args, **kwargs):
         raise Exception('Failed to load operator! Probably missing' \

@@ -38,7 +38,7 @@ class EWAHBigQueryOperator(EWAHSQLBaseOperator):
         # To be refactored in the future!
         if is_sharded:
             assert False, "Sharding Feature not yet implemented!"
-            if kwargs.get('load_strategy') == EC.LS_FULL_REFRESH:
+            if kwargs.get('load_strategy') == EC.ES_FULL_REFRESH:
                 self.is_sharded = False
                 kwargs['source_table_name'] += '*' # get all at full refresh!
             else:

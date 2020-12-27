@@ -18,9 +18,8 @@ class EWAHGMapsOperator(EWAHBaseOperator):
     _NAMES = ['gmaps', 'google_maps', 'googlemaps']
 
     _ACCEPTED_LOAD_STRATEGIES = {
-        EC.LS_FULL_REFRESH: True,
-        EC.LS_INCREMENTAL: True,
-        EC.LS_APPENDING: False,
+        EC.ES_FULL_REFRESH: True,
+        EC.ES_INCREMENTAL: True, # use templating for incremental usecases
     }
 
     def __init__(self,
@@ -54,6 +53,6 @@ class EWAHGMapsOperator(EWAHBaseOperator):
             data += [{
                 'address': address,
                 'geocode_result': client.geocode(address),
-                }]
+            }]
 
         self.upload_data(data)

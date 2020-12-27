@@ -348,7 +348,7 @@ def dag_factory_incremental_loading(
     count_backfill_tasks = 0
     for table in operator_config['tables'].keys():
         arg_dict = deepcopy(additional_task_args)
-        arg_dict.update({'load_strategy': EC.LS_INCREMENTAL})
+        arg_dict.update({'load_strategy': EC.ES_INCREMENTAL})
         arg_dict.update(operator_config.get('general_config', {}))
         arg_dict_internal = {
             'task_id': 'extract_load_' + re.sub(r'[^a-zA-Z0-9_]', '', table),
@@ -370,7 +370,7 @@ def dag_factory_incremental_loading(
         arg_dict.update(arg_dict_internal)
         arg_dict_backfill.update(arg_dict_internal)
 
-        if arg_dict.get('load_strategy') == EC.LS_INCREMENTAL:
+        if arg_dict.get('load_strategy') == EC.ES_INCREMENTAL:
             # don't load full refresh tables in backfill
             task_backfill = el_operator(dag=dags[1], **arg_dict_backfill)
             kickoff_backfill >> task_backfill >> final_backfill

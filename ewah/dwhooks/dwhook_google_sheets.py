@@ -32,9 +32,8 @@ class EWAHDWHookGSheets(EWAHBaseDWHook):
     """
 
     _ACCEPTED_LOAD_STRATEGIES = {
-        EC.LS_FULL_REFRESH: True,
-        EC.LS_INCREMENTAL: False,
-        EC.LS_APPENDING: False,
+        EC.ES_FULL_REFRESH: True,
+        EC.ES_INCREMENTAL: False,
     }
 
     def __init__(self, *args, **kwargs):

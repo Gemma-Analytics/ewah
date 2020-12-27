@@ -10,9 +10,8 @@ class EWAHStripeOperator(EWAHBaseOperator):
     _NAMES = ['stripe']
 
     _ACCEPTED_LOAD_STRATEGIES = {
-        EC.LS_FULL_REFRESH: True,
-        EC.LS_INCREMENTAL: False,
-        EC.LS_APPENDING: False,
+        EC.ES_FULL_REFRESH: True,
+        EC.ES_INCREMENTAL: False,
     }
 
     _REQUIRES_COLUMNS_DEFINITION = False

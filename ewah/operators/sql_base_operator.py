@@ -12,10 +12,13 @@ import os
 
 class EWAHSQLBaseOperator(EWAHBaseOperator):
 
+    # Don't overwrite the _NAMES list to avoid accidentally exposing the SQL
+    # base operator
+    # _NAMES = []
+
     _ACCEPTED_LOAD_STRATEGIES = {
-        EC.LS_FULL_REFRESH: True,
-        EC.LS_INCREMENTAL: True,
-        EC.LS_APPENDING: False,
+        EC.ES_FULL_REFRESH: True,
+        EC.ES_INCREMENTAL: True,
     }
 
     def __init__(self,
@@ -145,79 +148,51 @@ class EWAHSQLBaseOperator(EWAHBaseOperator):
     def ewah_execute(self, context):
         str_format = '%Y-%m-%dT%H:%M:%SZ'
 
-        self.data_from = self.load_data_from
-        self.data_until = self.load_data_until
-        if self.load_strategy == EC.LS_FULL_REFRESH:
+        if self.load_strategy == EC.ES_FULL_REFRESH:
             self.log.info('Loading data as full refresh.')
         else:
             self.log.info('Incrementally loading data from {0} to {1}.'.format(
                 self.data_from.strftime(str_format),
                 self.data_until.strftime(str_format),
             ))
-            if not self.test_if_target_table_exists() and \
-                self.data_from and self.data_until:
-                self.chunking_interval = self.chunking_interval \
-                    or (self.data_from - self.data_until)
-
 
         params = {}
-        # _SQL_PARAMS
-        if self.load_strategy == EC.LS_FULL_REFRESH:
-            sql_base = self.base_select
-            if self.data_from:
-                sql_base = sql_base.format('{0} >= {1} AND {{0}}'.format(
-                    self.timestamp_column,
-                    self._SQL_PARAMS.format('data_from'),
-                ))
-                params.update({'data_from': self.data_from})
-            if self.data_until:
-                sql_base = sql_base.format('{0} <= {1} AND {{0}}'.format(
-                    self.timestamp_column,
-                    self._SQL_PARAMS.format('data_until'),
-                ))
-                params.update({'data_until': self.data_from})
-            sql_base = sql_base.format('1 = 1 {0}')
-        else:
-            sql_base = self.base_select.format('{0} >= {1} AND {0} < {2} {{0}}'
-                .format(
-                    self.timestamp_column,
-                    self._SQL_PARAMS.format('data_from'),
-                    self._SQL_PARAMS.format('data_until'),
+        sql_base = self.base_select
+        if self.data_from:
+            sql_base = sql_base.format('{0} >= {1} AND {{0}}'.format(
+                self.timestamp_column,
+                self._SQL_PARAMS.format('data_from'),
             ))
-            params.update({'data_from': self.data_from})
-            params.update({'data_until': self.data_until})
-
+            params['data_from'] = self.data_from
+        if self.data_until:
+            sql_base = sql_base.format('{0} <= {1} AND {{0}}'.format(
+                self.timestamp_column,
+                self._SQL_PARAMS.format('data_until'),
+            ))
+            params['data_until'] = self.data_until
+        sql_base = sql_base.format('1 = 1 {0}')
 
         chunking_column = self.chunking_column or self.timestamp_column
         if self.chunking_interval and chunking_column:
 
-            if self.load_strategy == EC.LS_FULL_REFRESH:
-                previous_chunk, max_chunk = self._get_data_from_sql(
-                    sql=self._SQL_MINMAX_CHUNKS.format(**{
-                        'column': chunking_column,
-                        'base': sql_base.format(''),
-                    }),
-                    params=params,
-                    return_dict=False,
-                )[0]
-                if chunking_column == self.timestamp_column:
-                    tz = timezone('UTC')
-                    if not previous_chunk.tzinfo:
-                        previous_chunk = tz.localize(previous_chunk)
-                    if self.data_from:
-                        previous_chunk = max(previous_chunk, self.data_from)
-                    if not max_chunk.tzinfo:
-                        max_chunk = tz.localize(max_chunk)
-                    if self.data_until:
-                        max_chunk = min(max_chunk, self.data_until)
+            previous_chunk, max_chunk = self._get_data_from_sql(
+                sql=self._SQL_MINMAX_CHUNKS.format(
+                    column=chunking_column,
+                    base=sql_base.format(''),
+                ),
+                params=params,
+                return_dict=False,
+            )[0]
+            if chunking_column == self.timestamp_column:
+                tz = timezone('UTC')
+                if not previous_chunk.tzinfo:
+                    previous_chunk = tz.localize(previous_chunk)
+                if not max_chunk.tzinfo:
+                    max_chunk = tz.localize(max_chunk)
 
-                if previous_chunk is None or max_chunk is None:
-                    self.log.info('There appears to be no data?')
-                    return
-
-            else:
-                previous_chunk = self.data_from
-                max_chunk = self.data_until
+            if previous_chunk is None or max_chunk is None:
+                self.log.info('There appears to be no data?')
+                return
 
             while previous_chunk <= max_chunk:
                 params.update({
@@ -230,11 +205,11 @@ class EWAHSQLBaseOperator(EWAHBaseOperator):
                 data = self._get_data_from_sql(
                     sql=sql_base.format(
                         self._SQL_CHUNKING_CLAUSE
-                    ).format(**{
-                        'column': chunking_column,
-                        'equal_sign': ('=' if max_chunk < (previous_chunk \
+                    ).format(
+                        column=chunking_column,
+                        equal_sign=('=' if max_chunk < (previous_chunk \
                             + self.chunking_interval) else ''),
-                    }),
+                    ),
                     params=params,
                     return_dict=True,
                 )

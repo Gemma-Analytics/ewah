@@ -39,9 +39,8 @@ class EWAHDWHookPostgres(EWAHBaseDWHook):
 
 
     _ACCEPTED_LOAD_STRATEGIES = {
-        EC.LS_FULL_REFRESH: True,
-        EC.LS_INCREMENTAL: True,
-        EC.LS_APPENDING: False,
+        EC.ES_FULL_REFRESH: True,
+        EC.ES_INCREMENTAL: True,
     }
 
     def __init__(self, *args, **kwargs):

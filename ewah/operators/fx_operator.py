@@ -9,9 +9,8 @@ class EWAHFXOperator(EWAHBaseOperator):
     _NAMES = ['fx']
 
     _ACCEPTED_LOAD_STRATEGIES = {
-        EC.LS_FULL_REFRESH: True,
-        EC.LS_INCREMENTAL: True,
-        EC.LS_APPENDING: False,
+        EC.ES_FULL_REFRESH: True,
+        EC.ES_INCREMENTAL: True,
     }
 
     def __init__(
@@ -44,8 +43,8 @@ class EWAHFXOperator(EWAHBaseOperator):
         super().__init__(*args, **kwargs)
 
     def ewah_execute(self, context):
-        data_from = self.load_data_from or context['dag'].start_date
-        data_until = self.load_data_until or datetime.now()
+        data_from = self.data_from or context['dag'].start_date
+        data_until = self.data_until or datetime.now()
 
         format_str = '%Y-%m-%d'
         currency_str = '{0}{1}=X'.format(*self.currency_pair)

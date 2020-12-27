@@ -13,9 +13,8 @@ class EWAHGoogleAdsOperator(EWAHBaseOperator):
     _NAMES = ['gads', 'google_ads']
 
     _ACCEPTED_LOAD_STRATEGIES = {
-        EC.LS_FULL_REFRESH: False,
-        EC.LS_INCREMENTAL: True,
-        EC.LS_APPENDING: False,
+        EC.ES_FULL_REFRESH: False,
+        EC.ES_INCREMENTAL: True,
     }
 
     _REQUIRED_KEYS = (
@@ -137,8 +136,8 @@ class EWAHGoogleAdsOperator(EWAHBaseOperator):
             ', '.join(self.fields_list),
             self.resource,
             "BETWEEN '{0}' AND '{1}'".format(
-                self.load_data_from.strftime('%Y-%m-%d'),
-                self.load_data_until.strftime('%Y-%m-%d'),
+                self.data_from.strftime('%Y-%m-%d'),
+                self.data_until.strftime('%Y-%m-%d'),
             ),
             ('AND' + ' AND '.join(self.conditions)) if self.conditions else '',
         )

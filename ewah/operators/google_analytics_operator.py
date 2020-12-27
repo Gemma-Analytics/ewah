@@ -20,9 +20,8 @@ class EWAHGAOperator(EWAHBaseOperator):
     _NAMES = ['ga', 'google_analytics']
 
     _ACCEPTED_LOAD_STRATEGIES = {
-        EC.LS_FULL_REFRESH: False,
-        EC.LS_INCREMENTAL: True,
-        EC.LS_APPENDING: False,
+        EC.ES_FULL_REFRESH: False,
+        EC.ES_INCREMENTAL: True,
     }
 
     _API_CORE_V3 = 'core_v3'
@@ -166,8 +165,8 @@ class EWAHGAOperator(EWAHBaseOperator):
         else:
             raise Exception('Not yet implemented!')
 
-        self.since_formatted = self.load_data_from.strftime('%Y-%m-%d')
-        self.until_formatted = self.load_data_until.strftime('%Y-%m-%d')
+        self.since_formatted = self.data_from.strftime('%Y-%m-%d')
+        self.until_formatted = self.data_until.strftime('%Y-%m-%d')
         self.log.info('Loading data from {0} through {1}'.format(
             self.since_formatted,
             self.until_formatted,

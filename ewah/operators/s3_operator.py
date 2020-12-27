@@ -15,9 +15,8 @@ class EWAHS3Operator(EWAHBaseOperator):
     _NAMES = ['s3']
 
     _ACCEPTED_LOAD_STRATEGIES = {
-        EC.LS_FULL_REFRESH: True,
-        EC.LS_INCREMENTAL: True,
-        EC.LS_APPENDING: False,
+        EC.ES_FULL_REFRESH: True,
+        EC.ES_INCREMENTAL: True,
     }
 
     _IMPLEMENTED_FORMATS = [
@@ -131,11 +130,9 @@ class EWAHS3Operator(EWAHBaseOperator):
             for obj_iter in objects:
                 # skip all files outside of loading scope
                 obj = hook.get_key(obj_iter['Key'], self.bucket_name)
-                if self.load_data_from and \
-                    obj.last_modified < self.load_data_from:
+                if self.data_from and (obj.last_modified < self.data_from):
                     continue
-                if self.load_data_until and \
-                    obj.last_modified >= self.load_data_until:
+                if self.data_until and (obj.last_modified >= self.data_until):
                     continue
                 if suffix and not suffix == obj.key[-len(suffix):]:
                     continue

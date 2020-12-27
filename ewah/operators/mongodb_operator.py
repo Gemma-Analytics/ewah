@@ -16,9 +16,8 @@ class EWAHMongoDBOperator(EWAHBaseOperator):
     _NAMES = ['mongo', 'mongodb']
 
     _ACCEPTED_LOAD_STRATEGIES = {
-        EC.LS_FULL_REFRESH: True,
-        EC.LS_INCREMENTAL: True,
-        EC.LS_APPENDING: False,
+        EC.ES_FULL_REFRESH: True,
+        EC.ES_INCREMENTAL: True,
     }
 
     _REQUIRES_COLUMNS_DEFINITION = False
@@ -72,9 +71,9 @@ class EWAHMongoDBOperator(EWAHBaseOperator):
             if kwargs.get('columns_definition'):
                 raise Exception('single_column_mode is not compatible with '\
                     + 'columns_definition!')
-            if not kwargs.get('load_strategy') == EC.LS_FULL_REFRESH:
+            if not kwargs.get('load_strategy') == EC.ES_FULL_REFRESH:
                 raise Exception('single_column_mode is only compatible with ' \
-                    + 'load_strategy = {0}!'.format(EC.LS_FULL_REFRESH))
+                    + 'load_strategy = {0}!'.format(EC.ES_FULL_REFRESH))
             if kwargs.get('update_on_columns'):
                 raise Exception('single_column_mode is not compatible with ' \
                     + 'update_on_columns!')
@@ -139,13 +138,13 @@ class EWAHMongoDBOperator(EWAHBaseOperator):
 
         # data_from and data_until filter expression
         if self.timestamp_field:
-            if self.load_data_from:
+            if self.data_from:
                 base_filters += [{
-                    self.timestamp_field: {'$gte': self.load_data_from}
+                    self.timestamp_field: {'$gte': self.data_from}
                 }]
-            if self.load_data_until:
+            if self.data_until:
                 base_filters += [{
-                    self.timestamp_field: {'$lt': self.load_data_until}
+                    self.timestamp_field: {'$lt': self.data_until}
                 }]
 
         self.log.info('Connecting to MongoDB Database...')

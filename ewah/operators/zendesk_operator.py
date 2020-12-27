@@ -15,14 +15,11 @@ class EWAHZendeskOperator(EWAHBaseOperator):
     _NAMES = ['zendesk']
 
     _ACCEPTED_LOAD_STRATEGIES = {
-        EC.LS_FULL_REFRESH: False,
-        EC.LS_INCREMENTAL: True,
-        EC.LS_APPENDING: False,
+        EC.ES_FULL_REFRESH: False,
+        EC.ES_INCREMENTAL: True,
     }
 
     _base_url = 'https://{support_url}.zendesk.com/{endpoint}'
-    # _base_url = \
-        # 'https://{support_url}.zendesk.com/api/v2/incremental/{resource}.json'
 
     def __init__(self,
         support_url,
@@ -61,7 +58,7 @@ class EWAHZendeskOperator(EWAHBaseOperator):
             kwargs.get('primary_key_column_name', 'id')
 
         if self._accepted_resources[resource].get('drop_and_replace'):
-            kwargs['load_strategy'] = EC.LS_FULL_REFRESH
+            kwargs['load_strategy'] = EC.ES_FULL_REFRESH
 
         # API data is delayed by about 60s according to official docs
         kwargs['wait_for_seconds'] = max(kwargs.get('wait_for_seconds', 0), 70)
@@ -71,12 +68,10 @@ class EWAHZendeskOperator(EWAHBaseOperator):
         self.support_url = support_url
         self.resource = resource
         self.auth_type = auth_type
-        self.data_from = data_from
-        #self.page_limit = page_limit
 
     def ewah_execute(self, context):
-        self.data_from = self.make_unix_datetime(self.load_data_from)
-        self.data_until = self.make_unix_datetime(self.load_data_until)
+        self.z_data_from = self.make_unix_datetime(self.data_from)
+        self.z_data_until = self.make_unix_datetime(self.data_until)
 
         conn = self.source_conn
         if self.auth_type == 'basic_auth':
@@ -113,14 +108,14 @@ class EWAHZendeskOperator(EWAHBaseOperator):
         if self.resource == 'tickets':
             endpoint = 'api/v2/incremental/tickets/cursor.json'
             params = {
-                'start_time': self.data_from,
+                'start_time': self.z_data_from,
                 'include': 'metric_sets',
             }
             response_resource = 'tickets'
         elif self.resource == 'ticket_audits':
             endpoint = 'api/v2/ticket_audits.json'
             params = {
-                'start_time': self.data_from,
+                'start_time': self.z_data_from,
             }
             response_resource = 'audits'
 
@@ -167,7 +162,7 @@ class EWAHZendeskOperator(EWAHBaseOperator):
         })
 
         params = {
-            'start_time': self.data_from,
+            'start_time': self.z_data_from,
         }
 
         # Time-based incremental exports, run the first, the paginate!
@@ -180,7 +175,7 @@ class EWAHZendeskOperator(EWAHBaseOperator):
         while r.status_code == 200 \
             and not data.get('end_of_stream') \
             and data.get('end_time') \
-            and data.get('end_time') <= int(self.data_until):
+            and data.get('end_time') <= int(self.z_data_until):
             self.upload_data(data[self.resource]) # uploads previous request
             self.log.info('Requesting next page of data...')
             r = requests.get(data['next_page'], auth=self.auth) # new request

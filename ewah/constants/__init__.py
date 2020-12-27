@@ -19,13 +19,19 @@ class EWAHConstants:
         DWH_ENGINE_GS,
     ]
 
+    # Available Extract Strategies
+    ES_FULL_REFRESH = 'full-refresh' # load all available data
+    ES_INCREMENTAL = 'incremental' # just load data pertaining to a certain time
+    ES_GET_NEXT = 'get-next' # just load newest data
+
     # Available Load Strategies
-    LS_FULL_REFRESH = 'full-refresh'
-    LS_INCREMENTAL = 'incremental'
+    LS_DROP_AND_REPLACE = 'drop-and-replace'
+    LS_UPDATE = 'update' # update data based on a (composite) primary key
+    LS_APPEND = 'append' # just append data
+
     # EC.LS_FULLCREMENTAL = 'fullcremental'
     # fullcremental is a mix of full refresh and incremental
     # --> not an independent load strategy!
-    LS_APPENDING = 'appending'
 
     # Query Building Constants
     QBC_FIELD_TYPE = 'data_type'

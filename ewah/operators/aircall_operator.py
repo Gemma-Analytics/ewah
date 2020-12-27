@@ -11,9 +11,8 @@ class EWAHAircallOperator(EWAHBaseOperator):
     _NAMES = ['aircall']
 
     _ACCEPTED_LOAD_STRATEGIES = {
-        EC.LS_FULL_REFRESH: True,
-        EC.LS_INCREMENTAL: True,
-        EC.LS_APPENDING: False,
+        EC.ES_FULL_REFRESH: True,
+        EC.ES_INCREMENTAL: True,
     }
 
     _REQUIRES_COLUMNS_DEFINITION = False
@@ -41,7 +40,7 @@ class EWAHAircallOperator(EWAHBaseOperator):
         self.resource = resource
         assert isinstance(wait_between_pages, int) and wait_between_pages >= 0
         self.wait_between_pages = wait_between_pages
-        if self.load_strategy == EC.LS_INCREMENTAL:
+        if self.load_strategy == EC.ES_INCREMENTAL:
             _msg = '"{0}" cannot be loaded incrementally!'.format(resource)
             assert self._RESOURCES[resource].get('incremental'), _msg
 
@@ -73,9 +72,8 @@ class EWAHAircallOperator(EWAHBaseOperator):
         params = {
             'per_page': 50, # maximum page size is 50
         }
-        if self.load_strategy == EC.LS_INCREMENTAL:
-            params.update({
-                'from': int(time.mktime(self.load_data_from.timetuple())),
-                'to': int(time.mktime((self.load_data_until).timetuple())),
-            })
+        if self.data_from:
+            params['from'] = int(time.mktime(self.data_from.timetuple()))
+        if self.data_until:
+            params['to'] = int(time.mktime((self.data_until).timetuple()))
         self._upload_aircall_data(url=url, params=params, auth=auth)
