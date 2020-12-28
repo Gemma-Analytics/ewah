@@ -219,7 +219,7 @@ el_dags:
     operator_config:
       general_config:
         source_conn_id: shopware
-        source_schema_name: shopware
+        source_schema_name: shopware_production
         source_ssh_tunnel_conn_id: ssh_tunnel
         primary_key_column_name: id
         chunking_interval: 100000
