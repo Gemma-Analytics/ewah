@@ -158,13 +158,13 @@ class EWAHSQLBaseOperator(EWAHBaseOperator):
 
         params = {}
         sql_base = self.base_select
-        if self.data_from:
+        if self.data_from and self.timestamp_column:
             sql_base = sql_base.format('{0} >= {1} AND {{0}}'.format(
                 self.timestamp_column,
                 self._SQL_PARAMS.format('data_from'),
             ))
             params['data_from'] = self.data_from
-        if self.data_until:
+        if self.data_until and self.timestamp_column:
             sql_base = sql_base.format('{0} <= {1} AND {{0}}'.format(
                 self.timestamp_column,
                 self._SQL_PARAMS.format('data_until'),
@@ -185,9 +185,9 @@ class EWAHSQLBaseOperator(EWAHBaseOperator):
             )[0]
             if chunking_column == self.timestamp_column:
                 tz = timezone('UTC')
-                if not previous_chunk.tzinfo:
+                if previous_chunk and not previous_chunk.tzinfo:
                     previous_chunk = tz.localize(previous_chunk)
-                if not max_chunk.tzinfo:
+                if max_chunk and not max_chunk.tzinfo:
                     max_chunk = tz.localize(max_chunk)
 
             if previous_chunk is None or max_chunk is None:

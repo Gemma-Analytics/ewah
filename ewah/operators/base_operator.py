@@ -342,15 +342,14 @@ class EWAHBaseOperator(BaseOperator):
             _ned += self.load_data_until_relative or _tdz
             data_until = min(_ned, data_until or _ned)
 
-
         elif self.load_strategy == EC.ES_FULL_REFRESH:
             # Values may still be set as static values
-            data_from = ada(self.reload_data_from or self.load_data_from)
-            data_until = ada(self.load_data_until)
+            data_from = ada(self.reload_data_from) or data_from
 
         else:
             _msg = 'Must define load_data_from etc. behavior for load strategy!'
             raise Exception(_msg)
+
         self.data_from = data_from
         self.data_until = data_until
         # del variables to make sure they are not used later on
@@ -428,25 +427,19 @@ class EWAHBaseOperator(BaseOperator):
         close_ssh_tunnels()
 
     def test_if_target_table_exists(self):
-        hook = self.hook(self.dwh_conn)
-        if self.dwh_engine == EC.DWH_ENGINE_POSTGRES:
-            result = hook.test_if_table_exists(
-                table_name=self.target_table_name,
-                schema_name=self.target_schema_name + self.target_schema_suffix,
-            )
-            hook.close()
-            return result
-        elif self.dwh_engine == EC.DWH_ENGINE_SNOWFLAKE:
-            result = hook.test_if_table_exists(
-                table_name=self.target_table_name,
-                schema_name=self.target_schema_name + self.target_schema_suffix,
-                database_name=self.target_database_name,
-            )
-            hook.close()
-            return result
-        raise Exception('Function not implemented for DWH {0}!'.format(
-            dwh_engine
-        ))
+        # Need to use existing hook to work within open transaction
+        kwargs = {
+            'table_name': self.target_table_name,
+            'schema_name': self.target_schema_name + self.target_schema_suffix,
+        }
+        if self.dwh_engine == EC.DWH_ENGINE_SNOWFLAKE:
+            kwargs['database_name'] = self.target_database_name
+        if self.dwh_engine in [EC.DWH_ENGINE_POSTGRES, EC.DWH_ENGINE_SNOWFLAKE]:
+            return self.upload_hook.test_if_table_exists(**kwargs)
+        # For a new DWH, need to manually check if function works properly
+        # Thus, fail until explicitly added
+        raise Exception('Function not implemented!')
+
 
     def _create_columns_definition(self, data):
         "Create a columns_definition from data (list of dicts)."
