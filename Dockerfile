@@ -1,4 +1,4 @@
-FROM apache/airflow:1.10.13-python3.6 as dev_build
+FROM apache/airflow:v1-10-stable-python3.6 as dev_build
 
 ### --------------------------------------------- run as root => ##
 USER root
@@ -53,6 +53,9 @@ RUN pip install --user --upgrade --no-cache-dir flask-bcrypt
 
 # Force using environment variables to set Fernet Key
 ENV AIRFLOW__CORE__FERNET_KEY='Hello, I am AIRFLOW__CORE__FERNET_KEY and I need to be set in production!'
+
+# Force overwrite of this secret via ENV VAR to ensure it is set uniquely
+ENV AIRFLOW__WEBSERVER__SECRET_KEY=''
 
 # Let entrypoint know to install from bind-mounted volume
 ENV EWAH_IMAGE_TYPE='DEV'
@@ -117,6 +120,8 @@ ENV AIRFLOW__SCHEDULER__CHILD_PROCESS_LOG_DIRECTORY=/opt/airflow/logs/scheduler
 # If that happens, all tasks fail - just use gethostname() from the start instead
 ENV AIRFLOW__CORE__HOSTNAME_CALLABLE="socket:gethostname"
 
+# temporarily install upgrade check for airflow 2.0 migration
+RUN pip install --upgrade apache-airflow-upgrade-check
 
 ###############################################################################
 ## Multi-Stage build: for the publishable EWAH image, install EWAH from pip  ##
