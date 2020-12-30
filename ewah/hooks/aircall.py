@@ -3,13 +3,15 @@ from ewah.hooks.base import EWAHBaseHook
 
 class EWAHAircallHook(EWAHBaseHook):
 
+    _ATTR_RELABEL = {
+        'api_id': 'login',
+        'api_token': 'password',
+    }
+
     conn_name_attr = "aircall_conn_id"
     default_conn_name = "aircall_default"
     conn_type = "ewah_aircall"
     hook_name = "EWAH Aircall Connection"
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
 
     @staticmethod
     def get_ui_field_behaviour():

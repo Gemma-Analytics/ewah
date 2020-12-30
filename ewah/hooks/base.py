@@ -1,48 +1,57 @@
 from airflow.hooks.base import BaseHook
 from airflow.models.connection import Connection
+from airflow.utils.module_loading import import_string
 from airflow.providers_manager import ProvidersManager
 
 
 class EWAHConnection(Connection):
     """Extension of airflow's native Connection."""
 
-    # def get_hook_class(self):
-    #    """Return hook class based on conn_type."""
-    #    hook_class_name, conn_id_param, _, _ = ProvidersManager().hooks.get(
-    #        self.conn_type, (None, None, None, None)
-    #    )
-    #    self.conn_id_param = conn_id_param
-    #    if not hook_class_name:
-    #        raise AirflowException(f'Unknown hook type "{self.conn_type}"')
-    #    try:
-    #        hook_class = import_string(hook_class_name)
-    #    except ImportError:
-    #        warnings.warn("Could not import %s", hook_class_name)
-    #        raise
-    #    return hook_class
-
-    # def get_hook(self):
-    #    return self.get_hook_class()(**{self.conn_id_param: self.conn_id})
-
-    # @classmethod
-    # def get_connection_from_secrets(cls, conn_id, hook_cls=None):
-    #    """Save the calling hook class as provided when called."""
-    #    conn = super().get_connection_from_secrets(conn_id)
-    #    conn.hook_cls = hook_cls or conn.get_hook_class
-    #    return conn
+    @classmethod
+    def get_connection_from_secrets(cls, conn_id):
+        """Save the calling hook class as provided when called."""
+        conn = super().get_connection_from_secrets(conn_id)
+        # conn is returned as airflow.hooks.base.BaseHook, return as cls instead
+        return cls(
+            conn_id=conn.conn_id,
+            conn_type=conn.conn_type,
+            description=conn.description,
+            host=conn.host,
+            login=conn.login,
+            password=conn.password,
+            schema=conn.schema,
+            port=conn.port,
+            extra=conn.extra,
+        )
 
     def __getattr__(self, name):
-        """Enable: use custom widgets like attributes of a connection."""
-        if hasattr(self, "hook_cls"):
+        """Enable: use custom widgets like attributes of a connection.
+
+        E.g. have a field api_key -> get it like conn.api_key!
+        """
+        if not name == "hook_cls": # Otherwise causes an infinite loop
             if hasattr(self.hook_cls, "get_connection_form_widgets"):
+                if name in self.hook_cls._ATTR_RELABEL.keys():
+                    return getattr(self, self.hook_cls._ATTR_RELABEL[name])
                 widgets = self.hook_cls.get_connection_form_widgets()
                 if name in widgets.keys():
                     return self.extra_dejson.get(name)
-        super().__getattr__(name)
+                long_name = "extra__" + self.conn_type + "__" + name
+                if long_name in widgets.keys():
+                    return self.extra_dejson.get(long_name)
+        if hasattr(super(), '__getattr__'):
+            return super().__getattr__(name)
+        raise AttributeError("{0} is not an attribute of {1}!".format(
+            name, self.__class__.__name__,
+        ))
 
 
 class EWAHBaseHook(BaseHook):
     """Extension of airflow's native Base Hook."""
+
+    # Overwrite in child class to relabel attributes
+    # e.g. {"api_key": "password"} to get self.password for self.api_key
+    _ATTR_RELABEL = {}
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -74,16 +83,10 @@ class EWAHBaseHook(BaseHook):
         :return: connection
         """
         conn = EWAHConnection.get_connection_from_secrets(conn_id)
-        if conn.host:
-            log.info(
-                "Using connection to: id: %s. Host: %s, Port: %s, Schema: %s, Login: %s, Password: %s, "
-                "extra: %s",
-                conn.conn_id,
-                conn.host,
-                conn.port,
-                conn.schema,
-                conn.login,
-                "XXXXXXXX" if conn.password else None,
-                "XXXXXXXX" if conn.extra else None,  # No need to de-json here!
-            )
+        hook_class_name, _, _, _ = ProvidersManager().hooks.get(
+            conn.conn_type, (None, None, None, None)
+        )
+        # if just using cls, it would use the wrong class as hook_cld if
+        # method is called directly from EWAHBaseHook!
+        conn.hook_cls = import_string(hook_class_name)
         return conn
