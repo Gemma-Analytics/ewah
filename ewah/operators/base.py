@@ -385,9 +385,9 @@ class EWAHBaseOperator(BaseOperator):
                         str(wait_until),
                     )
                 )
-            while wait_until and datetime.now() < wait_until:
+            while wait_until and datetime.utcnow() < wait_until:
                 # Only sleep a maximum of 5s at a time
-                wait_for_timedelta = datetime.now() - wait_until
+                wait_for_timedelta = datetime.utcnow() - wait_until
                 time.sleep(min(wait_for_timedelta.total_seconds(), 5))
 
         try:

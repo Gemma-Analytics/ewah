@@ -47,10 +47,10 @@ class ExtendedETS(ETS):
         # sure the incremental loading DAGs don't execute too quickly.
         next_execution_date = context["next_execution_date"]  # type: Pendulum
         next_execution_date += timedelta(seconds=self.execution_delay_in_seconds)
-        while datetime.now() < next_execution_date:
+        while datetime.utcnow() < next_execution_date:
             self.log.info(
                 "Waiting until {0} to execute... (now: {1})".format(
-                    str(next_execution_date), str(datetime.now())
+                    str(next_execution_date), str(datetime.utcnow())
                 )
             )
             time.sleep((self.execution_delay_in_seconds or 20) / 20)

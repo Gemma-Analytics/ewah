@@ -149,8 +149,8 @@ class EWAHFBOperator(EWAHBaseOperator):
                         str(self.execution_waittime_seconds),
                     )
                 )
-                now = datetime.now()
-                while datetime.now() < (
+                now = datetime.utcnow()
+                while datetime.utcnow() < (
                     now + timedelta(seconds=self.execution_waittime_seconds)
                 ):
                     time.sleep(1)

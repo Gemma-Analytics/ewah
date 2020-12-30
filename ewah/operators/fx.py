@@ -51,7 +51,7 @@ class EWAHFXOperator(EWAHBaseOperator):
 
     def ewah_execute(self, context):
         data_from = self.data_from or context["dag"].start_date
-        data_until = self.data_until or datetime.now()
+        data_until = self.data_until or datetime.utcnow()
 
         format_str = "%Y-%m-%d"
         currency_str = "{0}{1}=X".format(*self.currency_pair)
