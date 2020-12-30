@@ -88,5 +88,6 @@ class EWAHBaseHook(BaseHook):
         )
         # if just using cls, it would use the wrong class as hook_cld if
         # method is called directly from EWAHBaseHook!
-        conn.hook_cls = import_string(hook_class_name)
+        if hook_class_name:
+            conn.hook_cls = import_string(hook_class_name)
         return conn

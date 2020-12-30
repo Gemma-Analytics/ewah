@@ -63,8 +63,8 @@ class EWAHAircallOperator(EWAHBaseOperator):
 
     def ewah_execute(self, context):
         auth = requests.auth.HTTPBasicAuth(
-            self.source_conn.login,
-            self.source_conn.password,
+            self.source_conn.api_id,
+            self.source_conn.api_token,
         )
         url = self._BASE_URL.format(self.resource)
         params = {
