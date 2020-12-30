@@ -1,4 +1,4 @@
-FROM apache/airflow:v1-10-stable-python3.6 as dev_build
+FROM apache/airflow:2.0.0-python3.8 as dev_build
 
 ### --------------------------------------------- run as root => ##
 USER root
@@ -48,9 +48,6 @@ RUN mkdir -p /home/airflow/.ssh
 # install psycopg2 - optional, but increases iteration speed
 RUN pip install --user --upgrade --no-cache-dir psycopg2
 
-# install flask-bcrypt to enable use of the backend
-RUN pip install --user --upgrade --no-cache-dir flask-bcrypt
-
 # Force using environment variables to set Fernet Key
 ENV AIRFLOW__CORE__FERNET_KEY='Hello, I am AIRFLOW__CORE__FERNET_KEY and I need to be set in production!'
 
@@ -68,9 +65,11 @@ ENV EWAH_AIRFLOW_CONNS_YAML_PATH='You can set me as a path to a non-standard air
 # Create a superuser for the airflow backend - overwrite as applicable
 ENV AIRFLOW__WEBSERVER__AUTHENTICATE=True
 ENV AIRFLOW__WEBSERVER__AUTH_BACKEND='airflow.contrib.auth.backends.password_auth'
-ENV EWAH_AIRFLOW_USER_SET=True
+ENV EWAH_AIRFLOW_USER_SET='1'
 ENV EWAH_AIRFLOW_USER_USER='ewah'
 ENV EWAH_AIRFLOW_USER_PASSWORD='ewah'
+ENV EWAH_AIRFLOW_USER_FIRSTNAME='ewah'
+ENV EWAH_AIRFLOW_USER_LASTNAME='ewah'
 ENV EWAH_AIRFLOW_USER_EMAIL='ewah@gemmaanalytics.com'
 
 ################################################################################
@@ -95,11 +94,11 @@ ENV AIRFLOW__SMTP__SMTP_PORT=587
 # ENV AIRFLOW__SMTP__SMTP_MAILFROM=
 
 # Logging
-ENV AIRFLOW__CORE__REMOTE_LOGGING=False
-# ENV AIRFLOW__CORE__REMOTE_LOG_CONN_ID=
-# ENV AIRFLOW__CORE__REMOTE_BASE_LOG_FOLDER=
-# ENV AIRFLOW__CORE__ENCRYPT_S3_LOGS=
-# ENV AIRFLOW__CORE__LOGGING_LEVEL = INFO
+ENV AIRFLOW__LOGGING__REMOTE_LOGGING=False
+# ENV AIRFLOW__LOGGING__REMOTE_LOG_CONN_ID=
+# ENV AIRFLOW__LOGGING__REMOTE_BASE_LOG_FOLDER=
+# ENV AIRFLOW__LOGGING__ENCRYPT_S3_LOGS=
+# ENV AIRFLOW__LOGGING__LOGGING_LEVEL = INFO
 
 # Other useful configurations
 ENV AIRFLOW__CORE__LOAD_EXAMPLES=False
@@ -108,20 +107,18 @@ ENV AIRFLOW__API__AUTH_BACKEND=airflow.api.auth.backend.deny_all
 ENV AIRFLOW__WEBSERVER__EXPOSE_CONFIG=False
 ENV AIRFLOW__WEBSERVER__RBAC=False
 ENV AIRFLOW__CORE__SECURE_MODE=True
+ENV AIRFLOW__CORE__DAGBAG_IMPORT_TIMEOUT=120
 
 # Related to $AIRFLOW_HOME
 ENV AIRFLOW__CORE__DAGS_FOLDER=/opt/airflow/dags
-ENV AIRFLOW__CORE__BASE_LOG_FOLDER=/opt/airflow/logs
+ENV AIRFLOW__LOGGING__BASE_LOG_FOLDER=/opt/airflow/logs
 ENV AIRFLOW__CORE__PLUGINS_FOLDER=/opt/airflow/plugins
-ENV AIRFLOW__CORE__DAG_PROCESSOR_MANAGER_LOG_LOCATION=/opt/airflow/logs/dag_processor_manager/dag_processor_manager.log
+ENV AIRFLOW__LOGGING__DAG_PROCESSOR_MANAGER_LOG_LOCATION=/opt/airflow/logs/dag_processor_manager/dag_processor_manager.log
 ENV AIRFLOW__SCHEDULER__CHILD_PROCESS_LOG_DIRECTORY=/opt/airflow/logs/scheduler
 
 # Default value socket.getfqdn sometimes cannot resolve hostname and falls back to gethostname()
 # If that happens, all tasks fail - just use gethostname() from the start instead
-ENV AIRFLOW__CORE__HOSTNAME_CALLABLE="socket:gethostname"
-
-# temporarily install upgrade check for airflow 2.0 migration
-RUN pip install --upgrade apache-airflow-upgrade-check
+ENV AIRFLOW__CORE__HOSTNAME_CALLABLE="socket.gethostname"
 
 ###############################################################################
 ## Multi-Stage build: for the publishable EWAH image, install EWAH from pip  ##

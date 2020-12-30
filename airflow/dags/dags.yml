@@ -94,7 +94,7 @@ el_dags:
     operator_config:
       general_config:
         frequency: daily
-        data_from: 2016-12-01 00:00:00+00:00
+        # data_from: 2016-12-01 00:00:00+00:00 tbd airflow 2.0 issue
       tables:
         daily_fx_rates_usd_eur:
           currency_pair: ['USD', 'EUR']
@@ -113,9 +113,9 @@ el_dags:
         daily_fx_rates_usd_myr:
           currency_pair: ['USD', 'MYR']
 
-  EL_GAds: !yml_from_file secret_dag_gads.yml
+  EL_GAds: !yml_from_file secret_dag_gads.yml # has an airflow 2.0 issue
 
-  EL_GA: !yml_from_file secret_dag_google_analytics.yml
+  EL_GA: !yml_from_file secret_dag_google_analytics.yml # has an airflow 2.0 issue
 
   # EL_GMaps: tbd
 

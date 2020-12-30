@@ -1,8 +1,6 @@
 from airflow import settings
-from airflow import models
 from airflow.models import Connection
 from airflow.configuration import conf
-from airflow.contrib.auth.backends.password_auth import PasswordUser
 
 from ewah.ewah_utils.yml_loader import Loader, Dumper
 
@@ -88,27 +86,3 @@ for filepath in search_filepaths:
     else:
         print('Not a valid filepath: {0}'.format(filepath))
 print('\n\n')
-
-
-# if applicable, set a default user for the airflow UI
-if env.get('EWAH_AIRFLOW_USER_SET'):
-    username = env.get('EWAH_AIRFLOW_USER_USER', 'ewah')
-    password = env.get('EWAH_AIRFLOW_USER_PASSWORD', 'ewah')
-    email = env.get('EWAH_AIRFLOW_USER_EMAIL', 'ewah@ewah.com')
-
-    print('\n\n')
-    try:
-        user = PasswordUser(models.User())
-        user.username = username
-        user.email = email
-        user.password = password
-        user.superuser = True
-        session = settings.Session()
-        session.add(user)
-        session.commit()
-        session.close()
-        exit()
-        print('Added Admin user {0}!'.format(username))
-    except sqlalchemy.exc.IntegrityError:
-        print('User {0} already exists!'.format(username))
-    print('\n\n')

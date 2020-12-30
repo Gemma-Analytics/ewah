@@ -14,6 +14,8 @@ connections:
     login: postgres
     password: postgres
   - id: hubspot # Official demo API key
+    type: postgres # type everything as postgres until properly typed
     password: demo
   - id: stripe # Official demo API key
+    type: postgres # type everything as postgres until properly typed
     password: sk_test_4eC39HqLyjWDarjtT1zdp7dc
