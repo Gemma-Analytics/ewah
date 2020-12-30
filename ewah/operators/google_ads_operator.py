@@ -3,7 +3,7 @@ from ewah.ewah_utils.python_utils import is_iterable_not_string
 from ewah.constants import EWAHConstants as EC
 
 from google.ads.google_ads.client import GoogleAdsClient
-from airflow.hooks.base_hook import BaseHook
+from ewah.hooks.base import EWAHBaseHook as BaseHook
 
 from datetime import datetime, timedelta
 from copy import deepcopy

@@ -7,7 +7,7 @@ from ewah.operators.base_operator import EWAHBaseOperator
 #   https://stackoverflow.com/questions/6246458/import-all-classes-in-directory
 relevant_files = [
     f[:-3] for f in os.listdir(os.path.dirname(os.path.abspath(__file__)))
-    if f.endswith('.py') and not f in ['base_operator.py', '__init__.py']
+    if f.endswith('.py') and not f in ['__init__.py']
 ]
 
 operator_list = {}

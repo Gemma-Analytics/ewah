@@ -1,8 +1,8 @@
 from airflow.models import BaseOperator
-from airflow.hooks.base_hook import BaseHook
 from airflow.utils.decorators import apply_defaults
 
 from ewah.dwhooks import get_dwhook
+from ewah.hooks.base import EWAHBaseHook
 from ewah.constants import EWAHConstants as EC
 from ewah.ewah_utils.ssh_tunnel import start_ssh_tunnel
 from ewah.ewah_utils.airflow_utils import airflow_datetime_adjustments as ada
@@ -158,7 +158,7 @@ class EWAHBaseOperator(BaseOperator):
 
         if dwh_engine == EC.DWH_ENGINE_SNOWFLAKE:
             if not target_database_name:
-                conn_db_name = BaseHook.get_connection(dwh_conn_id)
+                conn_db_name = EWAHBaseHook.get_connection(dwh_conn_id)
                 conn_db_name = conn_db_name.extra_dejson.get('database')
                 if conn_db_name:
                     target_database_name = conn_db_name
@@ -290,7 +290,7 @@ class EWAHBaseOperator(BaseOperator):
                 remote_conn_id=self.dwh_conn_id,
             )
         else:
-            self.dwh_conn = BaseHook.get_connection(self.dwh_conn_id)
+            self.dwh_conn = EWAHBaseHook.get_connection(self.dwh_conn_id)
         self.upload_hook = self.hook(self.dwh_conn)
 
         # open SSH tunnel for the data source connection, if applicable
@@ -302,7 +302,7 @@ class EWAHBaseOperator(BaseOperator):
             )
         elif self.source_conn_id:
             # resolve conn id here & delete the object to avoid usage elsewhere
-            self.source_conn = BaseHook.get_connection(self.source_conn_id)
+            self.source_conn = EWAHBaseHook.get_connection(self.source_conn_id)
         del self.source_conn_id
 
         temp_schema_name = self.target_schema_name+self.target_schema_suffix

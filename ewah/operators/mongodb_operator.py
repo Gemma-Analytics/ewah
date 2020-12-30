@@ -1,7 +1,7 @@
 from ewah.constants import EWAHConstants as EC
 from ewah.operators.base_operator import EWAHBaseOperator
 
-from airflow.hooks.base_hook import BaseHook
+from ewah.hooks.base import EWAHBaseHook as BaseHook
 from airflow.utils.file import TemporaryDirectory
 
 import os

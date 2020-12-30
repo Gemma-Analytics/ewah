@@ -1,7 +1,7 @@
 from ewah.operators.sql_base_operator import EWAHSQLBaseOperator
 from ewah.constants import EWAHConstants as EC
 
-from airflow.hooks.base_hook import BaseHook
+from ewah.hooks.base import EWAHBaseHook as BaseHook
 
 from google.cloud import bigquery
 from tempfile import NamedTemporaryFile

@@ -1,7 +1,7 @@
 from ewah.operators.base_operator import EWAHBaseOperator
 from ewah.constants import EWAHConstants as EC
 
-from airflow.hooks.base_hook import BaseHook
+from ewah.hooks.base import EWAHBaseHook as BaseHook
 
 from sshtunnel import SSHTunnelForwarder
 from tempfile import NamedTemporaryFile
