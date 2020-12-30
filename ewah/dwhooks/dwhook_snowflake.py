@@ -3,7 +3,7 @@ from ewah.constants import EWAHConstants as EC
 
 import os
 import csv
-import snowflake.connector
+# import snowflake.connector
 from tempfile import NamedTemporaryFile
 from airflow.utils.file import TemporaryDirectory
 from airflow.models import BaseOperator
@@ -84,7 +84,8 @@ class EWAHDWHookSnowflake(EWAHBaseDWHook):
         if database or self.database:
             extra['database'] = database or self.database
 
-        return snowflake.connector.connect(**extra)
+        assert False # tbd
+        # return snowflake.connector.connect(**extra)
 
     def _create_or_update_table(
         self,
