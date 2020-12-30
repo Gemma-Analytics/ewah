@@ -1,5 +1,5 @@
 from airflow import DAG
-from airflow.hooks.base_hook import BaseHook
+from ewah.hooks.base import EWAHBaseHook as BaseHook
 from airflow.sensors.external_task_sensor import ExternalTaskSensor as ETS
 
 from ewah.ewah_utils.airflow_utils import PGO

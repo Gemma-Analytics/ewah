@@ -1,7 +1,7 @@
 # from airflow.operators.postgres_operator import PostgresOperator as PGO
 from airflow.operators.python_operator import PythonOperator as PO
 from airflow.operators.dummy_operator import DummyOperator as DO
-from airflow.hooks.base_hook import BaseHook
+from ewah.hooks.base import EWAHBaseHook as BaseHook
 from airflow.models import BaseOperator
 
 from ewah.ewah_utils.ssh_tunnel import start_ssh_tunnel

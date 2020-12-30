@@ -1,4 +1,4 @@
-from airflow.hooks.base_hook import BaseHook
+from ewah.hooks.base import EWAHBaseHook as BaseHook
 
 from ewah.constants import EWAHConstants as EC
 

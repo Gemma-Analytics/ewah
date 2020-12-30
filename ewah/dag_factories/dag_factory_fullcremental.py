@@ -11,7 +11,7 @@ also captured.
 """
 
 from airflow import DAG
-from airflow.hooks.base_hook import BaseHook
+from ewah.hooks.base import EWAHBaseHook as BaseHook
 from airflow.sensors.sql_sensor import SqlSensor
 
 from ewah.ewah_utils.airflow_utils import etl_schema_tasks

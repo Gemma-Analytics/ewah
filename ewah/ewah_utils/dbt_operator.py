@@ -1,5 +1,5 @@
 from airflow.models import BaseOperator
-from airflow.hooks.base_hook import BaseHook
+from ewah.hooks.base import EWAHBaseHook as BaseHook
 from airflow.utils.file import TemporaryDirectory
 
 from ewah.constants import EWAHConstants as EC
