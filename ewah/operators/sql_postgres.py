@@ -1,4 +1,4 @@
-from ewah.operators.sql_base_operator import EWAHSQLBaseOperator
+from ewah.operators.sql_base import EWAHSQLBaseOperator
 # Use EWAHDWHookPostgres as hook since it's already there - not necessarily SOP!
 from ewah.dwhooks.dwhook_postgres import EWAHDWHookPostgres
 

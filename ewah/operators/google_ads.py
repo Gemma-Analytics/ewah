@@ -1,4 +1,4 @@
-from ewah.operators.base_operator import EWAHBaseOperator
+from ewah.operators.base import EWAHBaseOperator
 from ewah.ewah_utils.python_utils import is_iterable_not_string
 from ewah.constants import EWAHConstants as EC
 

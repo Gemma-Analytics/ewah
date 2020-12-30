@@ -2,7 +2,7 @@ from datetime import datetime
 from yahoofinancials import YahooFinancials
 
 from ewah.constants import EWAHConstants as EC
-from ewah.operators.base_operator import EWAHBaseOperator
+from ewah.operators.base import EWAHBaseOperator
 
 class EWAHFXOperator(EWAHBaseOperator):
 

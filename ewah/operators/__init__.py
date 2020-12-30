@@ -1,5 +1,5 @@
 import os, sys
-from ewah.operators.base_operator import EWAHBaseOperator
+from ewah.operators.base import EWAHBaseOperator
 
 # import all operators by walking through all files in this directory and
 # importing all objects that are subclasses of EWAHBaseOperator

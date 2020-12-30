@@ -1,4 +1,4 @@
-from ewah.operators.base_operator import EWAHBaseOperator
+from ewah.operators.base import EWAHBaseOperator
 from ewah.constants import EWAHConstants as EC
 
 from datetime import timedelta

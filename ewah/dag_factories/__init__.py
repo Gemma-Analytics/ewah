@@ -1,6 +1,6 @@
 from ewah.constants import EWAHConstants as EC
 from ewah.operators import operator_list as operators
-from ewah.operators.base_operator import EWAHBaseOperator as EBO
+from ewah.operators.base import EWAHBaseOperator as EBO
 
 from .dag_factory_full_refresh import dag_factory_drop_and_replace
 from .dag_factory_fullcremental import dag_factory_fullcremental

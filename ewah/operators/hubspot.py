@@ -1,4 +1,4 @@
-from ewah.operators.base_operator import EWAHBaseOperator
+from ewah.operators.base import EWAHBaseOperator
 from ewah.constants import EWAHConstants as EC
 
 from ewah.hooks.base import EWAHBaseHook as BaseHook
