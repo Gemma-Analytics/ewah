@@ -2,10 +2,11 @@ from airflow.hooks.base import BaseHook
 from airflow.models.connection import Connection
 from airflow.providers_manager import ProvidersManager
 
+
 class EWAHConnection(Connection):
     """Extension of airflow's native Connection."""
 
-    #def get_hook_class(self):
+    # def get_hook_class(self):
     #    """Return hook class based on conn_type."""
     #    hook_class_name, conn_id_param, _, _ = ProvidersManager().hooks.get(
     #        self.conn_type, (None, None, None, None)
@@ -20,11 +21,11 @@ class EWAHConnection(Connection):
     #        raise
     #    return hook_class
 
-    #def get_hook(self):
+    # def get_hook(self):
     #    return self.get_hook_class()(**{self.conn_id_param: self.conn_id})
 
-    #@classmethod
-    #def get_connection_from_secrets(cls, conn_id, hook_cls=None):
+    # @classmethod
+    # def get_connection_from_secrets(cls, conn_id, hook_cls=None):
     #    """Save the calling hook class as provided when called."""
     #    conn = super().get_connection_from_secrets(conn_id)
     #    conn.hook_cls = hook_cls or conn.get_hook_class
@@ -32,22 +33,22 @@ class EWAHConnection(Connection):
 
     def __getattr__(self, name):
         """Enable: use custom widgets like attributes of a connection."""
-        if hasattr(self, 'hook_cls'):
-            if hasattr(self.hook_cls, 'get_connection_form_widgets'):
+        if hasattr(self, "hook_cls"):
+            if hasattr(self.hook_cls, "get_connection_form_widgets"):
                 widgets = self.hook_cls.get_connection_form_widgets()
                 if name in widgets.keys():
                     return self.extra_dejson.get(name)
         super().__getattr__(name)
 
+
 class EWAHBaseHook(BaseHook):
-    """Extension of airflow's native Base Hook.
-    """
+    """Extension of airflow's native Base Hook."""
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-    #@classmethod
-    #def get_hook_from_connection_id(cls, conn_id, conn_type=None):
+    # @classmethod
+    # def get_hook_from_connection_id(cls, conn_id, conn_type=None):
     #    # Initialize the correct hook suiting the connection type
     #    if not conn_type:
     #        raise Exception('Not implemented!')
@@ -83,6 +84,6 @@ class EWAHBaseHook(BaseHook):
                 conn.schema,
                 conn.login,
                 "XXXXXXXX" if conn.password else None,
-                "XXXXXXXX" if conn.extra else None, # No need to de-json here!
+                "XXXXXXXX" if conn.extra else None,  # No need to de-json here!
             )
         return conn

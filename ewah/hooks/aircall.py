@@ -1,11 +1,12 @@
 from ewah.hooks.base import EWAHBaseHook
 
+
 class EWAHAircallHook(EWAHBaseHook):
 
-    conn_name_attr = 'aircall_conn_id'
-    default_conn_name = 'aircall_default'
-    conn_type = 'ewah_aircall'
-    hook_name = 'EWAH Aircall Connection'
+    conn_name_attr = "aircall_conn_id"
+    default_conn_name = "aircall_default"
+    conn_type = "ewah_aircall"
+    hook_name = "EWAH Aircall Connection"
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -13,10 +14,10 @@ class EWAHAircallHook(EWAHBaseHook):
     @staticmethod
     def get_ui_field_behaviour():
         return {
-            "hidden_fields": ['port', 'schema', 'extra', 'host'],
+            "hidden_fields": ["port", "schema", "extra", "host"],
             "relabeling": {
-                'login': 'Basic Auth API ID',
-                'password': 'Baisc Auth API Token',
+                "login": "Basic Auth API ID",
+                "password": "Baisc Auth API Token",
             },
         }
 
@@ -28,7 +29,7 @@ class EWAHAircallHook(EWAHBaseHook):
 
         return {
             "extra__ewah_aircall__random_text_field": StringField(
-                'Delete me before commit!',
+                "Delete me before commit!",
                 widget=BS3TextFieldWidget(),
             ),
         }

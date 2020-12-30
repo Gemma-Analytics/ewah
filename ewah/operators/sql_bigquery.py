@@ -9,27 +9,27 @@ from datetime import timedelta
 
 import os
 
+
 class EWAHBigQueryOperator(EWAHSQLBaseOperator):
 
-    _NAMES = ['bq', 'biqguery']
+    _NAMES = ["bq", "biqguery"]
 
-    _SQL_BASE = '''
+    _SQL_BASE = """
         SELECT
             {columns}
         FROM `{database}`.`{schema}`.`{table}`
         WHERE {where_clause}
-    '''
-    _SQL_BASE_SELECT = \
-        'SELECT * FROM ({select_sql}) t WHERE {{0}}'
-    _SQL_COLUMN_QUOTE = '`'
-    _SQL_MINMAX_CHUNKS = '''
+    """
+    _SQL_BASE_SELECT = "SELECT * FROM ({select_sql}) t WHERE {{0}}"
+    _SQL_COLUMN_QUOTE = "`"
+    _SQL_MINMAX_CHUNKS = """
         SELECT MIN({column}), MAX({column}) FROM ({base}) t
-    '''
-    _SQL_CHUNKING_CLAUSE = '''
+    """
+    _SQL_CHUNKING_CLAUSE = """
         AND {column} >= @from_value
         AND {column} <{equal_sign} @until_value
-    '''
-    _SQL_PARAMS = '@{0}'
+    """
+    _SQL_PARAMS = "@{0}"
 
     def __init__(self, *args, is_sharded=False, **kwargs):
 
@@ -38,22 +38,21 @@ class EWAHBigQueryOperator(EWAHSQLBaseOperator):
         # To be refactored in the future!
         if is_sharded:
             assert False, "Sharding Feature not yet implemented!"
-            if kwargs.get('load_strategy') == EC.ES_FULL_REFRESH:
+            if kwargs.get("load_strategy") == EC.ES_FULL_REFRESH:
                 self.is_sharded = False
-                kwargs['source_table_name'] += '*' # get all at full refresh!
+                kwargs["source_table_name"] += "*"  # get all at full refresh!
             else:
                 # These kwargs are not saved by default but are needed
                 # if getting data from a sharded table
                 self.is_sharded = True
-                self.bq_table_name = kwargs['source_table_name']
-                self.bq_schema_name = kwargs['source_schema_name']
-                self.bq_dataset_name = kwargs['source_database_name']
+                self.bq_table_name = kwargs["source_table_name"]
+                self.bq_schema_name = kwargs["source_schema_name"]
+                self.bq_dataset_name = kwargs["source_database_name"]
         else:
             self.is_sharded = False
 
-
         _msg = "Must supply source_database_name (=dataset name)!"
-        assert kwargs.get('source_database_name'), _msg
+        assert kwargs.get("source_database_name"), _msg
         super().__init__(*args, **kwargs)
 
     def _get_data_from_sql(self, sql, params=None, return_dict=True):
@@ -76,10 +75,12 @@ class EWAHBigQueryOperator(EWAHSQLBaseOperator):
             job_config = None
 
         # create temp file with creds
-        self.log.info('Executing:\n{0}\n\nWith params:\n{1}'.format(
-            sql,
-            str(params),
-        ))
+        self.log.info(
+            "Executing:\n{0}\n\nWith params:\n{1}".format(
+                sql,
+                str(params),
+            )
+        )
         with NamedTemporaryFile() as cred_json:
             cred_filename = os.path.abspath(cred_json.name)
             cred_json.seek(0)
@@ -108,15 +109,17 @@ class EWAHBigQueryOperator(EWAHSQLBaseOperator):
         date_from = self.load_data_from.date()
         date_until = self.load_data_until.date()
         while date_from <= date_until:
-            self.upload_data(data=self._get_data_from_sql(
-                sql=self._SQL_BASE.format(
-                    columns='*',
-                    database=self.bq_dataset_name,
-                    schema=self.bq_schema_name,
-                    table=self.bq_table_name + date_from.strftime('%Y%m%d'),
-                    where_clause='1=1',
-                ),
-                return_dict=True,
-            ))
+            self.upload_data(
+                data=self._get_data_from_sql(
+                    sql=self._SQL_BASE.format(
+                        columns="*",
+                        database=self.bq_dataset_name,
+                        schema=self.bq_schema_name,
+                        table=self.bq_table_name + date_from.strftime("%Y%m%d"),
+                        where_clause="1=1",
+                    ),
+                    return_dict=True,
+                )
+            )
 
             date_from += timedelta(days=1)

@@ -1,5 +1,6 @@
 from wtforms import widgets
 
+
 class EWAHTextAreaWidget(widgets.TextArea):
     """Make a variable-depth Text Area widget."""
 

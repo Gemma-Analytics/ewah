@@ -9,10 +9,11 @@ import json
 import csv
 import gzip
 
+
 class EWAHS3Operator(EWAHBaseOperator):
     """Only implemented for JSON and CSV files from S3 right now!"""
 
-    _NAMES = ['s3']
+    _NAMES = ["s3"]
 
     _ACCEPTED_LOAD_STRATEGIES = {
         EC.ES_FULL_REFRESH: True,
@@ -20,39 +21,46 @@ class EWAHS3Operator(EWAHBaseOperator):
     }
 
     _IMPLEMENTED_FORMATS = [
-        'JSON',
-        'AWS_FIREHOSE_JSON',
-        'CSV',
+        "JSON",
+        "AWS_FIREHOSE_JSON",
+        "CSV",
     ]
 
-    _BOM = b'\xef\xbb\xbf'
+    _BOM = b"\xef\xbb\xbf"
 
-    def __init__(self,
+    def __init__(
+        self,
         bucket_name,
         file_format,
-        prefix='', # use for subfolder structures
-        suffix=None, # use e.g. for file types
-        key_name=None, # if not specified, uses data_from and data_until
+        prefix="",  # use for subfolder structures
+        suffix=None,  # use e.g. for file types
+        key_name=None,  # if not specified, uses data_from and data_until
         csv_format_options={},
-        csv_encoding='utf-8',
+        csv_encoding="utf-8",
         decompress=False,
-    *args, **kwargs):
+        *args,
+        **kwargs
+    ):
         super().__init__(*args, **kwargs)
 
         if not file_format in self._IMPLEMENTED_FORMATS:
-            raise Exception('File format not implemented! Available formats:' \
-                + ' {0}'.format(str(self._IMPLEMENTED_FORMATS)))
+            raise Exception(
+                "File format not implemented! Available formats:"
+                + " {0}".format(str(self._IMPLEMENTED_FORMATS))
+            )
 
         if key_name:
             if self.load_data_from or self.load_data_until:
-                raise Exception('Both key_name and either data_from or data_' \
-                    + 'until specified! Cannot have both specified.')
+                raise Exception(
+                    "Both key_name and either data_from or data_"
+                    + "until specified! Cannot have both specified."
+                )
 
-        if not file_format == 'CSV' and csv_format_options:
-            raise Exception('csv_format_options is only valid for CSV files!')
+        if not file_format == "CSV" and csv_format_options:
+            raise Exception("csv_format_options is only valid for CSV files!")
 
-        if decompress and not file_format == 'CSV':
-            raise exception('Can currently only decompress CSVs!')
+        if decompress and not file_format == "CSV":
+            raise exception("Can currently only decompress CSVs!")
 
         self.bucket_name = bucket_name
         self.prefix = prefix
@@ -64,52 +72,52 @@ class EWAHS3Operator(EWAHBaseOperator):
         self.decompress = decompress
 
     def _iterate_through_bucket(self, s3hook, bucket, prefix):
-        """ The bucket.objects.filter() method only returns a max of 1000
-            objects. If more objects are in an S3 bucket, pagniation is
-            required. See also: https://stackoverflow.com/questions/44238525/how-to-iterate-over-files-in-an-s3-bucket
+        """The bucket.objects.filter() method only returns a max of 1000
+        objects. If more objects are in an S3 bucket, pagniation is
+        required. See also: https://stackoverflow.com/questions/44238525/how-to-iterate-over-files-in-an-s3-bucket
         """
-        cli = s3hook.get_client_type('s3')
-        paginator = cli.get_paginator('list_objects_v2')
+        cli = s3hook.get_client_type("s3")
+        paginator = cli.get_paginator("list_objects_v2")
         page_iterator = paginator.paginate(Bucket=bucket, Prefix=prefix)
 
         for page in page_iterator:
-            if page['KeyCount'] > 0:
-                for item in page['Contents']:
+            if page["KeyCount"] > 0:
+                for item in page["Contents"]:
                     yield item
 
     def ewah_execute(self, context):
-        if self.file_format == 'JSON':
+        if self.file_format == "JSON":
             return self.execute_json(
                 context=context,
                 f_get_data=lambda hook, key, bucket: json.loads(
                     hook.read_key(key, bucket)
                 ),
             )
-        elif self.file_format == 'AWS_FIREHOSE_JSON':
+        elif self.file_format == "AWS_FIREHOSE_JSON":
             return self.execute_json(
                 context=context,
                 f_get_data=lambda hook, key, bucket: json.loads(
-                    '['+hook.read_key(key, bucket).replace('}{', '},{')+']'
+                    "[" + hook.read_key(key, bucket).replace("}{", "},{") + "]"
                 ),
             )
-        elif self.file_format == 'CSV':
+        elif self.file_format == "CSV":
             return self.execute_csv(
                 context=context,
             )
         else:
-            raise Exception('File format not implemented!')
+            raise Exception("File format not implemented!")
 
     def execute_csv(self, context):
         hook = S3Hook(self.source_conn.conn_id)
         suffix = self.suffix
         if self.key_name:
             obj = hook.get_key(self.key_name, self.bucket_name)
-            raw_data = obj.get()['Body'].read()
+            raw_data = obj.get()["Body"].read()
             if self.decompress:
                 raw_data = gzip.decompress(raw_data)
             if raw_data[:3] == self._BOM:
                 raw_data = raw_data[3:]
-                csv_encoding = 'utf-8'
+                csv_encoding = "utf-8"
             else:
                 csv_encoding = self.csv_encoding
             try:
@@ -129,23 +137,23 @@ class EWAHS3Operator(EWAHBaseOperator):
             )
             for obj_iter in objects:
                 # skip all files outside of loading scope
-                obj = hook.get_key(obj_iter['Key'], self.bucket_name)
+                obj = hook.get_key(obj_iter["Key"], self.bucket_name)
                 if self.data_from and (obj.last_modified < self.data_from):
                     continue
                 if self.data_until and (obj.last_modified >= self.data_until):
                     continue
-                if suffix and not suffix == obj.key[-len(suffix):]:
+                if suffix and not suffix == obj.key[-len(suffix) :]:
                     continue
 
-                self.log.info('Loading data from file {0}'.format(obj.key))
-                raw_data = obj.get()['Body'].read()
+                self.log.info("Loading data from file {0}".format(obj.key))
+                raw_data = obj.get()["Body"].read()
                 if self.decompress:
                     raw_data = gzip.decompress(raw_data)
                 # remove BOM if it exists
                 # also, if file has a BOM, it is 99.9% utf-8 encoded!
                 if raw_data[:3] == self._BOM:
                     raw_data = raw_data[3:]
-                    csv_encoding = 'utf-8'
+                    csv_encoding = "utf-8"
                 else:
                     csv_encoding = self.csv_encoding
                 # there may be a BOM while still not utf-8 -> use the
@@ -158,11 +166,13 @@ class EWAHS3Operator(EWAHBaseOperator):
                     raw_data = raw_data.decode(self.csv_encoding).splitlines()
                 reader = csv.DictReader(raw_data, **self.csv_format_options)
                 data = list(reader)
-                self._metadata.update({
-                    'bucket_name': self.bucket_name,
-                    'file_name': obj.key,
-                    'file_last_modified': str(obj.last_modified),
-                })
+                self._metadata.update(
+                    {
+                        "bucket_name": self.bucket_name,
+                        "file_name": obj.key,
+                        "file_last_modified": str(obj.last_modified),
+                    }
+                )
                 self.upload_data(data=data)
 
     def execute_json(self, context, f_get_data):
@@ -184,24 +194,26 @@ class EWAHS3Operator(EWAHBaseOperator):
                 prefix=self.prefix,
             )
             for obj_iter in objects:
-                obj = hook.get_key(obj_iter['Key'], self.bucket_name)
-                if self.load_data_from and \
-                    obj.last_modified < self.load_data_from:
+                obj = hook.get_key(obj_iter["Key"], self.bucket_name)
+                if self.load_data_from and obj.last_modified < self.load_data_from:
                     continue
-                if self.load_data_until and \
-                    obj.last_modified >= self.load_data_until:
+                if self.load_data_until and obj.last_modified >= self.load_data_until:
                     continue
-                if suffix and not suffix == obj.key[-len(suffix):]:
+                if suffix and not suffix == obj.key[-len(suffix) :]:
                     continue
 
-                self.log.info('Loading data from file {0}'.format(
-                    obj.key,
-                ))
-                self._metadata.update({
-                    'bucket_name': self.bucket_name,
-                    'file_name': obj.key,
-                    'file_last_modified': str(obj.last_modified),
-                })
+                self.log.info(
+                    "Loading data from file {0}".format(
+                        obj.key,
+                    )
+                )
+                self._metadata.update(
+                    {
+                        "bucket_name": self.bucket_name,
+                        "file_name": obj.key,
+                        "file_last_modified": str(obj.last_modified),
+                    }
+                )
                 data = f_get_data(
                     hook=hook,
                     key=obj.key,

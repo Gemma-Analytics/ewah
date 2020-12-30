@@ -12,6 +12,7 @@ from psycopg2.extras import RealDictCursor
 from bson.json_util import dumps
 from decimal import Decimal
 
+
 class EWAHJSONEncoder(json.JSONEncoder):
     def default(self, obj):
         if isinstance(obj, bson.objectid.ObjectId):
@@ -21,10 +22,11 @@ class EWAHJSONEncoder(json.JSONEncoder):
             return float(obj)
         # Let the base class default method raise the TypeError
         return super().default(obj)
+
     def iterencode(self, o, _one_shot=False):
         """Overwrite the iterencode method because this is where the float
-            special cases are handled in the floatstr() function. Copy-pasted
-            original code and then adapted it to change floatstr() behavior.
+        special cases are handled in the floatstr() function. Copy-pasted
+        original code and then adapted it to change floatstr() behavior.
         """
         if self.check_circular:
             markers = {}
@@ -34,8 +36,14 @@ class EWAHJSONEncoder(json.JSONEncoder):
             _encoder = json.encoder.encode_basestring_ascii
         else:
             _encoder = json.encoder.encode_basestring
-        def floatstr(o, allow_nan=self.allow_nan,
-                _repr=float.__repr__, _inf=float('inf'), _neginf=-float('inf')):
+
+        def floatstr(
+            o,
+            allow_nan=self.allow_nan,
+            _repr=float.__repr__,
+            _inf=float("inf"),
+            _neginf=-float("inf"),
+        ):
             # Check for specials.  Note that this type of test is processor
             # and/or platform-specific, so do tests which don't depend on the
             # internals.
@@ -43,13 +51,23 @@ class EWAHJSONEncoder(json.JSONEncoder):
                 return _repr(o)
             if not allow_nan:
                 raise ValueError(
-                    "Out of range float values are not JSON compliant: " +
-                    repr(o))
-            return 'null'
+                    "Out of range float values are not JSON compliant: " + repr(o)
+                )
+            return "null"
+
         return json.encoder._make_iterencode(
-                markers, self.default, _encoder, self.indent, floatstr,
-                self.key_separator, self.item_separator, self.sort_keys,
-                self.skipkeys, _one_shot)(o, 0)
+            markers,
+            self.default,
+            _encoder,
+            self.indent,
+            floatstr,
+            self.key_separator,
+            self.item_separator,
+            self.sort_keys,
+            self.skipkeys,
+            _one_shot,
+        )(o, 0)
+
 
 class EWAHBaseDWHook(BaseHook):
     """Extension of airflow's native Base Hook.
@@ -76,7 +94,7 @@ class EWAHBaseDWHook(BaseHook):
 
     def __del__(self, *args, **kwargs):
         self.close()
-        if hasattr(super(), '__del__'):
+        if hasattr(super(), "__del__"):
             super().__del__(*args, **kwargs)
 
     def _init_conn(self, first_call=False, commit=False):
@@ -88,9 +106,7 @@ class EWAHBaseDWHook(BaseHook):
         self.cur = self.conn.cursor()
 
         if self.dwh_engine == EC.DWH_ENGINE_POSTGRES:
-            self.dict_cur = self.conn.cursor(
-                cursor_factory=RealDictCursor
-            )
+            self.dict_cur = self.conn.cursor(cursor_factory=RealDictCursor)
 
         if self.dwh_engine == EC.DWH_ENGINE_SNOWFLAKE:
             self.cur.execute("BEGIN;")
@@ -105,23 +121,24 @@ class EWAHBaseDWHook(BaseHook):
         )
 
     def close(self):
-        if hasattr(self, 'cur') and self.cur:
+        if hasattr(self, "cur") and self.cur:
             self.cur.close()
-        if hasattr(self, 'dict_cur') and self.dict_cur:
+        if hasattr(self, "dict_cur") and self.dict_cur:
             self.dict_cur.close()
         if self.conn:
             self.conn.close()
 
-    def copy_table(self,
+    def copy_table(
+        self,
         old_schema,
         old_table,
         new_schema,
         new_table,
         database_name=None,
     ):
-        kwargs = {'table_name': old_table, 'schema_name': old_schema}
+        kwargs = {"table_name": old_table, "schema_name": old_schema}
         if database_name:
-            kwargs.update({'database_name': database_name})
+            kwargs.update({"database_name": database_name})
         if self.test_if_table_exists(**kwargs):
             self.execute(
                 sql=self._COPY_TABLE.format(
@@ -135,22 +152,22 @@ class EWAHBaseDWHook(BaseHook):
             )
 
     def execute(self, sql, params=None, commit=False, cursor=None):
-        self.logging_func('\nExecuting SQL:\n\n{0}'.format(sql))
+        self.logging_func("\nExecuting SQL:\n\n{0}".format(sql))
         kwargs = {}
         args = []
         if params:
             if self.dwh_engine == EC.DWH_ENGINE_POSTGRES:
-                kwargs.update({'vars': params})
+                kwargs.update({"vars": params})
             elif self.dwh_engine == EC.DWH_ENGINE_SNOWFLAKE:
                 args = [params]
             else:
-                raise Exception('Feature not implemented!')
+                raise Exception("Feature not implemented!")
 
         cur = cursor or self.cur
         if self.dwh_engine == EC.DWH_ENGINE_SNOWFLAKE:
             # Snowflake does not allow multiple statements in one call
             # refactor this! breaks queries with strings including semicolon!
-            for statement in sql.strip().split(';'):
+            for statement in sql.strip().split(";"):
                 if statement.strip():
                     cur.execute(statement.strip(), *args, **kwargs)
         else:
@@ -160,10 +177,11 @@ class EWAHBaseDWHook(BaseHook):
             self.commit()
 
     def execute_and_return_result(self, sql, params=None, return_dict=False):
-        if ';' in sql.strip()[:-1]:
+        if ";" in sql.strip()[:-1]:
             raise Exception(
-                'This function only executes a single statement! This query'
-                + ' consists of more than one statement:\n' + sql
+                "This function only executes a single statement! This query"
+                + " consists of more than one statement:\n"
+                + sql
             )
 
         self.execute(
@@ -182,17 +200,18 @@ class EWAHBaseDWHook(BaseHook):
             return [row for row in self.cur]
 
         raise Exception(
-            'Function not implemented for this DWH Engine: {0}'.format(
+            "Function not implemented for this DWH Engine: {0}".format(
                 self.dwh_engine,
             )
         )
 
     def get_cursor(self, dict_cursor=False):
         if dict_cursor:
-            if not hasattr(self, 'dict_cur'):
+            if not hasattr(self, "dict_cur"):
                 raise Exception(
-                    'Dictionary cursor is not yet implemented for {0}!'
-                    .format(self.dwh_engine)
+                    "Dictionary cursor is not yet implemented for {0}!".format(
+                        self.dwh_engine
+                    )
                 )
             return self.dict_cur
         return self.cur
@@ -207,21 +226,23 @@ class EWAHBaseDWHook(BaseHook):
         commit=False,
     ):
         params = {
-            'schema_name': new_schema_name,
-            'table_name': new_table_name,
+            "schema_name": new_schema_name,
+            "table_name": new_table_name,
         }
         if self.dwh_engine == EC.DWH_ENGINE_SNOWFLAKE:
             database = database or self.database
-            params.update({'database_name': database})
+            params.update({"database_name": database})
         if not self.test_if_table_exists(**params):
-            return ([], []) # Table did not previously exist, so there is nothing to do
+            return ([], [])  # Table did not previously exist, so there is nothing to do
 
         list_of_old_columns = [
-            col[0].strip() for col in self.execute_and_return_result(
+            col[0].strip()
+            for col in self.execute_and_return_result(
                 sql=self._QUERY_SCHEMA_CHANGES_COLUMNS.format(**params),
                 params=params,
                 return_dict=False,
-            )]
+            )
+        ]
         list_of_columns = [
             col_name.strip() for col_name in list(new_columns_dictionary.keys())
         ]
@@ -231,7 +252,7 @@ class EWAHBaseDWHook(BaseHook):
             for old_column in list_of_old_columns:
                 if not (old_column in list_of_columns):
                     drop_params = deepcopy(params)
-                    drop_params.update({'column_name': old_column})
+                    drop_params.update({"column_name": old_column})
                     dropped_columns += [old_column]
                     self.execute(
                         sql=self._QUERY_SCHEMA_CHANGES_DROP_COLUMN.format(
@@ -245,12 +266,14 @@ class EWAHBaseDWHook(BaseHook):
             if not (column in list_of_old_columns):
                 new_columns += [column]
                 add_params = deepcopy(params)
-                add_params.update({
-                    'column_name': column,
-                    'column_type': self._get_column_type(
-                        new_columns_dictionary[column],
-                    )
-                })
+                add_params.update(
+                    {
+                        "column_name": column,
+                        "column_type": self._get_column_type(
+                            new_columns_dictionary[column],
+                        ),
+                    }
+                )
                 self.execute(
                     sql=self._QUERY_SCHEMA_CHANGES_ADD_COLUMN.format(
                         **add_params,
@@ -280,20 +303,23 @@ class EWAHBaseDWHook(BaseHook):
         hashlib_func_name=None,
     ):
         logging_function = logging_function or (lambda *args: None)
-        database_name = database_name or \
-            (getattr(self, 'database') if hasattr(self, 'database') else None)
+        database_name = database_name or (
+            getattr(self, "database") if hasattr(self, "database") else None
+        )
 
         mapped_types = EC.QBC_TYPE_MAPPING[self.dwh_engine].keys()
         mapped_types = tuple([k for k in mapped_types if isinstance(k, type)])
 
-        raw_row = {} # Used as template for params at execution
-        sql_part_columns = [] # Used for CREATE and INSERT / UPDATE query
-        jsonb_columns = [] # JSON columns require special treatment
-        create_update_on_columns = (not (drop_and_replace or update_on_columns))
+        raw_row = {}  # Used as template for params at execution
+        sql_part_columns = []  # Used for CREATE and INSERT / UPDATE query
+        jsonb_columns = []  # JSON columns require special treatment
+        create_update_on_columns = not (drop_and_replace or update_on_columns)
         update_on_columns = update_on_columns or []
-        if not (type([]) == type (update_on_columns)):
-            raise Exception('"update_on_columns" must be a list!' + \
-                'Is currently: type {0}'.format(str(type(update_on_columns))))
+        if not (type([]) == type(update_on_columns)):
+            raise Exception(
+                '"update_on_columns" must be a list!'
+                + "Is currently: type {0}".format(str(type(update_on_columns)))
+            )
         field_constraints_mapping = EC.QBC_FIELD_CONSTRAINTS_MAPPING.get(
             self.dwh_engine,
         )
@@ -308,18 +334,26 @@ class EWAHBaseDWHook(BaseHook):
             raw_row.update({column_name: None})
             definition = columns_definition[column_name]
             if not type({}) == type(definition):
-                raise Exception('Column {0} is not properly defined!'.format(
-                    column_name,
-                ))
-            sql_part_columns += ['"{0}"\t{1}\t{2}'.format(
-                column_name, # Field name
-                self._get_column_type(definition), # Type: text, int etc.
-                ' '.join([ # Get all additional field properties (unique etc.)
-                    field_constraints_mapping[addon] if definition.get(addon) else ''
-                    for addon in list(field_constraints_mapping.keys())
-                ])
-            )]
-            if self._get_column_type(definition) == 'jsonb':
+                raise Exception(
+                    "Column {0} is not properly defined!".format(
+                        column_name,
+                    )
+                )
+            sql_part_columns += [
+                '"{0}"\t{1}\t{2}'.format(
+                    column_name,  # Field name
+                    self._get_column_type(definition),  # Type: text, int etc.
+                    " ".join(
+                        [  # Get all additional field properties (unique etc.)
+                            field_constraints_mapping[addon]
+                            if definition.get(addon)
+                            else ""
+                            for addon in list(field_constraints_mapping.keys())
+                        ]
+                    ),
+                )
+            ]
+            if self._get_column_type(definition) == "jsonb":
                 jsonb_columns += [column_name]
             if definition.get(EC.QBC_FIELD_PK):
                 pk_columns += [column_name]
@@ -327,10 +361,10 @@ class EWAHBaseDWHook(BaseHook):
                     update_on_columns += [column_name]
             if definition.get(EC.QBC_FIELD_HASH):
                 hash_columns += [column_name]
-        sql_part_columns = ',\n\t'.join(sql_part_columns)
+        sql_part_columns = ",\n\t".join(sql_part_columns)
 
         if clean_data_before_upload:
-            logging_function('Cleaning data for upload...')
+            logging_function("Cleaning data for upload...")
             upload_data = []
             cols_list = list(raw_row.keys())
             if hash_columns:
@@ -349,18 +383,21 @@ class EWAHBaseDWHook(BaseHook):
                             # avoid edge case of data where all instances of a
                             #   field are None, thus having data for a field
                             #   missing in the columns_definition!
-                            if column_name in jsonb_columns or \
-                                isinstance(value, (dict, OrderedDict, list)) \
-                                or (not isinstance(value, mapped_types)):
+                            if (
+                                column_name in jsonb_columns
+                                or isinstance(value, (dict, OrderedDict, list))
+                                or (not isinstance(value, mapped_types))
+                            ):
                                 try:
-                                    row[column_name] = \
-                                        json.dumps(value, cls=EWAHJSONEncoder)
+                                    row[column_name] = json.dumps(
+                                        value, cls=EWAHJSONEncoder
+                                    )
                                 except TypeError:
                                     # try dumping with bson utility function
                                     row[column_name] = dumps(value)
                             elif isinstance(value, str):
-                                if not (value == '\0'):
-                                    row[column_name] = value.replace('\x00', '')
+                                if not (value == "\0"):
+                                    row[column_name] = value.replace("\x00", "")
                             else:
                                 row[column_name] = value
                 upload_data += [row]
@@ -369,25 +406,29 @@ class EWAHBaseDWHook(BaseHook):
             data_len = len(data)
             upload_data = None
 
-        logging_function('Uploading {0} rows of data...'.format(
-            str(data_len),
-        ))
+        logging_function(
+            "Uploading {0} rows of data...".format(
+                str(data_len),
+            )
+        )
         if database_name:
-            kwargs = {'database_name': database_name}
+            kwargs = {"database_name": database_name}
         else:
             kwargs = {}
-        kwargs.update({
-            'data': upload_data or data,
-            'table_name': table_name,
-            'schema_name': schema_name,
-            'schema_suffix': schema_suffix,
-            'columns_definition': columns_definition,
-            'columns_partial_query': sql_part_columns,
-            'update_on_columns': update_on_columns,
-            'drop_and_replace': drop_and_replace,
-            'logging_function': logging_function,
-            'pk_columns': pk_columns,
-        })
+        kwargs.update(
+            {
+                "data": upload_data or data,
+                "table_name": table_name,
+                "schema_name": schema_name,
+                "schema_suffix": schema_suffix,
+                "columns_definition": columns_definition,
+                "columns_partial_query": sql_part_columns,
+                "update_on_columns": update_on_columns,
+                "drop_and_replace": drop_and_replace,
+                "logging_function": logging_function,
+                "pk_columns": pk_columns,
+            }
+        )
         self._create_or_update_table(**kwargs)
 
         if commit:

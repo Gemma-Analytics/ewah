@@ -27,28 +27,28 @@ def start_ssh_tunnel(ssh_conn_id, remote_conn_id, custom_timeout=None):
     ssh_conn = EWAHBaseHook.get_connection(ssh_conn_id)
     remote_conn = EWAHBaseHook.get_connection(remote_conn_id)
     kwargs = {
-        'ssh_address_or_host': (ssh_conn.host, ssh_conn.port or 22),
-        'remote_bind_address': (remote_conn.host, remote_conn.port),
+        "ssh_address_or_host": (ssh_conn.host, ssh_conn.port or 22),
+        "remote_bind_address": (remote_conn.host, remote_conn.port),
     }
     if ssh_conn.login:
-        kwargs['ssh_username'] = ssh_conn.login or None
+        kwargs["ssh_username"] = ssh_conn.login or None
     if ssh_conn.password:
-        kwargs['ssh_password'] = ssh_conn.password
+        kwargs["ssh_password"] = ssh_conn.password
 
     with NamedTemporaryFile() as keyfile:
         extra = ssh_conn.extra
         extra_dejson = ssh_conn.extra_dejson
         if extra:
             if extra_dejson:
-                keyfile.write(extra_dejson.get('extra__private_key', '').encode())
+                keyfile.write(extra_dejson.get("extra__private_key", "").encode())
             else:
                 keyfile.write(extra.encode())
             keyfile.flush()
-            kwargs['ssh_pkey'] = os.path.abspath(keyfile.name)
+            kwargs["ssh_pkey"] = os.path.abspath(keyfile.name)
         ssh_tunnel_forwarder = sshtunnel.SSHTunnelForwarder(**kwargs)
         ssh_tunnel_forwarder.start()
 
-    remote_conn.host = 'localhost'
+    remote_conn.host = "localhost"
     remote_conn.port = ssh_tunnel_forwarder.local_bind_port
 
     if custom_timeout:

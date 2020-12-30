@@ -13,6 +13,7 @@ from datetime import datetime, timedelta, timezone
 from copy import deepcopy
 import re
 
+
 class PGO(BaseOperator):
     """Airflow operator to execute PostgreSQL statements.
 
@@ -22,10 +23,11 @@ class PGO(BaseOperator):
     Needs to be otherwise interchangeable with Airflow's PostgresOperator.
     """
 
-    template_fields = ('sql',)
-    template_ext = ('.sql',)
+    template_fields = ("sql",)
+    template_ext = (".sql",)
 
-    def __init__(self,
+    def __init__(
+        self,
         sql,
         postgres_conn_id,
         autocommit=False,
@@ -33,11 +35,12 @@ class PGO(BaseOperator):
         database=None,
         *args,
         ssh_tunnel_conn_id=None,
-    **kwargs):
+        **kwargs
+    ):
         self.sql = sql
         self.postgres_conn_id = postgres_conn_id
         if autocommit:
-            print('WARNING: autocommit=True not implemented!')
+            print("WARNING: autocommit=True not implemented!")
         self.autocommit = autocommit
         self.parameters = parameters
         self.database = database
@@ -45,9 +48,9 @@ class PGO(BaseOperator):
         super().__init__(*args, **kwargs)
 
     def execute(self, context):
-        self.log.info('Executing: %s', self.sql)
+        self.log.info("Executing: %s", self.sql)
         if self.autocommit:
-            self.log.warn('Autocommit feature is not implemented!')
+            self.log.warn("Autocommit feature is not implemented!")
 
         # open SSH tunnel if applicable
         if self.ssh_tunnel_conn_id:
@@ -65,78 +68,79 @@ class PGO(BaseOperator):
         hook.execute(sql=self.sql, params=self.parameters, commit=True)
 
         # close SSH tunnel if applicable
-        if hasattr(self, 'ssh_tunnel_forwarder'):
+        if hasattr(self, "ssh_tunnel_forwarder"):
             self.ssh_tunnel_forwarder.close()
             del self.ssh_tunnel_forwarder
+
 
 def airflow_datetime_adjustments(datetime_raw):
     if type(datetime_raw) == str:
         datetime_string = datetime_raw
-        if '-' in datetime_string[10:]:
-            tz_sign = '-'
+        if "-" in datetime_string[10:]:
+            tz_sign = "-"
         else:
-            tz_sign = '+'
+            tz_sign = "+"
         datetime_strings = datetime_string.split(tz_sign)
 
-        if 'T' in datetime_string:
-            format_string = '%Y-%m-%dT%H:%M:%S'
+        if "T" in datetime_string:
+            format_string = "%Y-%m-%dT%H:%M:%S"
         else:
-            format_string = '%Y-%m-%d %H:%M:%S'
+            format_string = "%Y-%m-%d %H:%M:%S"
 
-        if '.' in datetime_string:
-            format_string += '.%f'
+        if "." in datetime_string:
+            format_string += ".%f"
 
         if len(datetime_strings) == 2:
-            if ':' in datetime_strings[1]:
-                datetime_strings[1] = datetime_strings[1].replace(':', '')
+            if ":" in datetime_strings[1]:
+                datetime_strings[1] = datetime_strings[1].replace(":", "")
             datetime_string = tz_sign.join(datetime_strings)
-            format_string += '%z'
-        elif 'Z' in datetime_string:
-            format_string += 'Z'
+            format_string += "%z"
+        elif "Z" in datetime_string:
+            format_string += "Z"
         datetime_raw = datetime.strptime(
             datetime_string,
             format_string,
         )
     elif not (datetime_raw is None or isinstance(datetime_raw, datetime)):
-        raise Exception('Invalid datetime type supplied! Supply either string' \
-            + ' or datetime.datetime! supplied: {0}'.format(
-                str(type(datetime_raw))
-            ))
+        raise Exception(
+            "Invalid datetime type supplied! Supply either string"
+            + " or datetime.datetime! supplied: {0}".format(str(type(datetime_raw)))
+        )
 
     if datetime_raw and datetime_raw.tzinfo is None:
         datetime_raw = datetime_raw.replace(tzinfo=timezone.utc)
 
     return datetime_raw
 
+
 def etl_schema_tasks(
-        dag,
-        dwh_engine,
-        dwh_conn_id,
-        target_schema_name,
-        target_schema_suffix='_next',
-        target_database_name=None,
-        read_right_users=None, # Only for PostgreSQL
-        ssh_tunnel_conn_id=None,
-        **additional_task_args
-    ):
+    dag,
+    dwh_engine,
+    dwh_conn_id,
+    target_schema_name,
+    target_schema_suffix="_next",
+    target_database_name=None,
+    read_right_users=None,  # Only for PostgreSQL
+    ssh_tunnel_conn_id=None,
+    **additional_task_args
+):
 
     if dwh_engine == EC.DWH_ENGINE_POSTGRES:
-        sql_kickoff = '''
+        sql_kickoff = """
             DROP SCHEMA IF EXISTS "{schema_name}{schema_suffix}" CASCADE;
             CREATE SCHEMA "{schema_name}{schema_suffix}";
-        '''.format(
+        """.format(
             schema_name=target_schema_name,
             schema_suffix=target_schema_suffix,
         )
-        sql_final = '''
+        sql_final = """
             DROP SCHEMA IF EXISTS "{schema_name}" CASCADE;
             ALTER SCHEMA "{schema_name}{schema_suffix}"
                 RENAME TO "{schema_name}";
-        '''.format(
+        """.format(
             schema_name=target_schema_name,
             schema_suffix=target_schema_suffix,
         )
-
 
         # Don't fail final task just because a user or role that should
         # be granted read rights does not exist!
@@ -153,10 +157,10 @@ def etl_schema_tasks(
         """
         if read_right_users:
             if not isinstance(read_right_users, list):
-                raise Exception('Arg read_right_users must be of type List!')
+                raise Exception("Arg read_right_users must be of type List!")
             for user in read_right_users:
-                if re.search(r"\s", user) or (';' in user):
-                    _msg = 'No whitespace or semicolons allowed in usernames!'
+                if re.search(r"\s", user) or (";" in user):
+                    _msg = "No whitespace or semicolons allowed in usernames!"
                     raise ValueError(_msg)
                 sql_final += grant_rights_sql.format(
                     target_schema_name=target_schema_name,
@@ -165,42 +169,47 @@ def etl_schema_tasks(
 
         task_1_args = deepcopy(additional_task_args)
         task_2_args = deepcopy(additional_task_args)
-        task_1_args.update({
-            'sql': sql_kickoff,
-            'task_id': 'kickoff_{0}'.format(target_schema_name),
-            'dag': dag,
-            'postgres_conn_id': dwh_conn_id,
-            'ssh_tunnel_conn_id': ssh_tunnel_conn_id,
-            # 'retries': 1,
-            # 'retry_delay': timedelta(minutes=1),
-        })
-        task_2_args.update({
-            'sql': sql_final,
-            'task_id': 'final_{0}'.format(target_schema_name),
-            'dag': dag,
-            'postgres_conn_id': dwh_conn_id,
-            'ssh_tunnel_conn_id': ssh_tunnel_conn_id,
-            # 'retries': 1,
-            # 'retry_delay': timedelta(minutes=1),
-        })
+        task_1_args.update(
+            {
+                "sql": sql_kickoff,
+                "task_id": "kickoff_{0}".format(target_schema_name),
+                "dag": dag,
+                "postgres_conn_id": dwh_conn_id,
+                "ssh_tunnel_conn_id": ssh_tunnel_conn_id,
+                # 'retries': 1,
+                # 'retry_delay': timedelta(minutes=1),
+            }
+        )
+        task_2_args.update(
+            {
+                "sql": sql_final,
+                "task_id": "final_{0}".format(target_schema_name),
+                "dag": dag,
+                "postgres_conn_id": dwh_conn_id,
+                "ssh_tunnel_conn_id": ssh_tunnel_conn_id,
+                # 'retries': 1,
+                # 'retry_delay': timedelta(minutes=1),
+            }
+        )
         return (PGO(**task_1_args), PGO(**task_2_args))
     elif dwh_engine == EC.DWH_ENGINE_SNOWFLAKE:
-        target_database_name = target_database_name or (BaseHook \
-                .get_connection(dwh_conn_id).extra_dejson.get('database'))
-        sql_kickoff = '''
+        target_database_name = target_database_name or (
+            BaseHook.get_connection(dwh_conn_id).extra_dejson.get("database")
+        )
+        sql_kickoff = """
             DROP SCHEMA IF EXISTS
                 "{database}"."{schema_name}{schema_suffix}" CASCADE;
             CREATE SCHEMA "{database}"."{schema_name}{schema_suffix}";
-        '''.format(
+        """.format(
             database=target_database_name,
             schema_name=target_schema_name,
             schema_suffix=target_schema_suffix,
         )
-        sql_final = '''
+        sql_final = """
             DROP SCHEMA IF EXISTS "{database}"."{schema_name}" CASCADE;
             ALTER SCHEMA "{database}"."{schema_name}{schema_suffix}"
                 RENAME TO "{schema_name}";
-        '''.format(
+        """.format(
             database=target_database_name,
             schema_name=target_schema_name,
             schema_suffix=target_schema_suffix,
@@ -213,38 +222,42 @@ def etl_schema_tasks(
 
         task_1_args = deepcopy(additional_task_args)
         task_2_args = deepcopy(additional_task_args)
-        task_1_args.update({
-            'task_id': 'kickoff_{0}'.format(target_schema_name),
-            'python_callable': execute_snowflake,
-            'op_kwargs': {
-                'sql': sql_kickoff,
-                'conn_id': dwh_conn_id,
-            },
-            'provide_context': True,
-            'dag': dag,
-        })
-        task_2_args.update({
-            'task_id': 'final_{0}'.format(target_schema_name),
-            'python_callable': execute_snowflake,
-            'op_kwargs': {
-                'sql': sql_final,
-                'conn_id': dwh_conn_id,
-            },
-            'provide_context': True,
-            'dag': dag,
-        })
+        task_1_args.update(
+            {
+                "task_id": "kickoff_{0}".format(target_schema_name),
+                "python_callable": execute_snowflake,
+                "op_kwargs": {
+                    "sql": sql_kickoff,
+                    "conn_id": dwh_conn_id,
+                },
+                "provide_context": True,
+                "dag": dag,
+            }
+        )
+        task_2_args.update(
+            {
+                "task_id": "final_{0}".format(target_schema_name),
+                "python_callable": execute_snowflake,
+                "op_kwargs": {
+                    "sql": sql_final,
+                    "conn_id": dwh_conn_id,
+                },
+                "provide_context": True,
+                "dag": dag,
+            }
+        )
         return (PO(**task_1_args), PO(**task_2_args))
     elif dwh_engine == EC.DWH_ENGINE_GS:
         # create dummy tasks
         return (
             DO(
-                task_id='kickoff',
+                task_id="kickoff",
                 dag=dag,
             ),
             DO(
-                task_id='final',
+                task_id="final",
                 dag=dag,
             ),
         )
     else:
-        raise ValueError('Feature not implemented!')
+        raise ValueError("Feature not implemented!")
