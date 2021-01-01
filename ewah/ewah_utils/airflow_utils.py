@@ -11,6 +11,7 @@ from ewah.constants import EWAHConstants as EC
 
 from datetime import datetime, timedelta, timezone
 from copy import deepcopy
+import pytz
 import re
 
 
@@ -72,6 +73,8 @@ class PGO(BaseOperator):
             self.ssh_tunnel_forwarder.close()
             del self.ssh_tunnel_forwarder
 
+def datetime_utcnow_with_tz():
+    return datetime.utcnow().replace(tzinfo=pytz.utc)
 
 def airflow_datetime_adjustments(datetime_raw):
     if type(datetime_raw) == str:

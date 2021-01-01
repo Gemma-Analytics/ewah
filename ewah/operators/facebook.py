@@ -1,5 +1,6 @@
 from ewah.operators.base import EWAHBaseOperator
 from ewah.constants import EWAHConstants as EC
+from ewah.ewah_utils.airflow_utils import datetime_utcnow_with_tz
 
 from ewah.hooks.base import EWAHBaseHook as BaseHook
 
@@ -149,8 +150,8 @@ class EWAHFBOperator(EWAHBaseOperator):
                         str(self.execution_waittime_seconds),
                     )
                 )
-                now = datetime.utcnow()
-                while datetime.utcnow() < (
+                now = datetime_utcnow_with_tz()
+                while datetime_utcnow_with_tz() < (
                     now + timedelta(seconds=self.execution_waittime_seconds)
                 ):
                     time.sleep(1)

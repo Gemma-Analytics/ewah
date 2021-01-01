@@ -6,6 +6,7 @@ from ewah.hooks.base import EWAHBaseHook
 from ewah.constants import EWAHConstants as EC
 from ewah.ewah_utils.ssh_tunnel import start_ssh_tunnel
 from ewah.ewah_utils.airflow_utils import airflow_datetime_adjustments as ada
+from ewah.ewah_utils.airflow_utils import datetime_utcnow_with_tz
 
 from datetime import datetime, timedelta
 import time
@@ -291,7 +292,7 @@ class EWAHBaseOperator(BaseOperator):
                 del self.target_ssh_tunnel_forwarder
 
         # required for metadata in data upload
-        self._execution_time = datetime.utcnow()
+        self._execution_time = datetime_utcnow_with_tz()
         self._context = context
 
         # the upload hook is used in the self.upload_data() function
@@ -385,9 +386,9 @@ class EWAHBaseOperator(BaseOperator):
                         str(wait_until),
                     )
                 )
-            while wait_until and datetime.utcnow() < wait_until:
+            while wait_until and datetime_utcnow_with_tz() < wait_until:
                 # Only sleep a maximum of 5s at a time
-                wait_for_timedelta = datetime.utcnow() - wait_until
+                wait_for_timedelta = datetime_utcnow_with_tz() - wait_until
                 time.sleep(min(wait_for_timedelta.total_seconds(), 5))
 
         try:

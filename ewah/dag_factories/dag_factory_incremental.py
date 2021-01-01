@@ -4,6 +4,7 @@ from airflow.sensors.external_task_sensor import ExternalTaskSensor as ETS
 
 from ewah.ewah_utils.airflow_utils import PGO
 from ewah.ewah_utils.airflow_utils import etl_schema_tasks
+from ewah.ewah_utils.airflow_utils import datetime_utcnow_with_tz
 from ewah.dwhooks.dwhook_snowflake import SnowflakeOperator
 from ewah.constants import EWAHConstants as EC
 
@@ -47,10 +48,10 @@ class ExtendedETS(ETS):
         # sure the incremental loading DAGs don't execute too quickly.
         next_execution_date = context["next_execution_date"]  # type: Pendulum
         next_execution_date += timedelta(seconds=self.execution_delay_in_seconds)
-        while datetime.utcnow() < next_execution_date:
+        while datetime_utcnow_with_tz() < next_execution_date:
             self.log.info(
                 "Waiting until {0} to execute... (now: {1})".format(
-                    str(next_execution_date), str(datetime.utcnow())
+                    str(next_execution_date), str(datetime_utcnow_with_tz())
                 )
             )
             time.sleep((self.execution_delay_in_seconds or 20) / 20)
@@ -151,7 +152,7 @@ def dag_factory_incremental_loading(
             #   keep both DAGs active!
             switch_relative_timedelta = -schedule_interval_future / 2
 
-        time_now = datetime.utcnow()
+        time_now = datetime_utcnow_with_tz()
         if start_date.tzinfo:
             time_now = time_now.replace(tzinfo=pytz.utc)
 

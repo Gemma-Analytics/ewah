@@ -3,7 +3,7 @@ from yahoofinancials import YahooFinancials
 
 from ewah.constants import EWAHConstants as EC
 from ewah.operators.base import EWAHBaseOperator
-
+from ewah.ewah_utils.airflow_utils import datetime_utcnow_with_tz
 
 class EWAHFXOperator(EWAHBaseOperator):
 
@@ -51,7 +51,7 @@ class EWAHFXOperator(EWAHBaseOperator):
 
     def ewah_execute(self, context):
         data_from = self.data_from or context["dag"].start_date
-        data_until = self.data_until or datetime.utcnow()
+        data_until = self.data_until or datetime_utcnow_with_tz()
 
         format_str = "%Y-%m-%d"
         currency_str = "{0}{1}=X".format(*self.currency_pair)

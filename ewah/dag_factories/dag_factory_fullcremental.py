@@ -15,6 +15,7 @@ from ewah.hooks.base import EWAHBaseHook as BaseHook
 from airflow.sensors.sql_sensor import SqlSensor
 
 from ewah.ewah_utils.airflow_utils import etl_schema_tasks
+from ewah.ewah_utils.airflow_utils import datetime_utcnow_with_tz
 from ewah.constants import EWAHConstants as EC
 from ewah.dag_factories.dag_factory_incremental import ExtendedETS
 
@@ -83,7 +84,7 @@ def dag_factory_fullcremental(
     if not start_date.tzinfo:
         # if no timezone is given, assume UTC
         start_date = start_date.replace(tzinfo=pytz.utc)
-    time_now = datetime.utcnow().replace(tzinfo=pytz.utc)
+    time_now = datetime_utcnow_with_tz()
     time_now += schedule_interval_incremental / 2
     if start_date > time_now:
         start_date_fr = start_date
