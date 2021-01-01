@@ -3,11 +3,12 @@ from ewah.hooks.base import EWAHBaseHook
 import requests
 import time
 
+
 class EWAHAircallHook(EWAHBaseHook):
 
     _ATTR_RELABEL = {
-        'api_id': 'login',
-        'api_token': 'password',
+        "api_id": "login",
+        "api_token": "password",
     }
 
     conn_name_attr = "aircall_conn_id"
@@ -48,8 +49,14 @@ class EWAHAircallHook(EWAHBaseHook):
     #         ),
     #     }
 
-    def get_data_in_batches(self, resource, data_from=None, data_until=None,
-        batch_size=10000, batch_call_pause_seconds=1):
+    def get_data_in_batches(
+        self,
+        resource,
+        data_from=None,
+        data_until=None,
+        batch_size=10000,
+        batch_call_pause_seconds=1,
+    ):
         _msg = "batch_size param must be a positive integer <= 10k "
         assert isinstance(batch_size, int), _msg
         assert batch_size > 0, _msg

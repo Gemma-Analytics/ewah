@@ -5,6 +5,7 @@ from ewah.constants import EWAHConstants as EC
 from ewah.operators.base import EWAHBaseOperator
 from ewah.ewah_utils.airflow_utils import datetime_utcnow_with_tz
 
+
 class EWAHFXOperator(EWAHBaseOperator):
 
     _NAMES = ["fx"]

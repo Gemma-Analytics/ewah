@@ -43,9 +43,11 @@ class EWAHConnection(Connection):
         E.g. have a field api_key -> get it like conn.api_key!
         """
         if not name == "hook_cls" and hasattr(self, "hook_cls"):
-            if hasattr(self.hook_cls, "get_connection_form_widgets") \
-                or hasattr(self.hook_cls, "get_ui_field_behaviour") \
-                or self.hook_cls._ATTR_RELABEL:
+            if (
+                hasattr(self.hook_cls, "get_connection_form_widgets")
+                or hasattr(self.hook_cls, "get_ui_field_behaviour")
+                or self.hook_cls._ATTR_RELABEL
+            ):
                 if name in self.hook_cls._ATTR_RELABEL.keys():
                     return getattr(self, self.hook_cls._ATTR_RELABEL[name])
                 widgets = self.hook_cls.get_connection_form_widgets()
@@ -54,18 +56,20 @@ class EWAHConnection(Connection):
                 long_name = "extra__" + self.conn_type + "__" + name
                 if long_name in widgets.keys():
                     return self.extra_dejson.get(long_name)
-        if hasattr(super(), '__getattr__'):
+        if hasattr(super(), "__getattr__"):
             return super().__getattr__(name)
         _msg = "{0} is not an attribute of {1}!"
         _msg += " conn_id: {2}, conn_type: {3}, hook class: {4}"
-        raise AttributeError(_msg.format(
-            name,
-            self.__class__.__name__,
-            # If accessed directly, attributes would cause infinite loop
-            self.__dict__.get("conn_id"),
-            self.__dict__.get("conn_type"),
-            self.__dict__.get("hook_cls"),
-        ))
+        raise AttributeError(
+            _msg.format(
+                name,
+                self.__class__.__name__,
+                # If accessed directly, attributes would cause infinite loop
+                self.__dict__.get("conn_id"),
+                self.__dict__.get("conn_type"),
+                self.__dict__.get("hook_cls"),
+            )
+        )
 
 
 class EWAHBaseHook(BaseHook):

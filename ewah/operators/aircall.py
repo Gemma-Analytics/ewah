@@ -3,6 +3,7 @@ from ewah.hooks.aircall import EWAHAircallHook
 from ewah.operators.base import EWAHBaseOperator
 from ewah.constants import EWAHConstants as EC
 
+
 class EWAHAircallOperator(EWAHBaseOperator):
 
     _NAMES = ["aircall"]
@@ -13,7 +14,6 @@ class EWAHAircallOperator(EWAHBaseOperator):
     }
 
     _REQUIRES_COLUMNS_DEFINITION = False
-
 
     def __init__(self, resource=None, wait_between_pages=1, *args, **kwargs):
         kwargs["primary_key_column_name"] = "id"
