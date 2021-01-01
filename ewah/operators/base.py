@@ -343,15 +343,12 @@ class EWAHBaseOperator(BaseOperator):
             _ed = context["execution_date"]
             _ned = context["next_execution_date"]
 
-            if self.test_if_target_table_exists():
-                # normal incremental load
-                _ed -= self.load_data_from_relative or _tdz
-                data_from = max(_ed, data_from or _ed)
-            else:
+            # normal incremental load
+            _ed -= self.load_data_from_relative or _tdz
+            data_from = max(_ed, data_from or _ed)
+            if not self.test_if_target_table_exists():
                 # Load data from scratch!
                 data_from = ada(self.reload_data_from) or data_from
-                # Table does not actually exist yet - this is a full refresh!
-                self.load_strategy = EC.ES_FULL_REFRESH
 
             _ned += self.load_data_until_relative or _tdz
             data_until = min(_ned, data_until or _ned)
