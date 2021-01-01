@@ -3,7 +3,7 @@ connections:
     type: postgres
     host: database
     port: 5432
-    schema: postgres
+    schema: ewah
     login: postgres
     password: postgres
   - id: airflow

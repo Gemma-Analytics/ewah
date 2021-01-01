@@ -40,14 +40,20 @@ el_dags:
       general_config:
         source_conn_id: aircall
         reload_data_from: 2020-10-31 00:00:00+00:00
-        # despite being incremental DAG, MOST resources shall be loaded as
-        # full refresh -> only calls shall be loaded incrementally!
-        load_strategy: full-refresh
         wait_for_seconds: 120
       tables:
-        users: {}
         calls:
-          load_strategy: incremental # overwrite default
+          load_strategy: incremental
+
+  EL_Aircall_FR:
+    load_strategy: fr
+    el_operator: aircall
+    target_schema_name: raw_aircall_fr
+    operator_config:
+      general_config:
+        source_conn_id: aircall
+      tables:
+        users: {}
         numbers: {}
         contacts: {}
         tags_table:

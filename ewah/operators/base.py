@@ -318,6 +318,8 @@ class EWAHBaseOperator(BaseOperator):
         elif self.source_conn_id:
             # resolve conn id here & delete the object to avoid usage elsewhere
             self.source_conn = EWAHBaseHook.get_connection(self.source_conn_id)
+        if hasattr(self, "source_conn"):
+            self.source_hook = self.source_conn.get_hook()
         del self.source_conn_id
 
         temp_schema_name = self.target_schema_name + self.target_schema_suffix
