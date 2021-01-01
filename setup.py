@@ -1,11 +1,12 @@
 import setuptools
+from ewah import VERSION
 
 with open("README.md", "r") as fh:
     long_description = fh.read()
 
 setuptools.setup(
     name="ewah",
-    version="0.3.0",
+    version=VERSION,
     author="Bijan Soltani",
     author_email="bijan.soltani+ewah@gemmaanalytics.com",
     description="An ELT with airflow helper module: Ewah",

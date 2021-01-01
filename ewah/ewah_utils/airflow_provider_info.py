@@ -1,5 +1,5 @@
 from ewah.hooks import hook_class_names
-
+from ewah import VERSION
 
 def get_provider_info():
     return {
@@ -7,5 +7,5 @@ def get_provider_info():
         "name": "ewah",
         "description": "",
         "hook-class-names": hook_class_names,
-        "versions": ["0.3.0"],
+        "versions": [VERSION],
     }
