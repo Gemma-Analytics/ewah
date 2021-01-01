@@ -61,7 +61,7 @@ def dags_from_dict(
             - email_on_failure
             - retries
             - retry_delay
-            - priorirty_weight
+            - priority_weight
             - weight_rule
             - pool
             - owner
@@ -165,7 +165,7 @@ def dags_from_dict(
         "email_on_failure",
         "retries",
         "retry_delay",
-        "priorirty_weight",
+        "priority_weight",
         "weight_rule",
         "pool",
         "owner",  # set within this function, can be overwritten
@@ -218,6 +218,7 @@ def dags_from_dict(
             )
 
     additional_task_args = base_config.pop("additional_task_args", {})
+    additional_task_args["weight_rule"] = "upstream"
     base_config["additional_task_args"] = {"owner": "EWAH"}
     for key, value in additional_task_args.items():
         if key in allowed_task_args:
