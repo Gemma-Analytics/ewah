@@ -10,7 +10,7 @@ class EWAHDynamoDBOperator(EWAHBaseOperator):
 
     # For incremental loading, use Kinesis Firehose to push changes to S3
     # and use S3 operator instead
-    _ACCEPTED_LOAD_STRATEGIES = {
+    _ACCEPTED_EXTRACT_STRATEGIES = {
         EC.ES_FULL_REFRESH: True,
         EC.ES_INCREMENTAL: False,
     }

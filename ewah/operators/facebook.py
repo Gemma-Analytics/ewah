@@ -18,7 +18,7 @@ class EWAHFBOperator(EWAHBaseOperator):
 
     _NAMES = ["facebook", "fb"]
 
-    _ACCEPTED_LOAD_STRATEGIES = {
+    _ACCEPTED_EXTRACT_STRATEGIES = {
         EC.ES_FULL_REFRESH: False,
         EC.ES_INCREMENTAL: True,
     }

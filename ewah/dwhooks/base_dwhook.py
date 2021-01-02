@@ -79,7 +79,7 @@ class EWAHBaseDWHook(BaseHook):
 
     # Just like each operator, child class must update or overwrite these values
     # A missing element is interpreted as False
-    _ACCEPTED_LOAD_STRATEGIES = {
+    _ACCEPTED_EXTRACT_STRATEGIES = {
         EC.ES_FULL_REFRESH: False,
         EC.ES_INCREMENTAL: False,
     }

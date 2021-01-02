@@ -72,7 +72,7 @@ class EWAHBaseOperator(BaseOperator):
 
     # Child class must update or overwrite these values
     # A missing element is interpreted as False
-    _ACCEPTED_LOAD_STRATEGIES = {
+    _ACCEPTED_EXTRACT_STRATEGIES = {
         EC.ES_FULL_REFRESH: False,
         EC.ES_INCREMENTAL: False,
         EC.ES_GET_NEXT: False,
@@ -94,7 +94,7 @@ class EWAHBaseOperator(BaseOperator):
         source_conn_id,
         dwh_engine,
         dwh_conn_id,
-        load_strategy,
+        extract_strategy,
         target_table_name,
         target_schema_name,
         target_schema_suffix="_next",
@@ -132,10 +132,10 @@ class EWAHBaseOperator(BaseOperator):
 
         _msg = 'param "wait_for_seconds" must be a nonnegative integer!'
         assert isinstance(wait_for_seconds, int) and wait_for_seconds >= 0, _msg
-        _msg = "load_strategy {0} not accepted for this operator!".format(
-            load_strategy,
+        _msg = "extract_strategy {0} not accepted for this operator!".format(
+            extract_strategy,
         )
-        assert self._ACCEPTED_LOAD_STRATEGIES.get(load_strategy), _msg
+        assert self._ACCEPTED_EXTRACT_STRATEGIES.get(extract_strategy), _msg
 
         if hash_columns and not clean_data_before_upload:
             _msg = "column hashing is only possible with data cleaning!"
@@ -190,7 +190,7 @@ class EWAHBaseOperator(BaseOperator):
                 "Cannot supply BOTH primary_key_column_name AND" + " update_on_columns!"
             )
 
-        if not load_strategy in [EC.ES_FULL_REFRESH]:
+        if not extract_strategy in [EC.ES_FULL_REFRESH]:
             # Required settings for incremental loads
             # Update condition for new load strategies as required
             if not (
@@ -237,7 +237,7 @@ class EWAHBaseOperator(BaseOperator):
         self.source_conn_id = source_conn_id
         self.dwh_engine = dwh_engine
         self.dwh_conn_id = dwh_conn_id
-        self.load_strategy = load_strategy
+        self.extract_strategy = extract_strategy
         self.target_table_name = target_table_name
         self.target_schema_name = target_schema_name
         self.target_schema_suffix = target_schema_suffix
@@ -268,10 +268,13 @@ class EWAHBaseOperator(BaseOperator):
 
         self.hook = get_dwhook(self.dwh_engine)
 
-        _msg = "DWH hook does not support load strategy {0}!".format(
-            load_strategy,
+        _msg = "DWH hook does not support extract strategy {0}!".format(
+            extract_strategy,
         )
-        assert self.hook._ACCEPTED_LOAD_STRATEGIES.get(load_strategy), _msg
+        assert self.hook._ACCEPTED_EXTRACT_STRATEGIES.get(extract_strategy), _msg
+
+    def ewah_execute(self, context):
+        raise Exception("You need to overwrite me!")
 
     def execute(self, context):
         """Why this method is defined here:
@@ -327,7 +330,7 @@ class EWAHBaseOperator(BaseOperator):
         # This is so data is loaded into a new table and if data loading
         # fails, the original data is not corrupted. At a new try or re-run,
         # the original table is just copited anew.
-        if not self.load_strategy == EC.ES_FULL_REFRESH:
+        if not self.extract_strategy == EC.ES_FULL_REFRESH:
             # Full refresh always drops and replaces the tables completely
             self.upload_hook.copy_table(
                 old_schema=self.target_schema_name,
@@ -340,7 +343,7 @@ class EWAHBaseOperator(BaseOperator):
         # set load_data_from and load_data_until as required
         data_from = ada(self.load_data_from)
         data_until = ada(self.load_data_until)
-        if self.load_strategy == EC.ES_INCREMENTAL:
+        if self.extract_strategy == EC.ES_INCREMENTAL:
             _tdz = timedelta(days=0)  # aka timedelta zero
             _ed = context["execution_date"]
             _ned = context["next_execution_date"]
@@ -355,7 +358,7 @@ class EWAHBaseOperator(BaseOperator):
             _ned += self.load_data_until_relative or _tdz
             data_until = min(_ned, data_until or _ned)
 
-        elif self.load_strategy == EC.ES_FULL_REFRESH:
+        elif self.extract_strategy == EC.ES_FULL_REFRESH:
             # Values may still be set as static values
             data_from = ada(self.reload_data_from) or data_from
 
@@ -376,7 +379,7 @@ class EWAHBaseOperator(BaseOperator):
         # the incremental loading range timeframe to ensure that all data is
         # loaded, useful e.g. if APIs lag or if server timestamps are not
         # perfectly accurate.
-        if self.wait_for_seconds and self.load_strategy == EC.ES_INCREMENTAL:
+        if self.wait_for_seconds and self.extract_strategy == EC.ES_INCREMENTAL:
             wait_until = context.get("next_execution_date")
             if wait_until:
                 wait_until += timedelta(seconds=self.wait_for_seconds)
@@ -568,7 +571,7 @@ class EWAHBaseOperator(BaseOperator):
 
         hook = self.upload_hook
 
-        if (self.load_strategy == EC.ES_INCREMENTAL) or (self.upload_call_count > 1):
+        if (self.extract_strategy == EC.ES_INCREMENTAL) or (self.upload_call_count > 1):
             self.log.info("Checking for, and applying schema changes.")
             _new_schema_name = self.target_schema_name + self.target_schema_suffix
             new_cols, del_cols = hook.detect_and_apply_schema_changes(
@@ -596,7 +599,7 @@ class EWAHBaseOperator(BaseOperator):
             schema_name=self.target_schema_name,
             schema_suffix=self.target_schema_suffix,
             database_name=self.target_database_name,
-            drop_and_replace=(self.load_strategy == EC.ES_FULL_REFRESH)
+            drop_and_replace=(self.extract_strategy == EC.ES_FULL_REFRESH)
             and (self.upload_call_count == 1),  # In case of chunking of uploads
             update_on_columns=self.update_on_columns,
             commit=False,  # See note below for reason
@@ -615,7 +618,7 @@ class EWAHBaseOperator(BaseOperator):
 
 
 class EWAHEmptyOperator(EWAHBaseOperator):
-    _ACCEPTED_LOAD_STRATEGIES = {
+    _ACCEPTED_EXTRACT_STRATEGIES = {
         EC.ES_FULL_REFRESH: True,
         EC.ES_INCREMENTAL: True,
     }

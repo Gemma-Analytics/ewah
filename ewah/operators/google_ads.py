@@ -13,7 +13,7 @@ class EWAHGoogleAdsOperator(EWAHBaseOperator):
 
     _NAMES = ["gads", "google_ads"]
 
-    _ACCEPTED_LOAD_STRATEGIES = {
+    _ACCEPTED_EXTRACT_STRATEGIES = {
         EC.ES_FULL_REFRESH: False,
         EC.ES_INCREMENTAL: True,
     }

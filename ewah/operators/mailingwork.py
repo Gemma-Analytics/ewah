@@ -12,7 +12,7 @@ class EWAHMailingworkOperator(EWAHBaseOperator):
 
     _NAMES = ["mailingwork"]
 
-    _ACCEPTED_LOAD_STRATEGIES = {
+    _ACCEPTED_EXTRACT_STRATEGIES = {
         EC.ES_FULL_REFRESH: True,
         EC.ES_INCREMENTAL: False,
     }

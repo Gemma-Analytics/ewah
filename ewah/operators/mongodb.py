@@ -16,7 +16,7 @@ class EWAHMongoDBOperator(EWAHBaseOperator):
 
     _NAMES = ["mongo", "mongodb"]
 
-    _ACCEPTED_LOAD_STRATEGIES = {
+    _ACCEPTED_EXTRACT_STRATEGIES = {
         EC.ES_FULL_REFRESH: True,
         EC.ES_INCREMENTAL: True,
     }
@@ -79,10 +79,10 @@ class EWAHMongoDBOperator(EWAHBaseOperator):
                 raise Exception(
                     "single_column_mode is not compatible with " + "columns_definition!"
                 )
-            if not kwargs.get("load_strategy") == EC.ES_FULL_REFRESH:
+            if not kwargs.get("extract_strategy") == EC.ES_FULL_REFRESH:
                 raise Exception(
                     "single_column_mode is only compatible with "
-                    + "load_strategy = {0}!".format(EC.ES_FULL_REFRESH)
+                    + "extract_strategy = {0}!".format(EC.ES_FULL_REFRESH)
                 )
             if kwargs.get("update_on_columns"):
                 raise Exception(

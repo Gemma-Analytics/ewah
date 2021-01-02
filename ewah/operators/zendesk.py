@@ -15,7 +15,7 @@ class EWAHZendeskOperator(EWAHBaseOperator):
 
     _NAMES = ["zendesk"]
 
-    _ACCEPTED_LOAD_STRATEGIES = {
+    _ACCEPTED_EXTRACT_STRATEGIES = {
         EC.ES_FULL_REFRESH: False,
         EC.ES_INCREMENTAL: True,
     }
@@ -54,7 +54,7 @@ class EWAHZendeskOperator(EWAHBaseOperator):
         kwargs["primary_key_column_name"] = kwargs.get("primary_key_column_name", "id")
 
         if self._accepted_resources[resource].get("drop_and_replace"):
-            kwargs["load_strategy"] = EC.ES_FULL_REFRESH
+            kwargs["extract_strategy"] = EC.ES_FULL_REFRESH
 
         # API data is delayed by about 60s according to official docs
         kwargs["wait_for_seconds"] = max(kwargs.get("wait_for_seconds", 0), 70)

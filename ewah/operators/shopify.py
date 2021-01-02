@@ -18,7 +18,7 @@ class EWAHShopifyOperator(EWAHBaseOperator):
 
     _NAMES = ["shopify"]
 
-    _ACCEPTED_LOAD_STRATEGIES = {
+    _ACCEPTED_EXTRACT_STRATEGIES = {
         EC.ES_FULL_REFRESH: False,
         EC.ES_INCREMENTAL: True,
     }
@@ -131,7 +131,7 @@ class EWAHShopifyOperator(EWAHBaseOperator):
             )
 
         if self._accepted_objects[shopify_object].get("_is_drop_and_replace"):
-            kwargs["load_strategy"] = EC.ES_FULL_REFRESH
+            kwargs["extract_strategy"] = EC.ES_FULL_REFRESH
 
         if not auth_type in ["access_token", "basic_auth"]:
             raise Exception("auth_type must be access_token or basic_auth!")

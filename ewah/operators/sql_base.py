@@ -17,7 +17,7 @@ class EWAHSQLBaseOperator(EWAHBaseOperator):
     # base operator
     # _NAMES = []
 
-    _ACCEPTED_LOAD_STRATEGIES = {
+    _ACCEPTED_EXTRACT_STRATEGIES = {
         EC.ES_FULL_REFRESH: True,
         EC.ES_INCREMENTAL: True,
     }
@@ -177,7 +177,7 @@ class EWAHSQLBaseOperator(EWAHBaseOperator):
     def ewah_execute(self, context):
         str_format = "%Y-%m-%dT%H:%M:%SZ"
 
-        if self.load_strategy == EC.ES_FULL_REFRESH:
+        if self.extract_strategy == EC.ES_FULL_REFRESH:
             self.log.info("Loading data as full refresh.")
         else:
             self.log.info(

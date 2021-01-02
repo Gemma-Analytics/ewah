@@ -54,11 +54,20 @@ class EWAHDAGGenerator(LoggingMixin):
         "Generator to yield individual DAGs as parsed from DAGs dictionary."
         self.log.info("EWAH is now loading DAGs from dict")
 
+        def get_logging_func(dag_name):
+            def logging_func(msg):
+                self.log.info(
+                    "EWAH LOG - DAG: {0} - Message: {1}".format(dag_name, msg)
+                )
+
+            return logging_func
+
         for dag_name, dag_config in deepcopy(self.dags_dict).items():
             self.log.info("EWAH is loading DAG(s): %s", dag_name)
 
             # Start with base config as default config, build up from there
             config = deepcopy(self.base_config)
+            config["logging_func"] = get_logging_func(dag_name)
             config["additional_task_args"].update(
                 dag_config.pop("additional_task_args", {})
             )

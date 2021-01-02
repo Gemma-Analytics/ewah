@@ -11,67 +11,70 @@ also captured.
 """
 
 from airflow import DAG
-from ewah.hooks.base import EWAHBaseHook as BaseHook
 from airflow.sensors.sql import SqlSensor
 
-from ewah.ewah_utils.airflow_utils import etl_schema_tasks
-from ewah.ewah_utils.airflow_utils import datetime_utcnow_with_tz
 from ewah.constants import EWAHConstants as EC
 from ewah.dag_factories.dag_factory_incremental import ExtendedETS
+from ewah.ewah_utils.airflow_utils import etl_schema_tasks, datetime_utcnow_with_tz
+from ewah.operators.base import EWAHBaseOperator
 
 from datetime import datetime, timedelta
 from collections.abc import Iterable
 from copy import deepcopy
-import time
-import pytz
+from typing import Optional, Type, Callable, List, Tuple, Union
+
 import re
 
 
 def dag_factory_fullcremental(
-    dag_name,
-    dwh_engine,
-    dwh_conn_id,
-    airflow_conn_id,
-    el_operator,
-    operator_config,
-    target_schema_name,
-    target_schema_suffix="_next",
-    target_database_name=None,
-    default_args=None,
-    start_date=datetime(2020, 1, 1),
-    schedule_interval_full_refresh=timedelta(days=1),
-    schedule_interval_incremental=timedelta(hours=1),
-    end_date=None,
-    read_right_users=None,
-    dwh_ssh_tunnel_conn_id=None,
-    additional_dag_args=None,
-    additional_task_args=None,
+    dag_name: str,
+    dwh_engine: str,
+    dwh_conn_id: str,
+    airflow_conn_id: str,
+    start_date: datetime,
+    el_operator: Type[EWAHBaseOperator],
+    operator_config: dict,
+    target_schema_name: str,
+    target_schema_suffix: str = "_next",
+    target_database_name: Optional[str] = None,
+    default_args: Optional[dict] = None,
+    schedule_interval_full_refresh: timedelta = timedelta(days=1),
+    schedule_interval_incremental: timedelta = timedelta(hours=1),
+    end_date: Optional[datetime] = None,
+    read_right_users: Optional[Union[List[str], str]] = None,
+    dwh_ssh_tunnel_conn_id: Optional[str] = None,
+    additional_dag_args: Optional[dict] = None,
+    additional_task_args: Optional[dict] = None,
+    logging_func: Optional[Callable] = None,
     **kwargs
-):
-    dag_base_name = dag_name
+) -> Tuple[DAG, DAG]:
+    def raise_exception(msg: str) -> None:
+        """Add information to error message before raising."""
+        raise Exception("DAG: {0} - Error: {1}".format(dag_name, msg))
+
+    logging_func = logging_func or print
 
     if kwargs:
-        for key, value in kwargs.items():
-            print("unused config: {0}={1}".format(key, str(value)))
+        logging_func("unused config: {0}".format(str(kwargs)))
 
     additional_dag_args = additional_dag_args or {}
     additional_task_args = additional_task_args or {}
 
     if dwh_ssh_tunnel_conn_id and not dwh_engine == EC.DWH_ENGINE_POSTGRES:
-        raise Exception("DWH tunneling only implemented for PostgreSQL DWHs!")
+        raise_exception("DWH tunneling only implemented for PostgreSQL DWHs!")
     if not read_right_users is None:
-        if type(read_right_users) == str:
-            read_right_users = read_right_users.split(",")
+        if isinstance(read_right_users, str):
+            read_right_users = [u.strip() for u in read_right_users.split(",")]
         if not isinstance(read_right_users, Iterable):
-            raise Exception("read_right_users must be an iterable or string!")
+            raise_exception("read_right_users must be an iterable or string!")
     if not isinstance(schedule_interval_full_refresh, timedelta):
-        raise Exception("schedule_interval_full_refresh must be timedelta!")
+        raise_exception("schedule_interval_full_refresh must be timedelta!")
     if not isinstance(schedule_interval_incremental, timedelta):
-        raise Exception("schedule_interval_incremental must be timedelta!")
+        raise_exception("schedule_interval_incremental must be timedelta!")
     if schedule_interval_incremental >= schedule_interval_full_refresh:
         _msg = "schedule_interval_incremental must be shorter than "
         _msg += "schedule_interval_full_refresh!"
-        raise Exception(_msg)
+        raise_exception(_msg)
 
     """Calculate the datetimes and timedeltas for the two DAGs.
 
@@ -84,10 +87,10 @@ def dag_factory_fullcremental(
     """
     if not start_date.tzinfo:
         # if no timezone is given, assume UTC
-        start_date = start_date.replace(tzinfo=pytz.utc)
-    time_now = datetime_utcnow_with_tz()
-    time_now += schedule_interval_incremental / 2
+        raise_exception("start_date must be timezone aware!")
+    time_now = datetime_utcnow_with_tz() + schedule_interval_incremental / 2
     if start_date > time_now:
+        # Start date for both is in the future
         start_date_fr = start_date
         start_date_inc = start_date
     else:
@@ -95,8 +98,8 @@ def dag_factory_fullcremental(
         start_date_fr = start_date + _td * schedule_interval_full_refresh
         start_date_inc = start_date_fr + schedule_interval_full_refresh
 
-    dag_name_fr = dag_base_name + "_Periodic_Full_Refresh"
-    dag_name_inc = dag_base_name + "_Intraperiod_Incremental"
+    dag_name_fr = dag_name + "_Periodic_Full_Refresh"
+    dag_name_inc = dag_name + "_Intraperiod_Incremental"
     dags = (
         DAG(
             dag_name_fr,
@@ -195,13 +198,12 @@ def dag_factory_fullcremental(
 
     for table in operator_config["tables"].keys():
         arg_dict_inc = deepcopy(additional_task_args)
-        # load_strategy can be overwritten to ES_FULL_REFRESH on per-table level
-        arg_dict_inc.update({"load_strategy": EC.ES_INCREMENTAL})
         arg_dict_inc.update(operator_config.get("general_config", {}))
         op_conf = operator_config["tables"][table] or {}
         arg_dict_inc.update(op_conf)
         arg_dict_inc.update(
             {
+                "extract_strategy": EC.ES_INCREMENTAL,
                 "task_id": "extract_load_" + re.sub(r"[^a-zA-Z0-9_]", "", table),
                 "dwh_engine": dwh_engine,
                 "dwh_conn_id": dwh_conn_id,
@@ -213,7 +215,7 @@ def dag_factory_fullcremental(
             }
         )
         arg_dict_fr = deepcopy(arg_dict_inc)
-        arg_dict_fr.update({"load_strategy": EC.ES_FULL_REFRESH})
+        arg_dict_fr["extract_strategy"] = EC.ES_FULL_REFRESH
 
         task_fr = el_operator(dag=dags[0], **arg_dict_fr)
         task_inc = el_operator(dag=dags[1], **arg_dict_inc)

@@ -15,7 +15,7 @@ class EWAHS3Operator(EWAHBaseOperator):
 
     _NAMES = ["s3"]
 
-    _ACCEPTED_LOAD_STRATEGIES = {
+    _ACCEPTED_EXTRACT_STRATEGIES = {
         EC.ES_FULL_REFRESH: True,
         EC.ES_INCREMENTAL: True,
     }

@@ -38,7 +38,7 @@ class EWAHDWHookPostgres(EWAHBaseDWHook):
             SELECT * FROM "{old_schema}"."{old_table}";
     """
 
-    _ACCEPTED_LOAD_STRATEGIES = {
+    _ACCEPTED_EXTRACT_STRATEGIES = {
         EC.ES_FULL_REFRESH: True,
         EC.ES_INCREMENTAL: True,
     }
