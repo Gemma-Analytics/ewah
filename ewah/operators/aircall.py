@@ -29,11 +29,10 @@ class EWAHAircallOperator(EWAHBaseOperator):
             assert EWAHAircallHook._RESOURCES[resource].get("incremental"), _msg
 
     def ewah_execute(self, context):
-        kwargs = {
-            "resource": self.resource,
-            "data_from": self.data_from,
-            "data_until": self.data_until,
-            "batch_call_pause_seconds": self.wait_between_pages,
-        }
-        for batch in self.source_hook.get_data_in_batches(**kwargs):
+        for batch in self.source_hook.get_data_in_batches(
+            resource=self.resource,
+            data_from=self.data_from,
+            data_until=self.data_until,
+            batch_call_pause_seconds=self.wait_between_pages,
+        ):
             self.upload_data(batch)
