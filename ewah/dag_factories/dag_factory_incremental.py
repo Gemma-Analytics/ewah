@@ -26,7 +26,6 @@ class ExtendedETS(ExternalTaskSensor):
         backfill_execution_delta=None,
         backfill_execution_date_fn=None,
         backfill_external_task_id=None,
-        execution_delay_in_seconds=120,
         *args,
         **kwargs,
     ):
@@ -35,26 +34,10 @@ class ExtendedETS(ExternalTaskSensor):
         self.backfill_execution_delta = backfill_execution_delta
         self.backfill_execution_date_fn = backfill_execution_date_fn
         self.backfill_external_task_id = backfill_external_task_id
-        self.execution_delay_in_seconds = execution_delay_in_seconds
 
         super().__init__(*args, **kwargs)
 
     def execute(self, context):
-
-        # When a DAG is executed as soon as possible, some data sources
-        # may not immediately have up to date data from their API.
-        # E.g. querying all data until 12.30pm only gives all relevant data
-        # after 12.32pm due to some internal delays. In those cases, make
-        # sure the incremental loading DAGs don't execute too quickly.
-        next_execution_date = context["next_execution_date"]  # type: Pendulum
-        next_execution_date += timedelta(seconds=self.execution_delay_in_seconds)
-        while datetime_utcnow_with_tz() < next_execution_date:
-            self.log.info(
-                "Waiting until {0} to execute... (now: {1})".format(
-                    str(next_execution_date), str(datetime_utcnow_with_tz())
-                )
-            )
-            time.sleep((self.execution_delay_in_seconds or 20) / 20)
 
         if context["dag"].start_date == context["execution_date"]:
             # First execution of the DAG.

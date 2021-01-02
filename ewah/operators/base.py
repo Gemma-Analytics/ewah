@@ -120,7 +120,7 @@ class EWAHBaseOperator(BaseOperator):
         target_ssh_tunnel_conn_id=None,  # see source_ssh_tunnel_conn_id
         hash_columns=None,  # str or list of str - columns to hash pre-upload
         hashlib_func_name="sha256",  # specify hashlib hashing function
-        wait_for_seconds=0,  # seconds past next_execution_date to wait until
+        wait_for_seconds=120,  # seconds past next_execution_date to wait until
         # wait_for_seconds only applies for incremental loads
         *args,
         **kwargs
@@ -385,6 +385,11 @@ class EWAHBaseOperator(BaseOperator):
         # the incremental loading range timeframe to ensure that all data is
         # loaded, useful e.g. if APIs lag or if server timestamps are not
         # perfectly accurate.
+        # When a DAG is executed as soon as possible, some data sources
+        # may not immediately have up to date data from their API.
+        # E.g. querying all data until 12.30pm only gives all relevant data
+        # after 12.32pm due to some internal delays. In those cases, make
+        # sure the (incremental loading) DAGs don't execute too quickly.
         if self.wait_for_seconds and self.extract_strategy == EC.ES_INCREMENTAL:
             wait_until = context.get("next_execution_date")
             if wait_until:
