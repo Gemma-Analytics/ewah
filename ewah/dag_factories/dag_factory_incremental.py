@@ -22,13 +22,13 @@ class ExtendedETS(ExternalTaskSensor):
 
     def __init__(
         self,
-        backfill_dag_id=None,
-        backfill_execution_delta=None,
-        backfill_execution_date_fn=None,
-        backfill_external_task_id=None,
+        backfill_dag_id: Optional[str] = None,
+        backfill_execution_delta: Optional[timedelta] = None,
+        backfill_execution_date_fn: Optional[Callable] = None,
+        backfill_external_task_id: Optional[str] = None,
         *args,
         **kwargs,
-    ):
+    ) -> None:
 
         self.backfill_dag_id = backfill_dag_id
         self.backfill_execution_delta = backfill_execution_delta
@@ -37,7 +37,7 @@ class ExtendedETS(ExternalTaskSensor):
 
         super().__init__(*args, **kwargs)
 
-    def execute(self, context):
+    def execute(self, context: dict) -> None:
 
         if context["dag"].start_date == context["execution_date"]:
             # First execution of the DAG.
