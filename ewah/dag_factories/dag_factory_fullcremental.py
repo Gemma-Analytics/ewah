@@ -12,7 +12,7 @@ also captured.
 
 from airflow import DAG
 from ewah.hooks.base import EWAHBaseHook as BaseHook
-from airflow.sensors.sql_sensor import SqlSensor
+from airflow.sensors.sql import SqlSensor
 
 from ewah.ewah_utils.airflow_utils import etl_schema_tasks
 from ewah.ewah_utils.airflow_utils import datetime_utcnow_with_tz
@@ -28,7 +28,7 @@ import re
 
 
 def dag_factory_fullcremental(
-    dag_base_name,
+    dag_name,
     dwh_engine,
     dwh_conn_id,
     airflow_conn_id,
@@ -48,6 +48,7 @@ def dag_factory_fullcremental(
     additional_task_args=None,
     **kwargs
 ):
+    dag_base_name = dag_name
 
     if kwargs:
         for key, value in kwargs.items():

@@ -1,6 +1,6 @@
 from airflow import DAG
 from ewah.hooks.base import EWAHBaseHook as BaseHook
-from airflow.sensors.external_task_sensor import ExternalTaskSensor as ETS
+from airflow.sensors.external_task import ExternalTaskSensor as ETS
 
 from ewah.ewah_utils.airflow_utils import PGO
 from ewah.ewah_utils.airflow_utils import etl_schema_tasks
@@ -82,7 +82,7 @@ class ExtendedETS(ETS):
 
 
 def dag_factory_incremental_loading(
-    dag_base_name,
+    dag_name,
     dwh_engine,
     dwh_conn_id,
     airflow_conn_id,
@@ -108,6 +108,7 @@ def dag_factory_incremental_loading(
     additional_task_args=None,
     **kwargs,
 ):
+    dag_base_name = dag_name
 
     if kwargs:
         for key, value in kwargs.items():

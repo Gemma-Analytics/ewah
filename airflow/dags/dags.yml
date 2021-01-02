@@ -32,7 +32,7 @@ base_config: # applied to all DAGs unless overwritten
     # email: ['me+ewahairflowerror@mail.com']
 el_dags:
   EL_Aircall:
-    load_strategy: incremental
+    el_strategy: incremental
     el_operator: aircall
     target_schema_name: raw_aircall
     start_date: 2020-10-31 00:00:00+00:00
@@ -42,11 +42,10 @@ el_dags:
         reload_data_from: 2020-10-31 00:00:00+00:00
         wait_for_seconds: 120
       tables:
-        calls:
-          load_strategy: incremental
+        calls: {}
 
   EL_Aircall_FR:
-    load_strategy: fr
+    el_strategy: fr
     el_operator: aircall
     target_schema_name: raw_aircall_fr
     operator_config:
@@ -61,7 +60,7 @@ el_dags:
         teams: {}
 
   EL_BigQuery:
-    load_strategy: fr
+    el_strategy: fr
     el_operator: bq
     target_schema_name: raw_bq
     operator_config:
@@ -77,7 +76,7 @@ el_dags:
   # EL_BigQuery_events_sharded: !yml_from_file secret_dag_bq_sharded.yml
 
   EL_DynamoDB:
-    load_strategy: full-refresh
+    el_strategy: full-refresh
     el_operator: dynamodb
     target_schema_name: raw_dynamodb
     operator_config:
@@ -94,7 +93,7 @@ el_dags:
   EL_Facebook: !yml_from_file secret_dag_facebook.yml
 
   EL_FX:
-    load_strategy: full refresh
+    el_strategy: full refresh
     el_operator: fx
     target_schema_name: raw_fx
     operator_config:
@@ -128,7 +127,7 @@ el_dags:
   EL_GSheets: !yml_from_file secret_dag_gsheets.yml
 
   EL_Hubspot:
-    load_strategy: fr
+    el_strategy: fr
     el_operator: hubspot
     target_schema_name: raw_hubspot
     operator_config:
@@ -152,7 +151,7 @@ el_dags:
           object: quotes
 
   EL_Mailchimp:
-    load_strategy: fr
+    el_strategy: fr
     el_operator: mailchimp
     target_schema_name: raw_mailchimp
     dwh_conn_id: ssh_dwh
@@ -180,7 +179,7 @@ el_dags:
             - sed_time
 
   EL_Mailingwork:
-    load_strategy: fr
+    el_strategy: fr
     el_operator: mailingwork
     target_schema_name: raw_mailingwork
     dwh_conn_id: snowflake_conn
@@ -217,7 +216,7 @@ el_dags:
   EL_MongoDB_5: !yml_from_file secret_dag_mongodb_5.yml
 
   EL_MySQL_Shopware:
-    load_strategy: fr
+    el_strategy: fr
     el_operator: mysql
     target_schema_name: raw_shopware
     #dwh_conn_id: ssh_dwh
@@ -244,7 +243,7 @@ el_dags:
   # EL_Shopify: tbd
 
   EL_Stripe:
-    load_strategy: fr
+    el_strategy: fr
     el_operator: stripe
     target_schema_name: raw_stripe
     operator_config:

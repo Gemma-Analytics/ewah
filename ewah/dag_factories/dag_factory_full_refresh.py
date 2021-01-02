@@ -90,4 +90,4 @@ def dag_factory_drop_and_replace(
             table_task = el_operator(**table_config)
             kickoff >> table_task >> final
 
-    return dag
+    return [dag]

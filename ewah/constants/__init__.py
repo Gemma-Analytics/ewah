@@ -4,13 +4,13 @@ from datetime import datetime, date
 class EWAHConstants:
     "This class contains a number of constants for use throughout Ewah."
 
-    # Available DWH Engines
-    DWH_ENGINE_POSTGRES = "PostgreSQL"
-    DWH_ENGINE_SNOWFLAKE = "Snowflake"
-    DWH_ENGINE_BIGQUERY = "BigQuery"
-    DWH_ENGINE_REDSHIFT = "Redshift"
-    DWH_ENGINE_S3 = "S3"
-    DWH_ENGINE_GS = "GoogleSheets"
+    # Available DWH Engines - use all small caps!
+    DWH_ENGINE_POSTGRES = "postgresql"
+    DWH_ENGINE_SNOWFLAKE = "snowflake"
+    DWH_ENGINE_BIGQUERY = "bigquery"
+    DWH_ENGINE_REDSHIFT = "redshift"
+    DWH_ENGINE_S3 = "s3"
+    DWH_ENGINE_GS = "googlesheets"
     DWH_ENGINES = [
         DWH_ENGINE_POSTGRES,
         DWH_ENGINE_SNOWFLAKE,
@@ -19,6 +19,19 @@ class EWAHConstants:
         # DWH_ENGINE_S3, To Be Implemented
         DWH_ENGINE_GS,
     ]
+
+    DWH_ENGINE_SPELLING_VARIANTS = {
+        "bq": DWH_ENGINE_BIGQUERY,
+        "postgres": DWH_ENGINE_POSTGRES,
+        "snowflake": DWH_ENGINE_SNOWFLAKE,
+        "sheets": DWH_ENGINE_GS,
+        "gsheets": DWH_ENGINE_GS,
+        "google sheets": DWH_ENGINE_GS,
+        DWH_ENGINE_POSTGRES: DWH_ENGINE_POSTGRES,
+        DWH_ENGINE_SNOWFLAKE: DWH_ENGINE_SNOWFLAKE,
+        DWH_ENGINE_GS: DWH_ENGINE_GS,
+        DWH_ENGINE_BIGQUERY: DWH_ENGINE_BIGQUERY,
+    }
 
     # Available Extract Strategies
     ES_FULL_REFRESH = "full-refresh"  # load all available data
