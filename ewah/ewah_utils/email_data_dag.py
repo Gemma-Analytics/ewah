@@ -1,6 +1,6 @@
 """DAG to email files from the DWH to a recipient"""
 from airflow import DAG
-from airflow.operators.email_operator import EmailOperator
+from airflow.operators.email import EmailOperator
 
 from ewah.dwhooks import get_dwhook
 

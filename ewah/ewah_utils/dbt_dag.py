@@ -2,8 +2,8 @@ from ewah.ewah_utils.dbt_operator import EWAHdbtOperator
 
 from airflow import DAG
 
-from airflow.operators.postgres_operator import PostgresOperator
-from airflow.operators.bash_operator import BashOperator
+from airflow.providers.postgres.operators.postgres import PostgresOperator
+from airflow.operators.bash import BashOperator
 from airflow.sensors.sql import SqlSensor
 from ewah.hooks.base import EWAHBaseHook as BaseHook
 from airflow.configuration import conf

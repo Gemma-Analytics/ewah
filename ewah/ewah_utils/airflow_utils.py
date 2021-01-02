@@ -1,6 +1,5 @@
-# from airflow.operators.postgres_operator import PostgresOperator as PGO
-from airflow.operators.python_operator import PythonOperator as PO
-from airflow.operators.dummy_operator import DummyOperator as DO
+from airflow.operators.python import PythonOperator as PO
+from airflow.operators.dummy import DummyOperator as DO
 from ewah.hooks.base import EWAHBaseHook as BaseHook
 from airflow.models import BaseOperator
 
@@ -18,7 +17,7 @@ import re
 class PGO(BaseOperator):
     """Airflow operator to execute PostgreSQL statements.
 
-    Required in excess of airflow.operators.postgres_operator.PostgresOperator
+    Cannot use airflow.providers.postgres.operators.postgres.PostgresOperator
         due to the a requirement to have an SSH tunnel option.
 
     Needs to be otherwise interchangeable with Airflow's PostgresOperator.
