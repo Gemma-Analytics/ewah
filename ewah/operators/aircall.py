@@ -13,6 +13,8 @@ class EWAHAircallOperator(EWAHBaseOperator):
         EC.ES_INCREMENTAL: True,
     }
 
+    _CONN_TYPE = EWAHAircallHook.conn_type
+
     _REQUIRES_COLUMNS_DEFINITION = False
 
     def __init__(self, resource=None, wait_between_pages=1, *args, **kwargs):

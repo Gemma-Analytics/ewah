@@ -80,6 +80,8 @@ class EWAHBaseOperator(BaseOperator):
 
     _REQUIRES_COLUMNS_DEFINITION = False  # raise error if true and None supplied
 
+    _CONN_TYPE = None # overwrite me with the required connection type, if applicable
+
     _INDEX_QUERY = """
         CREATE INDEX IF NOT EXISTS {0}
         ON "{1}"."{2}" ({3})
@@ -324,6 +326,10 @@ class EWAHBaseOperator(BaseOperator):
         if hasattr(self, "source_conn"):
             self.source_hook = self.source_conn.get_hook()
         del self.source_conn_id
+
+        if self._CONN_TYPE:
+            _msg = "Error - connection type must be {0}!".format(self._CONN_TYPE)
+            assert self._CONN_TYPE == self.source_conn.conn_type, _msg
 
         temp_schema_name = self.target_schema_name + self.target_schema_suffix
         # Create a new copy of the target table.
