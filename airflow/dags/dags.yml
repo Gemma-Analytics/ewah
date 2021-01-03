@@ -182,8 +182,11 @@ el_dags:
     el_strategy: fr
     el_operator: mailingwork
     target_schema_name: raw_mailingwork
-    dwh_conn_id: snowflake_conn
-    dwh_engine: snowflake
+    # While Snowflake is AWOL, test Mailingwork with a PostgreSQL DWH
+    dwh_conn_id: ssh_dwh
+    dwh_ssh_tunnel_conn_id: ssh_target
+    # dwh_conn_id: snowflake_conn
+    # dwh_engine: snowflake
     operator_config:
       general_config:
         source_conn_id: mailingwork
