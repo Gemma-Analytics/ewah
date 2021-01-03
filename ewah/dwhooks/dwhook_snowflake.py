@@ -3,21 +3,17 @@ from ewah.constants import EWAHConstants as EC
 
 import os
 import csv
-import snowflake.connector
+
+# import snowflake.connector
 from tempfile import NamedTemporaryFile
 from airflow.utils.file import TemporaryDirectory
 from airflow.models import BaseOperator
 
+
 class SnowflakeOperator(BaseOperator):
     "Operate to execute SQL on Snowflake"
 
-    def __init__(
-        self,
-        sql,
-        snowflake_conn_id,
-        database,
-        params=None,
-    *args, **kwargs):
+    def __init__(self, sql, snowflake_conn_id, database, params=None, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.sql = sql
         self.conn_id = snowflake_conn_id
@@ -31,9 +27,10 @@ class SnowflakeOperator(BaseOperator):
             dwh_conn=EWAHBaseDWHook.get_connection(self.conn_id),
             database=self.database,
         )
-        self.log.info('execute: {0}'.format(self.sql))
+        self.log.info("execute: {0}".format(self.sql))
         hook.execute(self.sql, commit=True, params=self._params)
         hook.close()
+
 
 class EWAHDWHookSnowflake(EWAHBaseDWHook):
 
@@ -58,23 +55,33 @@ class EWAHDWHookSnowflake(EWAHBaseDWHook):
         SELECT * FROM "{database_name}"."{schema_name}"."{table_name}"
     """
 
+    _COPY_TABLE = """
+        CREATE OR REPLACE TABLE "{database_name}"."{new_schema}"."{new_table}"
+            CLONE "{database_name}"."{old_schema}"."{old_table}";
+    """
+
+    _ACCEPTED_EXTRACT_STRATEGIES = {
+        EC.ES_FULL_REFRESH: True,
+        EC.ES_INCREMENTAL: True,
+    }
+
     def __init__(self, *args, database=None, **kwargs):
         self.database = database
         super().__init__(EC.DWH_ENGINE_SNOWFLAKE, *args, **kwargs)
 
-
     def _create_conn(self, database=None):
         creds = self.credentials
         extra = creds.extra_dejson
-        extra['password'] = creds.password
+        extra["password"] = creds.password
         if creds.host:
-            extra['account'] = creds.host
+            extra["account"] = creds.host
         if creds.login:
-            extra['user'] = creds.login
+            extra["user"] = creds.login
         if database or self.database:
-            extra['database'] = database or self.database
+            extra["database"] = database or self.database
 
-        return snowflake.connector.connect(**extra)
+        assert False  # tbd
+        # return snowflake.connector.connect(**extra)
 
     def _create_or_update_table(
         self,
@@ -90,19 +97,21 @@ class EWAHDWHookSnowflake(EWAHBaseDWHook):
         logging_function,
         pk_columns=[],
     ):
-        logging_function('Preparing DWH Tables...')
+        logging_function("Preparing DWH Tables...")
         schema_name += schema_suffix
-        new_table_name = table_name + '_new'
+        new_table_name = table_name + "_new"
         self.execute(
             sql="""CREATE OR REPLACE TABLE
                     "{database_name}"."{schema_name}"."{table_name}"
                     ({columns});
-            """.format(**{
-                'database_name': database_name,
-                'schema_name': schema_name,
-                'table_name': new_table_name,
-                'columns': columns_partial_query,
-            }),
+            """.format(
+                **{
+                    "database_name": database_name,
+                    "schema_name": schema_name,
+                    "table_name": new_table_name,
+                    "columns": columns_partial_query,
+                }
+            ),
             commit=False,
         )
 
@@ -122,18 +131,18 @@ class EWAHDWHookSnowflake(EWAHBaseDWHook):
         )
         list_of_columns = [col[0].strip() for col in list_of_columns]
 
-        self.log.info('Writing data to a temporary .csv file')
-        with TemporaryDirectory(prefix='uploadtosnowflake') as tmp_dir:
+        self.log.info("Writing data to a temporary .csv file")
+        with TemporaryDirectory(prefix="uploadtosnowflake") as tmp_dir:
             with NamedTemporaryFile(
                 dir=tmp_dir,
                 prefix=new_table_name,
-                suffix='.csv',
+                suffix=".csv",
             ) as datafile:
                 file_name = os.path.abspath(datafile.name)
-                with open(file_name, mode='w') as csv_file:
+                with open(file_name, mode="w") as csv_file:
                     csvwriter = csv.writer(
                         csv_file,
-                        delimiter=',',
+                        delimiter=",",
                         quotechar='"',
                         quoting=csv.QUOTE_MINIMAL,
                     )
@@ -146,7 +155,7 @@ class EWAHDWHookSnowflake(EWAHBaseDWHook):
                         )
 
                 # now stage and copy into snowflake!
-                sql_upload = '''
+                sql_upload = """
                     USE DATABASE "{2}";
                     USE SCHEMA "{3}";
                     DROP FILE FORMAT IF EXISTS {1}_format;
@@ -160,36 +169,38 @@ class EWAHDWHookSnowflake(EWAHBaseDWHook):
                         file_format = {1}_format;
                     PUT file://{0} @{1}_stage;
                     COPY INTO "{2}"."{3}"."{1}" FROM '@{1}_stage/{4}.gz';
-                '''.format(
+                """.format(
                     file_name,
                     new_table_name,
                     database_name,
                     schema_name,
-                    file_name[file_name.rfind('/')+1:],
+                    file_name[file_name.rfind("/") + 1 :],
                 )
-                self.log.info('Uploading data to Snowflake...')
+                self.log.info("Uploading data to Snowflake...")
                 self.execute(sql_upload)
 
-        if drop_and_replace or (not self.test_if_table_exists(
-            table_name=table_name,
-            schema_name=schema_name,
-            database_name=database_name,
-        )):
-            sql_final = '''
+        if drop_and_replace or (
+            not self.test_if_table_exists(
+                table_name=table_name,
+                schema_name=schema_name,
+                database_name=database_name,
+            )
+        ):
+            sql_final = """
                 USE SCHEMA "{0}"."{1}";
                 DROP TABLE IF EXISTS "{0}"."{1}"."{2}" CASCADE;
                 ALTER TABLE "{0}"."{1}"."{3}" RENAME TO "{2}";
-            '''.format(
+            """.format(
                 database_name,
                 schema_name,
                 table_name,
                 new_table_name,
             )
             if pk_columns:
-                sql_final += '''
+                sql_final += """
                     ALTER TABLE "{0}"."{1}"."{2}"
                     ADD PRIMARY KEY ("{3}");
-                '''.format(
+                """.format(
                     database_name,
                     schema_name,
                     table_name,
@@ -201,7 +212,7 @@ class EWAHDWHookSnowflake(EWAHBaseDWHook):
                 if not (col in update_on_columns):
                     update_set_cols += [col]
 
-            sql_final = '''
+            sql_final = """
                 USE SCHEMA "{0}"."{1}";
                 MERGE INTO "{0}"."{1}"."{2}" AS a
                     USING "{0}"."{1}"."{3}" AS b
@@ -212,34 +223,31 @@ class EWAHDWHookSnowflake(EWAHBaseDWHook):
                     ({6}) VALUES ({7})
                     ;
                 DROP TABLE "{0}"."{1}"."{3}" CASCADE;
-            '''.format(
+            """.format(
                 database_name,
                 schema_name,
                 table_name,
                 new_table_name,
-                ' AND '.join([
-                    'a."{0}" = b."{0}"'.format(col) for col in update_on_columns
-                ]),
-                ', '.join([
-                    'a."{0}" = b."{0}"'.format(col) for col in update_set_cols
-                ]),
-                '"'+'", "'.join(list(columns_definition.keys()))+'"',
-                ', '.join([
-                    'b."{0}"'.format(col) \
-                    for col in list(columns_definition.keys())
-                ]),
+                " AND ".join(
+                    ['a."{0}" = b."{0}"'.format(col) for col in update_on_columns]
+                ),
+                ", ".join(['a."{0}" = b."{0}"'.format(col) for col in update_set_cols]),
+                '"' + '", "'.join(list(columns_definition.keys())) + '"',
+                ", ".join(
+                    ['b."{0}"'.format(col) for col in list(columns_definition.keys())]
+                ),
             )
 
-        self.log.info('Final Step: Merging data')
+        self.log.info("Final Step: Merging data")
         self.execute(sql_final)
 
     def commit(self):
-        self.cur.execute('COMMIT;')
-        self.cur.execute('BEGIN;')
+        self.cur.execute("COMMIT;")
+        self.cur.execute("BEGIN;")
 
     def rollback(self):
-        self.cur.execute('ROLLBACK;')
-        self.cur.execute('BEGIN;')
+        self.cur.execute("ROLLBACK;")
+        self.cur.execute("BEGIN;")
 
     def test_if_table_exists(
         self,
@@ -247,17 +255,21 @@ class EWAHDWHookSnowflake(EWAHBaseDWHook):
         schema_name,
         database_name=None,
     ):
-        self.execute('USE DATABASE {0}'.format(
-            database_name or self.database_name,
-        ))
-        return 0 < len(self.execute_and_return_result(
-            """
+        self.execute(
+            "USE DATABASE {0}".format(
+                database_name or self.database,
+            )
+        )
+        return 0 < len(
+            self.execute_and_return_result(
+                """
             SELECT * FROM "{0}".information_schema.tables
             WHERE table_schema LIKE '{1}'
             AND table_name LIKE '{2}'
             """.format(
-                database_name or self.database_name,
-                schema_name,
-                table_name,
+                    database_name or self.database,
+                    schema_name,
+                    table_name,
+                )
             )
-        ))
+        )

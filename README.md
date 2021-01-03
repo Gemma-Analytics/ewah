@@ -153,7 +153,7 @@ for dag in dags:
   globals()[dag._dag_id] = dag
 ```
 Otherwise, airflow will not recognize the DAGs. Most arguments should be self-explanatory. The two noteworthy arguments are `el_operator` and `operator_config`.
-The former must be a child object of `ewah.operators.base_operator.EWAHBaseOperator`. Ideally, The required operator is already available for your use. Please feel free to fork and commit your own operators to this project! The latter is a dictionary containing the entire configuration of the operator. This is where you define what tables to load, how to load them, if loading specific columns only, and any other detail related to your EL job.
+The former must be a child object of `ewah.operators.base.EWAHBaseOperator`. Ideally, The required operator is already available for your use. Please feel free to fork and commit your own operators to this project! The latter is a dictionary containing the entire configuration of the operator. This is where you define what tables to load, how to load them, if loading specific columns only, and any other detail related to your EL job.
 
 ### Full refresh factory
 
@@ -161,7 +161,7 @@ A `filename.py` file in your airflow/dags folder may look something like this:
 ```python
 from ewah.ewah_utils.dag_factory_full_refresh import dag_factory_drop_and_replace
 from ewah.constants import EWAHConstants as EC
-from ewah.operators.postgres_operator import EWAHPostgresOperator
+from ewah.operators.postgres import EWAHPostgresOperator
 
 from datetime import datetime, timedelta
 

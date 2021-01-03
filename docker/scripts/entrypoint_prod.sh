@@ -11,11 +11,14 @@
 
 AIRFLOW_COMMAND="${1}"
 
+# Always remove the airflow.cfg file that airflow creates when running
+rm -r -f /opt/airflow/airflow.cfg
+
 # 1)
 if [[ ${AIRFLOW_COMMAND} == "webserver" ]]; then
   # ensure metadata database is up to date
   echo -e "\n\nUpgrading Metadata database:\n\n"
-  airflow upgradedb
+  airflow db upgrade
 fi
 
 # 2)
@@ -27,12 +30,19 @@ fi
 
 # 3)
 if [[ ${AIRFLOW_COMMAND} == "webserver" ]]; then
-  echo -e "\n\nIf applicable, run support scripts:"
   if [[ ${EWAH_RUN_DEV_SUPPORT_SCRIPTS} == "1" ]]; then
-    echo -e "\n\n\tIndeed, run support scripts!\n\n"
     python /entrypoint.py
-  else
-    echo -e "\n\n\tNope, not running the scripts!\n\n"
+    if [[ ${EWAH_AIRFLOW_USER_SET} == "1" ]]; then
+      echo -e "\n\n\n\nCreating RBAC admin user...\n\n"
+      airflow users create \
+        --role Admin \
+        --username $EWAH_AIRFLOW_USER_USER \
+        --firstname $EWAH_AIRFLOW_USER_FIRSTNAME \
+        --lastname $EWAH_AIRFLOW_USER_LASTNAME \
+        --email $EWAH_AIRFLOW_USER_EMAIL \
+        --password $EWAH_AIRFLOW_USER_PASSWORD
+      echo -e "\n\n"
+    fi
   fi
 fi
 

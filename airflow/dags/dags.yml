@@ -12,14 +12,14 @@ base_config: # applied to all DAGs unless overwritten
     - 7
   schedule_interval_future: !!python/object/apply:datetime.timedelta
     - 0
-    - 3600
+    - 28800
   # For fullcremental loads
   schedule_interval_full_refresh: !!python/object/apply:datetime.timedelta
     - 1 # days
     - 0 # seconds
   schedule_interval_incremental: !!python/object/apply:datetime.timedelta
     - 0 # days
-    - 3600 # seconds
+    - 28800 # seconds
   read_right_users:
     - i_dont_exist
   additional_task_args:
@@ -32,7 +32,7 @@ base_config: # applied to all DAGs unless overwritten
     # email: ['me+ewahairflowerror@mail.com']
 el_dags:
   EL_Aircall:
-    load_strategy: incremental
+    el_strategy: incremental
     el_operator: aircall
     target_schema_name: raw_aircall
     start_date: 2020-10-31 00:00:00+00:00
@@ -40,19 +40,27 @@ el_dags:
       general_config:
         source_conn_id: aircall
         reload_data_from: 2020-10-31 00:00:00+00:00
-        drop_and_replace: True
+        wait_for_seconds: 120
       tables:
-        users:
-          resource: users
-        calls:
-          drop_and_replace: False
+        calls: {}
+
+  EL_Aircall_FR:
+    el_strategy: fr
+    el_operator: aircall
+    target_schema_name: raw_aircall_fr
+    operator_config:
+      general_config:
+        source_conn_id: aircall
+      tables:
+        users: {}
         numbers: {}
         contacts: {}
-        tags: {}
+        tags_table:
+          resource: tags
         teams: {}
 
   EL_BigQuery:
-    incremental: False
+    el_strategy: fr
     el_operator: bq
     target_schema_name: raw_bq
     operator_config:
@@ -65,9 +73,10 @@ el_dags:
           source_table_name: bijan_weight
 
   EL_BigQuery_events: !yml_from_file secret_dag_bq.yml
+  # EL_BigQuery_events_sharded: !yml_from_file secret_dag_bq_sharded.yml
 
   EL_DynamoDB:
-    load_strategy: full-refresh
+    el_strategy: full-refresh
     el_operator: dynamodb
     target_schema_name: raw_dynamodb
     operator_config:
@@ -84,13 +93,13 @@ el_dags:
   EL_Facebook: !yml_from_file secret_dag_facebook.yml
 
   EL_FX:
-    incremental: False
+    el_strategy: full refresh
     el_operator: fx
     target_schema_name: raw_fx
     operator_config:
       general_config:
         frequency: daily
-        data_from: 2016-12-01 00:00:00+00:00
+        # data_from: 2016-12-01 00:00:00+00:00 tbd airflow 2.0 issue
       tables:
         daily_fx_rates_usd_eur:
           currency_pair: ['USD', 'EUR']
@@ -109,16 +118,16 @@ el_dags:
         daily_fx_rates_usd_myr:
           currency_pair: ['USD', 'MYR']
 
-  EL_GAds: !yml_from_file secret_dag_gads.yml
+  EL_GAds: !yml_from_file secret_dag_gads.yml # has an airflow 2.0 issue
 
-  EL_GA: !yml_from_file secret_dag_google_analytics.yml
+  EL_GA: !yml_from_file secret_dag_google_analytics.yml # has an airflow 2.0 issue
 
   # EL_GMaps: tbd
 
   EL_GSheets: !yml_from_file secret_dag_gsheets.yml
 
   EL_Hubspot:
-    incremental: False
+    el_strategy: fr
     el_operator: hubspot
     target_schema_name: raw_hubspot
     operator_config:
@@ -142,7 +151,7 @@ el_dags:
           object: quotes
 
   EL_Mailchimp:
-    incremental: False
+    el_strategy: fr
     el_operator: mailchimp
     target_schema_name: raw_mailchimp
     dwh_conn_id: ssh_dwh
@@ -170,11 +179,14 @@ el_dags:
             - sed_time
 
   EL_Mailingwork:
-    incremental: False
+    el_strategy: fr
     el_operator: mailingwork
     target_schema_name: raw_mailingwork
-    dwh_conn_id: snowflake_conn
-    dwh_engine: snowflake
+    # While Snowflake is AWOL, test Mailingwork with a PostgreSQL DWH
+    dwh_conn_id: ssh_dwh
+    dwh_ssh_tunnel_conn_id: ssh_target
+    # dwh_conn_id: snowflake_conn
+    # dwh_engine: snowflake
     operator_config:
       general_config:
         source_conn_id: mailingwork
@@ -207,7 +219,7 @@ el_dags:
   EL_MongoDB_5: !yml_from_file secret_dag_mongodb_5.yml
 
   EL_MySQL_Shopware:
-    incremental: False
+    el_strategy: fr
     el_operator: mysql
     target_schema_name: raw_shopware
     #dwh_conn_id: ssh_dwh
@@ -215,7 +227,7 @@ el_dags:
     operator_config:
       general_config:
         source_conn_id: shopware
-        source_schema_name: shopware
+        source_schema_name: shopware_production
         source_ssh_tunnel_conn_id: ssh_tunnel
         primary_key_column_name: id
         chunking_interval: 100000
@@ -234,7 +246,7 @@ el_dags:
   # EL_Shopify: tbd
 
   EL_Stripe:
-    incremental: False
+    el_strategy: fr
     el_operator: stripe
     target_schema_name: raw_stripe
     operator_config:

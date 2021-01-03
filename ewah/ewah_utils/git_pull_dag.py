@@ -1,5 +1,6 @@
 from airflow import DAG
-from airflow.operators.bash_operator import BashOperator
+from airflow.operators.bash import BashOperator
+
 
 def git_pull_dag_factory(
     dag_name,
@@ -7,7 +8,7 @@ def git_pull_dag_factory(
     default_args={},
     start_date=None,
     schedule_interval=None,
-    ):
+):
 
     dag = DAG(
         dag_name,
@@ -19,8 +20,8 @@ def git_pull_dag_factory(
     )
 
     task = BashOperator(
-        task_id='git_pull_task',
-        bash_command='cd {0} && git pull'.format(folder),
+        task_id="git_pull_task",
+        bash_command="cd {0} && git pull".format(folder),
         dag=dag,
     )
 
