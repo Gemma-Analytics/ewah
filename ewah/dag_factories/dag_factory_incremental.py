@@ -1,5 +1,6 @@
 from airflow import DAG
 from airflow.sensors.external_task import ExternalTaskSensor
+from airflow.operators.bash import BashOperator
 
 from ewah.constants import EWAHConstants as EC
 from ewah.dwhooks.dwhook_snowflake import SnowflakeOperator
@@ -68,7 +69,6 @@ def dag_factory_incremental_loading(
     dag_name: str,
     dwh_engine: str,
     dwh_conn_id: str,
-    airflow_conn_id: str,
     start_date: datetime,
     el_operator: Type[EWAHBaseOperator],
     operator_config: dict,
@@ -109,8 +109,6 @@ def dag_factory_incremental_loading(
         "_Inremental_Backfill", and "_Incremental".
     :param dwh_engine: Type of the DWH (e.g. postgresql).
     :param dwh_conn_id: Airflow connection ID with DWH credentials.
-    :param airflow_conn_id: Airflow connection ID with Airflow Metadata DB
-        credentials.
     :param start_date: Start date of the DAGs (i.e. of the Backfill DAG).
     :param el_operator: A subclass of EWAHBaseOperator that is used to load
         the individual tables.
@@ -240,64 +238,16 @@ def dag_factory_incremental_loading(
     )
 
     # Create reset DAG
-    reset_sql = """
-        /*
-         *  Different versions of airflow contain different tables. Only
-         *  DELETE DAG from tables that actually exist.
-         *
-         *  Create a function that is called once per DAG, and then drop
-         *  the function again, all within a single transaction.
-         */
-        CREATE OR REPLACE FUNCTION __ewah_delete_all_dag_stats(dag_name text)
-        RETURNS void AS
-        $$
-        DECLARE
-        	meta_db text;
-        	meta_schema text;
-        	meta_table text;
-        BEGIN
-        	FOR meta_db, meta_schema, meta_table IN
-        		SELECT table_catalog, table_schema, table_name
-        		FROM information_schema.tables
-        		WHERE table_name IN ('dag_run'
-                    , 'job'
-                    , 'task_fail'
-                    , 'task_instance'
-                    , 'task_reschedule'
-                    , 'xcom'
-                    , 'dag_stats'
-                )
-        		AND table_catalog LIKE %(db_name)s
-        		AND table_schema LIKE %(schema_name)s
-        	LOOP
-                IF meta_table = 'dag_run' THEN
-                    -- Only once per DAG: turn DAGs off!
-                    EXECUTE 'UPDATE "' || meta_db || '"."' || meta_schema
-                        || '"."dag"'
-                        || ' SET is_paused = TRUE'
-                        || ' WHERE dag_id = ''' || dag_name || '''';
-                END IF;
-        		EXECUTE 'DELETE FROM "' || meta_db || '"."' || meta_schema
-                    || '"."' || meta_table
-                    || '" WHERE dag_id = ''' || dag_name || '''';
-        	END LOOP;
-        END;
-        $$ LANGUAGE plpgsql VOLATILE;
-        SELECT __ewah_delete_all_dag_stats(%(dag_name)s);
-        SELECT __ewah_delete_all_dag_stats(%(dag_name_backfill)s);
-        DROP FUNCTION __ewah_delete_all_dag_stats;
-    """
-    airflow_conn = BaseHook.get_connection(airflow_conn_id)
-    reset_task = PGO(
-        sql=reset_sql,
-        postgres_conn_id=airflow_conn_id,
-        parameters={
-            "dag_name": dag_name + "_Incremental",
-            "dag_name_backfill": dag_name + "_Incremental_Backfill",
-            "db_name": airflow_conn.schema,
-            # schema with airflow metadata - defaults to "public" for PostgreSQL
-            "schema_name": airflow_conn.extra_dejson.get("schema", "public"),
-        },
+    reset_bash_command = " && ".join(  # First pause DAGs, then delete their metadata
+        [
+            "airflow dags pause {dag_name}_Incremental",
+            "airflow dags pause {dag_name}_Incremental_Backfill",
+            "airflow dags delete {dag_name}_Incremental -y",
+            "airflow dags delete {dag_name}_Incremental_Backfill -y",
+        ]
+    ).format(dag_name=dag_name)
+    reset_task = BashOperator(
+        bash_command=reset_bash_command,
         task_id="reset_by_deleting_all_task_instances",
         dag=dags[2],
         **additional_task_args,
