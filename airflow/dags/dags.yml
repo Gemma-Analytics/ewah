@@ -12,14 +12,14 @@ base_config: # applied to all DAGs unless overwritten
     - 7
   schedule_interval_future: !!python/object/apply:datetime.timedelta
     - 0
-    - 3600
+    - 28800
   # For fullcremental loads
   schedule_interval_full_refresh: !!python/object/apply:datetime.timedelta
     - 1 # days
     - 0 # seconds
   schedule_interval_incremental: !!python/object/apply:datetime.timedelta
     - 0 # days
-    - 3600 # seconds
+    - 28800 # seconds
   read_right_users:
     - i_dont_exist
   additional_task_args:

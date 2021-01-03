@@ -80,7 +80,7 @@ class EWAHBaseOperator(BaseOperator):
 
     _REQUIRES_COLUMNS_DEFINITION = False  # raise error if true and None supplied
 
-    _CONN_TYPE = None # overwrite me with the required connection type, if applicable
+    _CONN_TYPE = None  # overwrite me with the required connection type, if applicable
 
     _INDEX_QUERY = """
         CREATE INDEX IF NOT EXISTS {0}
@@ -401,8 +401,8 @@ class EWAHBaseOperator(BaseOperator):
                 )
             while wait_until and datetime_utcnow_with_tz() < wait_until:
                 # Only sleep a maximum of 5s at a time
-                wait_for_timedelta = datetime_utcnow_with_tz() - wait_until
-                time.sleep(min(wait_for_timedelta.total_seconds(), 5))
+                wait_for_timedelta = wait_until - datetime_utcnow_with_tz()
+                time.sleep(max(0, min(wait_for_timedelta.total_seconds(), 5)))
 
         try:
             # execute operator

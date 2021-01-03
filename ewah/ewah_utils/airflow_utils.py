@@ -66,6 +66,7 @@ class PGO(BaseOperator):
 
         hook = EWAHDWHookPostgres(conn)
         hook.execute(sql=self.sql, params=self.parameters, commit=True)
+        hook.close()  # SSH tunnel does not close if hook is not closed first
 
         # close SSH tunnel if applicable
         if hasattr(self, "ssh_tunnel_forwarder"):

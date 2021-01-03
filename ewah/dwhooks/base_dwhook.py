@@ -77,6 +77,8 @@ class EWAHBaseDWHook(BaseHook):
     always a child of this class and contains logic that is DWH specific.
     """
 
+    _ATTR_RELABEL = {}
+
     # Just like each operator, child class must update or overwrite these values
     # A missing element is interpreted as False
     _ACCEPTED_EXTRACT_STRATEGIES = {
