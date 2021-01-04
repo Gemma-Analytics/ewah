@@ -38,5 +38,6 @@ setuptools.setup(
         "google-cloud-bigquery",
         "stripe",
         "azure-storage-blob>=2.1.0",  # a temporay 2.0.0 bugfix
+        "simple-salesforce",
     ],
 )
