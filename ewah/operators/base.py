@@ -464,6 +464,7 @@ class EWAHBaseOperator(BaseOperator):
         }
         if self.dwh_engine == EC.DWH_ENGINE_SNOWFLAKE:
             kwargs["database_name"] = self.target_database_name
+            return self.upload_hook.test_if_table_exists(**kwargs)
         if self.dwh_engine in [EC.DWH_ENGINE_POSTGRES, EC.DWH_ENGINE_SNOWFLAKE]:
             return self.upload_hook.test_if_table_exists(**kwargs)
         # For a new DWH, need to manually check if function works properly

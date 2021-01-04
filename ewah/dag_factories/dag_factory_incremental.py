@@ -166,7 +166,7 @@ def dag_factory_incremental_loading(
             + " regular schedule interval!"
         )
     if not operator_config.get("tables"):
-        raise Exception('Requires a "tables" dictionary in operator_config!')
+        raise_exception('Requires a "tables" dictionary in operator_config!')
     if not read_right_users is None:
         if isinstance(read_right_users, str):
             read_right_users = [u.strip() for u in read_right_users.split(",")]
