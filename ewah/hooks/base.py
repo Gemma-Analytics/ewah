@@ -79,9 +79,9 @@ class EWAHBaseHook(BaseHook):
     # e.g. {"api_key": "password"} to get self.password for self.api_key
     _ATTR_RELABEL = {}
 
-    def __init__(self, conn=None):
+    def __init__(self, conn: EWAHConnection, *args, **kwargs):
         self.conn = conn
-        return super().__init__()
+        return super().__init__(*args, **kwargs)
 
     @classmethod
     def get_connection(cls, conn_id: str) -> EWAHConnection:

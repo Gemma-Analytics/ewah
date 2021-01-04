@@ -36,19 +36,6 @@ class EWAHAircallHook(EWAHBaseHook):
             },
         }
 
-    # @staticmethod
-    # def get_connection_form_widgets():
-    #     """Returns connection widgets to add to connection form"""
-    #     from flask_appbuilder.fieldwidgets import BS3TextFieldWidget
-    #     from wtforms import StringField
-
-    #     return {
-    #         "extra__ewah_aircall__random_text_field": StringField(
-    #             "Delete me before commit!",
-    #             widget=BS3TextFieldWidget(),
-    #         ),
-    #     }
-
     def get_data_in_batches(
         self,
         resource,

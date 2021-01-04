@@ -166,7 +166,7 @@ def dag_factory_incremental_loading(
             + " regular schedule interval!"
         )
     if not operator_config.get("tables"):
-        raise Exception('Requires a "tables" dictionary in operator_config!')
+        raise_exception('Requires a "tables" dictionary in operator_config!')
     if not read_right_users is None:
         if isinstance(read_right_users, str):
             read_right_users = [u.strip() for u in read_right_users.split(",")]
@@ -342,6 +342,8 @@ def dag_factory_incremental_loading(
     # add table creation tasks
     arg_dict = deepcopy(additional_task_args)
     arg_dict.update(operator_config.get("general_config", {}))
+    # Default reload_data_from to start_date
+    arg_dict["reload_data_from"] = arg_dict.get("reload_data_from", start_date)
     for table in operator_config["tables"].keys():
         kwargs = deepcopy(arg_dict)
         kwargs.update(operator_config["tables"][table] or {})

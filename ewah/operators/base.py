@@ -44,8 +44,6 @@ class EWAHBaseOperator(BaseOperator):
     following:
     - EC.QBC_FIELD_TYPE -> String: Field type (default text)
     - EC.QBC_FIELD_PK -> Boolean: Is this field the primary key? (default False)
-    - EC.QBC_FIELD_NN -> Boolean: Not Null constraint for this field? (False)
-    - EC.QBC_FIELD_UQ -> Boolean: Unique constraint for this field? (False)
 
     Note that the value of EC.QBC_FIELD_TYPE is DWH-engine specific!
 
@@ -466,6 +464,7 @@ class EWAHBaseOperator(BaseOperator):
         }
         if self.dwh_engine == EC.DWH_ENGINE_SNOWFLAKE:
             kwargs["database_name"] = self.target_database_name
+            return self.upload_hook.test_if_table_exists(**kwargs)
         if self.dwh_engine in [EC.DWH_ENGINE_POSTGRES, EC.DWH_ENGINE_SNOWFLAKE]:
             return self.upload_hook.test_if_table_exists(**kwargs)
         # For a new DWH, need to manually check if function works properly

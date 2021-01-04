@@ -51,20 +51,14 @@ class EWAHConstants:
     QBC_FIELD_TYPE = "data_type"
 
     QBC_FIELD_PK = "is_primary_key"
-    QBC_FIELD_NN = "is_not_null"
-    QBC_FIELD_UQ = "is_unique"
     QBC_FIELD_HASH = "is_hash_column"
     QBC_FIELD_GSHEET_COLNO = "column"  # Gsheet operator: position of the column
     QBC_FIELD_CONSTRAINTS_MAPPING = {
         DWH_ENGINE_POSTGRES: {
             QBC_FIELD_PK: "PRIMARY KEY",
-            QBC_FIELD_NN: "NOT NULL",
-            QBC_FIELD_UQ: "UNIQUE",
         },
         DWH_ENGINE_SNOWFLAKE: {
             QBC_FIELD_PK: "PRIMARY KEY",
-            QBC_FIELD_NN: "NOT NULL",
-            QBC_FIELD_UQ: "UNIQUE",
         },
         # DWH_ENGINE_BIGQUERY: {},
         # DWH_ENGINE_REDSHIFT: {},
