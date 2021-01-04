@@ -10,7 +10,7 @@ import json
 import sqlalchemy
 
 
-def commit_conns(filepath):
+def commit_conns(filepath: str) -> None:
     # read a yaml with connections and commit that to airflow's metadata db
     conns = yaml.load(open(filepath, "r"), Loader=Loader)  # read YAML
     session = settings.Session()  # connect to the metadata db
