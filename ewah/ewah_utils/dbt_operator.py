@@ -81,9 +81,16 @@ class EWAHdbtOperator(BaseOperator):
                 )
             )
 
+        # Make sure no process command tries to sneak in extra commands
+        if not max([1 if "&" in cmd else 0 for cmd in dbt_commands]) == 0:
+            raise Exception("Ampersand (&) is an invalid character in dbt_commands!")
+
         if repo_type == "git":
             assert git_link
-            assert re.search("@(.*):", git_link)  # only SSH links currently work
+            assert re.search("@(.*):", git_link), "only SSH currently work for git_link"
+            assert not "&" in git_link, "Ampersand is an illegal character in git_link!"
+        else:
+            raise Exception("Not implemented!")
 
         super().__init__(*args, **kwargs)
 
@@ -105,6 +112,8 @@ class EWAHdbtOperator(BaseOperator):
     def execute(self, context):
         def run_cmd(cmd, env):
             # run a bash command (cmd) with the environment variables env
+            if isinstance(cmd, list):
+                cmd = " && ".join(cmd)
             self.log.info("running:\n\n\t{0}\n\n".format(cmd))
             with subprocess.Popen(
                 cmd,
@@ -131,9 +140,10 @@ class EWAHdbtOperator(BaseOperator):
                 if self.git_branch:
                     git_repo_link = "-b {0} ".format(self.git_branch)
                 git_repo_link += self.git_link
+                cmd = []
                 with NamedTemporaryFile(dir=tmp_dir) as f:
                     # temporarily have a file with the SSH key when cloning
-                    cmd = "eval `ssh-agent`"
+                    cmd.append("eval `ssh-agent`")
                     if self.git_conn_id:
                         git_conn = BaseHook.get_connection(self.git_conn_id)
                         ssh_key_text = git_conn.extra
@@ -153,20 +163,25 @@ class EWAHdbtOperator(BaseOperator):
                                     '#!/bin/bash\necho "{0}"'.format(git_conn.password)
                                 )
                                 f_pw.seek(0)
-                            ssh_pw = 'DISPLAY=":0.0" SSH_ASKPASS="{0}" '
-                            ssh_pw = ssh_pw.format(f_pw_path)
-                            cmd += " && chmod 777 {0}".format(f_pw_path)
-                        cmd += " && {1}ssh-add {0}".format(file_name, ssh_pw)
+                            ssh_pw = 'DISPLAY=":0.0" SSH_ASKPASS="{0}"'.format(
+                                f_pw_path
+                            )
+                            cmd.append("chmod 777 {0}".format(f_pw_path))
+                        cmd.append("{1} ssh-add {0}".format(file_name, ssh_pw))
                     else:
-                        cmd += 'echo "cloning without credentials!"'
+                        cmd.append('echo "cloning without credentials!"')
                     ssh_domain = re.search("@(.*):", self.git_link).group(1)
-                    cmd += " && mkdir -p $HOME/.ssh"
-                    cmd += " && ssh-keyscan -H {0} >> $HOME/.ssh/known_hosts".format(
-                        ssh_domain
+                    cmd.append("mkdir -p $HOME/.ssh")
+                    cmd.append(
+                        "ssh-keyscan -H {0} >> $HOME/.ssh/known_hosts".format(
+                            ssh_domain
+                        )
                     )
-                    cmd += " && git clone {0} {1}".format(
-                        git_repo_link,
-                        repo_dir,
+                    cmd.append(
+                        "git clone {0} {1}".format(
+                            git_repo_link,
+                            repo_dir,
+                        )
                     )
                     run_cmd(cmd, env)  # cloning repo
             else:
@@ -183,10 +198,13 @@ class EWAHdbtOperator(BaseOperator):
 
             # install dbt into created venv
             self.log.info("installing dbt=={0}".format(self.dbt_version))
-            cmd = "source {0}/bin/activate".format(venv_folder)
-            cmd += " && pip install --quiet --upgrade dbt=={0}".format(self.dbt_version)
-            cmd += " && dbt --version"
-            cmd += " && deactivate"
+            cmd = []
+            cmd.append("source {0}/bin/activate".format(venv_folder))
+            cmd.append(
+                "pip install --quiet --upgrade dbt=={0}".format(self.dbt_version)
+            )
+            cmd.append("dbt --version")
+            cmd.append("deactivate")
             run_cmd(cmd, env)
 
             dbt_dir = repo_dir
@@ -268,10 +286,12 @@ class EWAHdbtOperator(BaseOperator):
 
                 # run dbt commands
                 self.log.info("Now running commands dbt!")
-                cmd = "cd {0}".format(dbt_dir)
-                cmd += " && source {0}/bin/activate".format(venv_folder)
-                cmd += " && dbt ".join(["", "deps"] + self.dbt_commands)
-                cmd += " && deactivate"
+                cmd = []
+                cmd.append("cd {0}".format(dbt_dir))
+                cmd.append("source {0}/bin/activate".format(venv_folder))
+                cmd.append("dbt deps")
+                [cmd.append("dbt {0}".format(dc)) for dc in self.dbt_commands]
+                cmd.append("deactivate")
                 run_cmd(cmd, env)
 
             # if applicable: close SSH tunnel
