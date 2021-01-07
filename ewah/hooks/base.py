@@ -3,6 +3,8 @@ from airflow.models.connection import Connection
 from airflow.providers_manager import ProvidersManager
 from airflow.utils.module_loading import import_string
 
+from typing import Type, Optional
+
 
 class EWAHConnection(Connection):
     """Extension of airflow's native Connection."""
@@ -79,7 +81,19 @@ class EWAHBaseHook(BaseHook):
     # e.g. {"api_key": "password"} to get self.password for self.api_key
     _ATTR_RELABEL = {}
 
-    def __init__(self, conn: EWAHConnection, *args, **kwargs):
+    def __init__(
+        self,
+        conn: Optional[EWAHConnection] = None,
+        conn_id: Optional[str] = None,
+        *args,
+        **kwargs
+    ):
+        if not (conn or conn_id):
+            raise Exception("Must supply either 'conn' or 'conn_id'!")
+        if conn and conn_id:
+            raise Exception("Must not supply both 'conn' or 'conn_id'!")
+        if conn_id:
+            conn = self.get_connection(conn_id)
         self.conn = conn
         return super().__init__(*args, **kwargs)
 
@@ -93,3 +107,7 @@ class EWAHBaseHook(BaseHook):
         :return: connection
         """
         return EWAHConnection.get_connection_from_secrets(conn_id)
+
+    @classmethod
+    def get_hook_from_conn_id(cls, conn_id: str):
+        return conn.hook_cls(conn=cls.get_connection(conn_id))

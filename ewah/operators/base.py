@@ -1,7 +1,7 @@
 from airflow.models import BaseOperator
 from airflow.utils.decorators import apply_defaults
 
-from ewah.dwhooks import get_dwhook
+from ewah.uploaders import get_uploader
 from ewah.hooks.base import EWAHBaseHook
 from ewah.constants import EWAHConstants as EC
 from ewah.ewah_utils.ssh_tunnel import start_ssh_tunnel
@@ -266,12 +266,12 @@ class EWAHBaseOperator(BaseOperator):
         self.hashlib_func_name = hashlib_func_name
         self.wait_for_seconds = wait_for_seconds
 
-        self.hook = get_dwhook(self.dwh_engine)
+        self.uploader = get_uploader(self.dwh_engine)
 
         _msg = "DWH hook does not support extract strategy {0}!".format(
             extract_strategy,
         )
-        assert self.hook._ACCEPTED_EXTRACT_STRATEGIES.get(extract_strategy), _msg
+        # assert self.uploader._ACCEPTED_EXTRACT_STRATEGIES.get(extract_strategy), _msg
 
     def ewah_execute(self, context):
         raise Exception("You need to overwrite me!")
@@ -309,7 +309,7 @@ class EWAHBaseOperator(BaseOperator):
             )
         else:
             self.dwh_conn = EWAHBaseHook.get_connection(self.dwh_conn_id)
-        self.upload_hook = self.hook(self.dwh_conn)
+        self.uploader = self.uploader(self.dwh_conn)
 
         # open SSH tunnel for the data source connection, if applicable
         if self.source_ssh_tunnel_conn_id:
@@ -336,7 +336,7 @@ class EWAHBaseOperator(BaseOperator):
         # the original table is just copited anew.
         if not self.extract_strategy == EC.ES_FULL_REFRESH:
             # Full refresh always drops and replaces the tables completely
-            self.upload_hook.copy_table(
+            self.uploader.copy_table(
                 old_schema=self.target_schema_name,
                 old_table=self.target_table_name,
                 new_schema=temp_schema_name,
@@ -446,8 +446,8 @@ class EWAHBaseOperator(BaseOperator):
             # commit only at the end, so that no data may be committed before an
             # error occurs.
             self.log.info("Now committing changes!")
-            self.upload_hook.commit()
-            self.upload_hook.close()
+            self.uploader.commit()
+            self.uploader.close()
         except:
             # close SSH tunnels on failure before raising the error
             close_ssh_tunnels()
@@ -464,9 +464,9 @@ class EWAHBaseOperator(BaseOperator):
         }
         if self.dwh_engine == EC.DWH_ENGINE_SNOWFLAKE:
             kwargs["database_name"] = self.target_database_name
-            return self.upload_hook.test_if_table_exists(**kwargs)
+            return self.uploader.test_if_table_exists(**kwargs)
         if self.dwh_engine in [EC.DWH_ENGINE_POSTGRES, EC.DWH_ENGINE_SNOWFLAKE]:
-            return self.upload_hook.test_if_table_exists(**kwargs)
+            return self.uploader.test_if_table_exists(**kwargs)
         # For a new DWH, need to manually check if function works properly
         # Thus, fail until explicitly added
         raise Exception("Function not implemented!")
@@ -579,7 +579,7 @@ class EWAHBaseOperator(BaseOperator):
                     )
                 columns_definition[pk_name][EC.QBC_FIELD_PK] = True
 
-        hook = self.upload_hook
+        hook = self.uploader
 
         if (self.extract_strategy == EC.ES_INCREMENTAL) or (self.upload_call_count > 1):
             self.log.info("Checking for, and applying schema changes.")
@@ -613,7 +613,6 @@ class EWAHBaseOperator(BaseOperator):
             and (self.upload_call_count == 1),  # In case of chunking of uploads
             update_on_columns=self.update_on_columns,
             commit=False,  # See note below for reason
-            logging_function=self.log.info,
             clean_data_before_upload=self.clean_data_before_upload,
             hash_columns=self.hash_columns,
             hashlib_func_name=self.hashlib_func_name,

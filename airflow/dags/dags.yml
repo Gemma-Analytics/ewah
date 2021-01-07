@@ -255,7 +255,16 @@ el_dags:
         activities: {}
         notes: {}
 
-  # EL_Postgres: tbd
+  EL_Postgres:
+    el_strategy: fr
+    el_operator: postgres
+    target_schema_name: raw_pg_fr
+    operator_config:
+      general_config:
+        source_conn_id: dwh # load from dwh to dwh
+        source_schema_name: public
+      tables:
+        dag: {}
 
   EL_S3: !yml_from_file secret_dag_s3.yml
 

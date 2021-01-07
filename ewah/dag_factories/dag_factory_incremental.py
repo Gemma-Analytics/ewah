@@ -3,7 +3,7 @@ from airflow.sensors.external_task import ExternalTaskSensor
 from airflow.operators.bash import BashOperator
 
 from ewah.constants import EWAHConstants as EC
-from ewah.dwhooks.dwhook_snowflake import SnowflakeOperator
+from ewah.uploaders.snowflake import SnowflakeOperator
 from ewah.ewah_utils.airflow_utils import PGO, etl_schema_tasks, datetime_utcnow_with_tz
 from ewah.hooks.base import EWAHBaseHook as BaseHook
 from ewah.operators.base import EWAHBaseOperator

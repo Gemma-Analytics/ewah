@@ -1,4 +1,9 @@
-from ewah.dwhooks.base_dwhook import EWAHBaseDWHook
+"""
+The Snowflake Uploader is currently not available due to questionable design decisions
+by the Snowflake Python SDK maintainers.
+"""
+
+from ewah.uploaders.base import EWAHBaseUploader
 from ewah.constants import EWAHConstants as EC
 
 import os
@@ -23,16 +28,17 @@ class SnowflakeOperator(BaseOperator):
         self._params = params
 
     def execute(self, context):
-        hook = EWAHDWHookSnowflake(
-            dwh_conn=EWAHBaseDWHook.get_connection(self.conn_id),
+        from ewah.hooks.snowflake import EWAHSnowflakeHook
+
+        hook = EWAHSnowflakeHook(
+            conn_id=self.conn_id,
             database=self.database,
         )
-        self.log.info("execute: {0}".format(self.sql))
         hook.execute(self.sql, commit=True, params=self._params)
         hook.close()
 
 
-class EWAHDWHookSnowflake(EWAHBaseDWHook):
+class EWAHSnowflakeUploader(EWAHBaseUploader):
 
     _QUERY_SCHEMA_CHANGES_COLUMNS = """
         SELECT
@@ -60,28 +66,18 @@ class EWAHDWHookSnowflake(EWAHBaseDWHook):
             CLONE "{database_name}"."{old_schema}"."{old_table}";
     """
 
-    _ACCEPTED_EXTRACT_STRATEGIES = {
-        EC.ES_FULL_REFRESH: True,
-        EC.ES_INCREMENTAL: True,
-    }
-
     def __init__(self, *args, database=None, **kwargs):
-        self.database = database
+        self.database = database  # TODO: can I remove this??
         super().__init__(EC.DWH_ENGINE_SNOWFLAKE, *args, **kwargs)
 
-    def _create_conn(self, database=None):
-        creds = self.credentials
-        extra = creds.extra_dejson
-        extra["password"] = creds.password
-        if creds.host:
-            extra["account"] = creds.host
-        if creds.login:
-            extra["user"] = creds.login
-        if database or self.database:
-            extra["database"] = database or self.database
+    def commit(self):
+        self.dwh_hook.commit()
 
-        assert False  # tbd
-        # return snowflake.connector.connect(**extra)
+    def rollback(self):
+        self.dwh_hook.commit()
+
+    def close(self):
+        self.dwh_hook.close()
 
     def _create_or_update_table(
         self,
@@ -95,27 +91,26 @@ class EWAHDWHookSnowflake(EWAHBaseDWHook):
         update_on_columns,
         drop_and_replace,
         logging_function,
-        pk_columns=[],
+        pk_columns=None,
     ):
-        logging_function("Preparing DWH Tables...")
+        pk_columns = pk_columns or []
+        self.log.info("Preparing DWH Tables...")
         schema_name += schema_suffix
         new_table_name = table_name + "_new"
-        self.execute(
+        self.dwh_hook.execute(
             sql="""CREATE OR REPLACE TABLE
                     "{database_name}"."{schema_name}"."{table_name}"
                     ({columns});
             """.format(
-                **{
-                    "database_name": database_name,
-                    "schema_name": schema_name,
-                    "table_name": new_table_name,
-                    "columns": columns_partial_query,
-                }
+                database_name=database_name,
+                schema_name=schema_name,
+                table_name=new_table_name,
+                columns=columns_partial_query,
             ),
             commit=False,
         )
 
-        list_of_columns = self.execute_and_return_result(
+        list_of_columns = self.dwh_hook.execute_and_return_result(
             sql="""SELECT
                 column_name
                 FROM "{0}".information_schema.columns
@@ -177,7 +172,7 @@ class EWAHDWHookSnowflake(EWAHBaseDWHook):
                     file_name[file_name.rfind("/") + 1 :],
                 )
                 self.log.info("Uploading data to Snowflake...")
-                self.execute(sql_upload)
+                self.dwh_hook.execute(sql_upload)
 
         if drop_and_replace or (
             not self.test_if_table_exists(
@@ -239,15 +234,7 @@ class EWAHDWHookSnowflake(EWAHBaseDWHook):
             )
 
         self.log.info("Final Step: Merging data")
-        self.execute(sql_final)
-
-    def commit(self):
-        self.cur.execute("COMMIT;")
-        self.cur.execute("BEGIN;")
-
-    def rollback(self):
-        self.cur.execute("ROLLBACK;")
-        self.cur.execute("BEGIN;")
+        self.dwh_hook.execute(sql_final)
 
     def test_if_table_exists(
         self,
@@ -255,13 +242,13 @@ class EWAHDWHookSnowflake(EWAHBaseDWHook):
         schema_name,
         database_name=None,
     ):
-        self.execute(
+        self.dwh_hook.execute(
             "USE DATABASE {0}".format(
                 database_name or self.database,
             )
         )
         return 0 < len(
-            self.execute_and_return_result(
+            self.dwh_hook.execute_and_return_result(
                 """
             SELECT * FROM "{0}".information_schema.tables
             WHERE table_schema LIKE '{1}'

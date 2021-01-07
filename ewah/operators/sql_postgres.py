@@ -1,7 +1,5 @@
 from ewah.operators.sql_base import EWAHSQLBaseOperator
-
-# Use EWAHDWHookPostgres as hook since it's already there - not necessarily SOP!
-from ewah.dwhooks.dwhook_postgres import EWAHDWHookPostgres
+from ewah.hooks.postgres import EWAHPostgresHook
 
 
 class EWAHPostgresOperator(EWAHSQLBaseOperator):
@@ -24,18 +22,18 @@ class EWAHPostgresOperator(EWAHSQLBaseOperator):
     """
     _SQL_PARAMS = "%({0})s"
 
+    _CONN_TYPE = EWAHPostgresHook.conn_type
+
     def _get_data_from_sql(self, sql, params=None, return_dict=True):
-        hook = EWAHDWHookPostgres(self.source_conn)
         self.log.info(
             "Executing:\n{0}\n\nWith params:\n{1}".format(
                 sql,
                 str(params),
             )
         )
-        data = hook.execute_and_return_result(
+        data = self.source_hook.get_data_from_sql(
             sql=sql,
             params=params,
             return_dict=return_dict,
         )
-        hook.close()
         return data

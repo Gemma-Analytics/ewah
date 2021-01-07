@@ -11,12 +11,16 @@ also captured.
 """
 
 from airflow import DAG
-from airflow.sensors.sql import SqlSensor
 
 from ewah.constants import EWAHConstants as EC
 from ewah.dag_factories.dag_factory_incremental import ExtendedETS
-from ewah.ewah_utils.airflow_utils import etl_schema_tasks, datetime_utcnow_with_tz
+from ewah.ewah_utils.airflow_utils import (
+    etl_schema_tasks,
+    datetime_utcnow_with_tz,
+    EWAHSqlSensor,
+)
 from ewah.operators.base import EWAHBaseOperator
+from ewah.hooks.base import EWAHBaseHook
 
 from datetime import datetime, timedelta
 from collections.abc import Iterable
@@ -166,7 +170,7 @@ def dag_factory_fullcremental(
 
     # Sense if a previous instance runs OR if any incremental loads run
     # except incremental load of the same time, which is expected and waits
-    fr_snsr = SqlSensor(
+    fr_snsr = EWAHSqlSensor(
         task_id="sense_run_validity",
         conn_id=airflow_conn_id,
         sql=sql_fr,
