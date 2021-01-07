@@ -134,7 +134,10 @@ el_dags:
       general_config:
         source_conn_id: hubspot
       tables:
-        companies: {}
+        companies:
+          associations:
+            - deals
+            - contacts
         contacts:
           properties:
             - new_ip_address
@@ -142,7 +145,8 @@ el_dags:
             - new_user_agent
             - new_utm_campaign
             - new_utm_content
-        deals: {}
+        deals:
+          associations: line_items
         feedback_submissions: {}
         line_items: {}
         products: {}
