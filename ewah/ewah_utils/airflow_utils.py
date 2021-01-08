@@ -1,17 +1,28 @@
 from airflow.operators.python import PythonOperator as PO
 from airflow.operators.dummy import DummyOperator as DO
-from ewah.hooks.base import EWAHBaseHook as BaseHook
 from airflow.models import BaseOperator
+from airflow.sensors.sql import SqlSensor
 
 from ewah.ewah_utils.ssh_tunnel import start_ssh_tunnel
-from ewah.dwhooks.dwhook_snowflake import EWAHDWHookSnowflake
-from ewah.dwhooks.dwhook_postgres import EWAHDWHookPostgres
+from ewah.hooks.base import EWAHBaseHook
+from ewah.hooks.postgres import EWAHPostgresHook
+from ewah.hooks.snowflake import EWAHSnowflakeHook
 from ewah.constants import EWAHConstants as EC
 
 from datetime import datetime, timedelta, timezone
 from copy import deepcopy
 import pytz
 import re
+
+
+class EWAHSqlSensor(SqlSensor):
+    """Overwrite native SQL sensor to allow usage of ewah custom connection types."""
+
+    def _get_hook(self):
+        conn = EWAHBaseHook.get_connection(conn_id=self.conn_id)
+        if not conn.conn_type.startswith("ewah"):
+            raise Exception("Must use an appropriate EWAH custom connection type!")
+        return conn.get_hook()
 
 
 class PGO(BaseOperator):
@@ -59,12 +70,12 @@ class PGO(BaseOperator):
                 remote_conn_id=self.postgres_conn_id,
             )
         else:
-            conn = BaseHook.get_connection(self.postgres_conn_id)
+            conn = EWAHBaseHook.get_connection(self.postgres_conn_id)
 
         if self.database:
             conn.schema = self.database
 
-        hook = EWAHDWHookPostgres(conn)
+        hook = EWAHPostgresHook(conn)
         hook.execute(sql=self.sql, params=self.parameters, commit=True)
         hook.close()  # SSH tunnel does not close if hook is not closed first
 
@@ -199,7 +210,7 @@ def etl_schema_tasks(
         return (PGO(**task_1_args), PGO(**task_2_args))
     elif dwh_engine == EC.DWH_ENGINE_SNOWFLAKE:
         target_database_name = target_database_name or (
-            BaseHook.get_connection(dwh_conn_id).extra_dejson.get("database")
+            EWAHBaseHook.get_connection(dwh_conn_id).extra_dejson.get("database")
         )
         sql_kickoff = """
             DROP SCHEMA IF EXISTS
@@ -221,7 +232,7 @@ def etl_schema_tasks(
         )
 
         def execute_snowflake(sql, conn_id, **kwargs):
-            hook = EWAHDWHookSnowflake(BaseHook.get_connection(conn_id))
+            hook = EWAHSnowflakeHook(EWAHBaseHook.get_connection(conn_id))
             hook.execute(sql)
             hook.close()
 

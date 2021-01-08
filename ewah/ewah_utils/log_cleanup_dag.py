@@ -1,6 +1,6 @@
 # Adapted from https://github.com/teamclairvoyant/airflow-maintenance-dags
 from airflow.models import DAG, Variable
-from airflow.operators import BashOperator
+from airflow.operators.bash import BashOperator
 from airflow.configuration import conf
 from datetime import datetime, timedelta
 import os
@@ -29,7 +29,7 @@ def cleanup_dag_factory(
 ):
     DAG_ID = dag_name  # os.path.basename(__file__).replace(".pyc", "").replace(".py", "")  # airflow-log-cleanup
     START_DATE = state_date
-    BASE_LOG_FOLDER = conf.get("core", "BASE_LOG_FOLDER")
+    BASE_LOG_FOLDER = conf.get("logging", "BASE_LOG_FOLDER")
     SCHEDULE_INTERVAL = schedule_interval
     DAG_OWNER_NAME = (
         dag_owner  # Who is listed as the owner of this DAG in the Airflow Web Server
@@ -65,15 +65,7 @@ def cleanup_dag_factory(
     BASE_LOG_FOLDER='"""
         + BASE_LOG_FOLDER
         + """'
-    MAX_LOG_AGE_IN_DAYS="{{dag_run.conf.maxLogAgeInDays}}"
-    if [ "${MAX_LOG_AGE_IN_DAYS}" == "" ]; then
-        echo "maxLogAgeInDays conf variable isn't included. Using Default '"""
-        + str(DEFAULT_MAX_LOG_AGE_IN_DAYS)
-        + """'."
-        MAX_LOG_AGE_IN_DAYS='"""
-        + str(DEFAULT_MAX_LOG_AGE_IN_DAYS)
-        + """'
-    fi
+    MAX_LOG_AGE_IN_DAYS=$maxLogAgeInDays
     ENABLE_DELETE="""
         + str("true" if ENABLE_DELETE else "false")
         + """
@@ -117,8 +109,12 @@ def cleanup_dag_factory(
         log_cleanup = BashOperator(
             task_id="log_cleanup_" + str(log_cleanup_id),
             bash_command=log_cleanup,
-            provide_context=True,
             dag=dag,
+            env={
+                "maxLogAgeInDays": '{{{{ dag_run.conf["maxLogAgeInDays"] if dag_run and dag_run.conf.get("maxLogAgeInDays") else {age} }}}}'.format(
+                    age=str(DEFAULT_MAX_LOG_AGE_IN_DAYS)
+                )
+            },
         )
 
     return dag

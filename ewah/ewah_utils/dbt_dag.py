@@ -1,17 +1,16 @@
-from ewah.ewah_utils.dbt_operator import EWAHdbtOperator
-
 from airflow import DAG
-
-from airflow.providers.postgres.operators.postgres import PostgresOperator
-from airflow.operators.bash import BashOperator
-from airflow.sensors.sql import SqlSensor
-from ewah.hooks.base import EWAHBaseHook as BaseHook
 from airflow.configuration import conf
 from airflow.models import Variable
+from airflow.operators.bash import BashOperator
+from airflow.providers.postgres.operators.postgres import PostgresOperator
 
 from ewah.constants import EWAHConstants as EC
+from ewah.ewah_utils.airflow_utils import EWAHSqlSensor
+from ewah.ewah_utils.dbt_operator import EWAHdbtOperator
+from ewah.hooks.base import EWAHBaseHook as BaseHook
 
 from datetime import datetime, timedelta
+
 import os
 
 
@@ -154,7 +153,7 @@ def dbt_dags_factory_legacy(
         raise ValueError("DWH type not implemented!")
 
     # with dag:
-    snsr = SqlSensor(
+    snsr = EWAHSqlSensor(
         task_id="sense_dbt_conflict_avoided",
         conn_id=airflow_conn_id,
         sql=sensor_sql,
@@ -206,7 +205,7 @@ def dbt_dags_factory_legacy(
         dbt_test >> dbt_docs
 
     # with dag_full_refresh:
-    snsr = SqlSensor(
+    snsr = EWAHSqlSensor(
         task_id="sense_dbt_conflict_avoided",
         conn_id=airflow_conn_id,
         sql=sensor_sql,
@@ -306,7 +305,7 @@ def dbt_dag_factory_new(
         "{{ run_id }}",
     )
 
-    snsr_1 = SqlSensor(
+    snsr_1 = EWAHSqlSensor(
         task_id="sense_dbt_conflict_avoided",
         conn_id=airflow_conn_id,
         sql=sensor_sql,
@@ -314,7 +313,7 @@ def dbt_dag_factory_new(
         mode="reschedule",  # don't block a worker and pool slot
         dag=dag_1,
     )
-    snsr_2 = SqlSensor(
+    snsr_2 = EWAHSqlSensor(
         task_id="sense_dbt_conflict_avoided",
         conn_id=airflow_conn_id,
         sql=sensor_sql,

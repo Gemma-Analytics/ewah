@@ -255,6 +255,7 @@ class EWAHSQLBaseOperator(EWAHBaseOperator):
                 self.upload_data(data=data)
                 previous_chunk += self.chunking_interval
         else:
+            params = params or None  # params must not be an empty dict, rather be None!
             self.upload_data(
                 data=self._get_data_from_sql(
                     sql=sql_base.format("AND 1 = 1"),

@@ -1,12 +1,7 @@
 from ewah.operators.base import EWAHBaseOperator
 from ewah.constants import EWAHConstants as EC
 
-from ewah.hooks.base import EWAHBaseHook as BaseHook
-
-import requests
-import json
-import urllib
-import time
+from ewah.hooks.hubspot import EWAHHubspotHook
 
 
 class EWAHHubspotOperator(EWAHBaseOperator):
@@ -20,72 +15,44 @@ class EWAHHubspotOperator(EWAHBaseOperator):
 
     _REQUIRES_COLUMNS_DEFINITION = False
 
-    _BASE_URL = "https://api.hubapi.com/crm/v3/objects/{0}"
-    _PROPERTIES_URL = "https://api.hubapi.com/crm/v3/properties/{0}"
+    _CONN_TYPE = EWAHHubspotHook.conn_type
 
-    _OBJECTS = [
-        "companies",
-        "contacts",
-        "deals",
-        "feedback_submissions",
-        "line_items",
-        "products",
-        "tickets",
-        "quotes",
-    ]
-
-    def __init__(self, *args, object=None, properties=None, **kwargs):
+    def __init__(
+        self,
+        *args,
+        object=None,
+        properties=None,
+        exclude_properties=None,
+        associations=None,
+        **kwargs
+    ):
         if object is None:
             object = kwargs.get("target_table_name")
-        assert object in self._OBJECTS, "Object {0} is invalid!".format(object)
+        assert (
+            object in EWAHHubspotHook.ACCEPTED_OBJECTS
+        ), "Object {0} is invalid!".format(object)
         kwargs["primary_key_column_name"] = "id"
         super().__init__(*args, **kwargs)
         self.object = object
+        if isinstance(properties, str):
+            properties = [properties]
+        if isinstance(exclude_properties, str):
+            exclude_properties = [exclude_properties]
+        if isinstance(associations, str):
+            associations = [associations]
+        nonetype = type(None)
+        assert isinstance(properties, (list, nonetype))
+        assert isinstance(exclude_properties, (list, nonetype))
+        assert isinstance(associations, (list, nonetype))
         self.properties = properties
+        self.exclude_properties = exclude_properties
+        self.associations = associations
 
     def ewah_execute(self, context):
-        params = {"hapikey": self.source_conn.password, "limit": 100}
-        headers = {"accept": "application/json"}
-        url = self._BASE_URL.format(self.object)
-        url_properties = self._PROPERTIES_URL.format(self.object)
-
-        # set properties list
-        properties = self.properties
-        if properties is None:
-            # get properties via API call if none are given
-            request = requests.get(
-                url=url_properties,
-                params=params,
-                headers=headers,
-            )
-            assert request.status_code == 200, request.text
-            result = json.loads(request.text)["results"]
-            properties = [property["name"] for property in result]
-        params.update({"properties": properties})
-
-        # get and upload data
-        keepgoing = True
-        counter = 0
-        while keepgoing:
-            time.sleep(0.2)
-            counter += 1
-            _msg = "Loading data - request number {0}...".format(str(counter))
-            self.log.info(_msg)
-            request = requests.get(url=url, params=params, headers=headers)
-            if request.status_code == 414:
-                _msg = "ERROR! Too many properties "
-                _msg += "- please use a smaller, custom set of properties!"
-                _msg += "\n\navailable properties:\n\n\t"
-                _msg += "\n\t".join(properties)
-                self.log.info(_msg)
-            assert request.status_code == 200, request.text
-            response = json.loads(request.text)
-            # keep going as long as a link is shipped in the response
-            keepgoing = response.get("paging", {}).get("next", {}).get("after")
-            params.update({"after": keepgoing})
-            data = response["results"] or []
-            for datum in data:
-                # Expand the properties field! Otherwise, the properties are
-                # just a JSON in a single column called "properties"
-                datum.update(datum.pop("properties", {}))
-            self.upload_data(data)
+        for batch in self.source_hook.get_data_in_batches(
+            object=self.object,
+            properties=self.properties,
+            exclude_properties=self.exclude_properties,
+            associations=self.associations,
+        ):
+            self.upload_data(batch)

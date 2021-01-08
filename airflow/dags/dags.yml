@@ -134,7 +134,10 @@ el_dags:
       general_config:
         source_conn_id: hubspot
       tables:
-        companies: {}
+        companies:
+          associations:
+            - deals
+            - contacts
         contacts:
           properties:
             - new_ip_address
@@ -142,7 +145,8 @@ el_dags:
             - new_user_agent
             - new_utm_campaign
             - new_utm_content
-        deals: {}
+        deals:
+          associations: line_items
         feedback_submissions: {}
         line_items: {}
         products: {}
@@ -255,7 +259,28 @@ el_dags:
         activities: {}
         notes: {}
 
-  # EL_Postgres: tbd
+  EL_Postgres:
+    el_strategy: fr
+    el_operator: postgres
+    target_schema_name: raw_pg_fr
+    operator_config:
+      general_config:
+        source_conn_id: dwh # load from dwh to dwh
+        source_schema_name: public
+      tables:
+        dag: {}
+
+  EL_Postgres_2:
+    el_strategy: full-refresh
+    el_operator: postgres
+    target_schema_name: raw_mf
+    operator_config:
+      general_config:
+        source_conn_id: mf
+        source_schema_name: public
+      tables:
+        product_prices:
+          sql_select_statement: !text_from_file secret_sql_query.sql
 
   EL_S3: !yml_from_file secret_dag_s3.yml
 

@@ -1,13 +1,13 @@
 connections:
   - id: dwh
-    type: postgres
+    type: ewah_postgres
     host: database
     port: 5432
     schema: ewah
     login: postgres
     password: postgres
   - id: airflow
-    type: postgres
+    type: ewah_postgres
     host: database
     port: 5432
     schema: ewah

@@ -1,4 +1,4 @@
-from ewah.dwhooks.base_dwhook import EWAHBaseDWHook
+from ewah.uploaders.base import EWAHBaseUploader
 from ewah.constants import EWAHConstants as EC
 
 from tempfile import NamedTemporaryFile
@@ -32,7 +32,7 @@ def monkeypatch_values_update(func_to_call):
     return monkeypatch_func
 
 
-class EWAHDWHookGSheets(EWAHBaseDWHook):
+class EWAHGSheetsUploader(EWAHBaseUploader):
     """
     The Google Sheets Hook works a little bit different to other hooks.
         - it can only have 1 upload call per task execution
@@ -41,32 +41,22 @@ class EWAHDWHookGSheets(EWAHBaseDWHook):
         - the target table name is the worksheet name
     """
 
-    _ACCEPTED_EXTRACT_STRATEGIES = {
-        EC.ES_FULL_REFRESH: True,
-        EC.ES_INCREMENTAL: False,
-    }
-
     def __init__(self, *args, **kwargs):
-        self._upload_call_count = 0
+        self._upload_call_count = 0  # Make sure there is only a single upload
         super().__init__(EC.DWH_ENGINE_GS, *args, **kwargs)
-
-    def _init_conn(self, first_call=False, commit=False):
-        # need to overwrite parent function, does nothing
-        self.conn = None
-
-    def execute(self, *args, **kwargs):
-        # need to overwrite parent function, does nothing
-        raise Exception("This function is not implemented for this DWHook!")
 
     def detect_and_apply_schema_changes(self, *args, **kwargs):
         # need to overwrite parent function, does nothing
         raise Exception("This function is not implemented for this DWHook!")
 
     def commit(self):
-        self.logging_func("DWH Hook: Google Sheets is auto-commited")
+        self.log.info("Everything is auto-committed")
 
     def rollback(self):
-        raise Exception("Cannot rollback Google Sheets changes!")
+        raise Exception("Cannot rollback Google Sheets target!")
+
+    def close(self):
+        self.log.info("Nothing to close")
 
     def _create_or_update_table(
         self,
@@ -78,10 +68,9 @@ class EWAHDWHookGSheets(EWAHBaseDWHook):
         columns_partial_query,  # unused but always given
         update_on_columns,  # unused but always given
         drop_and_replace,  # must be true!
-        logging_function,
-        pk_columns=[],  # must accept arg, but it must also always be []
+        pk_columns=None,  # must accept arg, but it must also always be []
     ):
-        if not pk_columns == []:
+        if pk_columns:
             raise Exception("Arg pk_columns invalidly supplied!")
 
         def colnum_string(n):
@@ -97,18 +86,17 @@ class EWAHDWHookGSheets(EWAHBaseDWHook):
         self._upload_call_count += 1
         if not self._upload_call_count == 1:
             raise Exception("Chunking is not possible for Google Sheets DWH!")
-        logging_function("Replacing data in Google Sheets!")
+        self.log.info("Replacing data in Google Sheets!")
 
         if not data:
-            logging_function("Nothing to upload!")
+            self.log.info("Nothing to upload!")
             return
 
         # authorize and get correct worksheet
         servie_acc_file = NamedTemporaryFile()
-        logging_function("Authenticating...")
-        credentials = self.credentials.extra_dejson
-        if credentials.get("client_secrets"):
-            credentials = credentials["client_secrets"]
+        self.log.info("Authenticating...")
+        credentials = self.dwh_conn.extra_dejson
+        credentials = credentials.get("client_secrets", credentials)
         service_acc = json.dumps(credentials)
         filename = os.path.abspath(servie_acc_file.name)
         with open(filename, "w") as f:
@@ -121,7 +109,7 @@ class EWAHDWHookGSheets(EWAHBaseDWHook):
 
         # Delete old data, if any existed
         if values:
-            logging_function("Deleting old data...")
+            self.log.info("Deleting old data...")
             rows = len(values)
             columns = len(values[0])
             values = [columns * [""]] * rows
@@ -131,7 +119,7 @@ class EWAHDWHookGSheets(EWAHBaseDWHook):
         del values  # free up memory
 
         # insert new data - need to change the format! use columns definition
-        logging_function("Preparing data for Google Sheets upload...")
+        self.log.info("Preparing data for Google Sheets upload...")
         column_header = list(columns_definition.keys())
         upload_data = [column_header]
         while data:
@@ -139,9 +127,9 @@ class EWAHDWHookGSheets(EWAHBaseDWHook):
             upload_data += [[current_data.get(col, "") for col in column_header]]
         range_notation = "A1:" + colnum_string(len(column_header))
         range_notation += str(len(upload_data))
-        logging_function("Uploading data now!")
+        self.log.info("Uploading data now!")
         worksheet.spreadsheet.values_update = monkeypatch_values_update(
             worksheet.spreadsheet.values_update
         )
         worksheet.update(range_notation, upload_data)
-        logging_function("Upload done.")
+        self.log.info("Upload done.")
