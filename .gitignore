@@ -4,6 +4,7 @@ airflow/*
 !airflow/airflow_connections.yml
 !airflow/kubernetes_dags_folder
 secret_dag_*.yml
+secret_sql_*.sql
 
 
 postgres-data/*

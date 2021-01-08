@@ -114,11 +114,7 @@ class EWAHHubspotHook(EWAHBaseHook):
             if associations and response_data:
                 associations_data = defaultdict(dict)
                 payload = json.dumps(
-                    {
-                        "inputs": [
-                            {"id": str(datum["id"])} for datum in response_data
-                        ]
-                    }
+                    {"inputs": [{"id": str(datum["id"])} for datum in response_data]}
                 )
                 for association in associations:
                     request = requests.post(

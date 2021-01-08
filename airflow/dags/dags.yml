@@ -270,6 +270,18 @@ el_dags:
       tables:
         dag: {}
 
+  EL_Postgres_2:
+    el_strategy: full-refresh
+    el_operator: postgres
+    target_schema_name: raw_mf
+    operator_config:
+      general_config:
+        source_conn_id: mf
+        source_schema_name: public
+      tables:
+        product_prices:
+          sql_select_statement: !text_from_file secret_sql_query.sql
+
   EL_S3: !yml_from_file secret_dag_s3.yml
 
   EL_Salesforce:
