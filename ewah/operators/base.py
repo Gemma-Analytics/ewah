@@ -120,6 +120,7 @@ class EWAHBaseOperator(BaseOperator):
         hashlib_func_name="sha256",  # specify hashlib hashing function
         wait_for_seconds=120,  # seconds past next_execution_date to wait until
         # wait_for_seconds only applies for incremental loads
+        add_metadata=True,
         *args,
         **kwargs
     ):
@@ -265,6 +266,7 @@ class EWAHBaseOperator(BaseOperator):
         self.hash_columns = hash_columns
         self.hashlib_func_name = hashlib_func_name
         self.wait_for_seconds = wait_for_seconds
+        self.add_metadata = add_metadata
 
         self.uploader = get_uploader(self.dwh_engine)
 
@@ -538,28 +540,28 @@ class EWAHBaseOperator(BaseOperator):
             )
         )
 
-        self.log.info("Adding metadata...")
-        metadata = copy.deepcopy(self._metadata)  # from individual operator
-        # for all operators alike
-        metadata.update(
-            {
-                "_ewah_executed_at": self._execution_time,
-                "_ewah_execution_chunk": self.upload_call_count,
-                "_ewah_dag_id": self._context["dag"].dag_id,
-                "_ewah_dag_run_id": self._context["run_id"],
-                "_ewah_dag_run_execution_date": self._context["execution_date"],
-                "_ewah_dag_run_next_execution_date": self._context[
-                    "next_execution_date"
-                ],
-            }
-        )
-        for datum in data:
-            datum.update(metadata)
+        if self.add_metadata:
+            self.log.info("Adding metadata...")
+            metadata = copy.deepcopy(self._metadata)  # from individual operator
+            # for all operators alike
+            metadata.update(
+                {
+                    "_ewah_executed_at": self._execution_time,
+                    "_ewah_execution_chunk": self.upload_call_count,
+                    "_ewah_dag_id": self._context["dag"].dag_id,
+                    "_ewah_dag_run_id": self._context["run_id"],
+                    "_ewah_dag_run_execution_date": self._context["execution_date"],
+                    "_ewah_dag_run_next_execution_date": self._context[
+                        "next_execution_date"
+                    ],
+                }
+            )
+            for datum in data:
+                datum.update(metadata)
 
         columns_definition = columns_definition or self.columns_definition
         if not columns_definition:
             self.log.info("Creating table schema on the fly based on data.")
-            # Note: This is also where metadata is added, if applicable
             columns_definition = self._create_columns_definition(data)
 
         if self.update_on_columns:

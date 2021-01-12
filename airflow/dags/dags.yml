@@ -323,4 +323,22 @@ el_dags:
 
   # EL_Zendesk: tbd
 
+  Update_GSheet:
+    dwh_engine: gsheets
+    dwh_conn_id: google_service_account_key
+    el_strategy: fr
+    el_operator: postgres
+    target_schema_name: 1peh2ztnhqDJ98Qmp8PK0FMmJxJMzTaLKWUq37cDfujA
+    schedule_interval: !!python/object/apply:datetime.timedelta
+      - 0
+      - 60 # every minute
+    operator_config:
+      general_config:
+        add_metadata: False
+        source_conn_id: dwh
+        source_schema_name: public
+      tables:
+        Upload Test:
+          sql_select_statement: "select 1 as a, 2 as b union all select 3, 4"
+
 ...
