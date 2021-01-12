@@ -339,6 +339,6 @@ el_dags:
         source_schema_name: public
       tables:
         Upload Test:
-          sql_select_statement: "select 1 as a, 2 as b union all select 3, 4"
+          sql_select_statement: "select 1 as a, 2 as b, 'c' as c union all select 3, 4, 'd'"
 
 ...
