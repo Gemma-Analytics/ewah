@@ -260,7 +260,7 @@ class EWAHdbtOperator(BaseOperator):
                 profiles_yml[profile_name] = {
                     "target": "prod",  # same as the output defined below
                     "outputs": {
-                        "prod": {  # for postgres
+                        "prod": {  # for snowflake
                             "type": "snowflake",
                             "account": extra.get("account", dwh_conn.host),
                             "user": extra.get("user", dwh_conn.login),

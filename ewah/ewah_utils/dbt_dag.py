@@ -277,7 +277,9 @@ def dbt_dag_factory_new(
     start_date=datetime(2019, 1, 1),
     default_args=None,
     ssh_tunnel_id=None,
+    run_flags=None,  # e.g. --model tag:base
 ):
+    run_flags = run_flags or ""  # use empty string instead of None
 
     # only PostgreSQL & Snowflake implemented as of now!
     assert dwh_engine in (EC.DWH_ENGINE_POSTGRES, EC.DWH_ENGINE_SNOWFLAKE)
@@ -339,11 +341,14 @@ def dbt_dag_factory_new(
     }
 
     run_1 = EWAHdbtOperator(
-        task_id="dbt_run", dbt_commands=["seed", "run"], dag=dag_1, **dbt_kwargs
+        task_id="dbt_run",
+        dbt_commands=["seed", f"run {run_flags}"],
+        dag=dag_1,
+        **dbt_kwargs,
     )
     run_2 = EWAHdbtOperator(
         task_id="dbt_run",
-        dbt_commands=["seed", "run --full-refresh"],
+        dbt_commands=["seed", f"run --full-refresh {run_flags}"],
         dag=dag_2,
         **dbt_kwargs,
     )
