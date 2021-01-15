@@ -15,8 +15,8 @@ class EWAHSalesforceHook(EWAHBaseHook):
         "domain": "schema",
     }
 
-    conn_name_attr: str = "salesforce_conn_id"
-    default_conn_name: str = "salesforce_default"
+    conn_name_attr: str = "ewah_salesforce_conn_id"
+    default_conn_name: str = "ewah_salesforce_default"
     conn_type: str = "ewah_salesforce"
     hook_name: str = "EWAH Salesforce Connection"
 
