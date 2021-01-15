@@ -1,9 +1,7 @@
 from ewah.operators.base import EWAHBaseOperator
 from ewah.constants import EWAHConstants as EC
 
-from ewah.hooks.base import EWAHBaseHook as BaseHook
-
-import stripe
+from ewah.hooks.stripe import EWAHStripeHook
 
 
 class EWAHStripeOperator(EWAHBaseOperator):
@@ -17,46 +15,21 @@ class EWAHStripeOperator(EWAHBaseOperator):
 
     _REQUIRES_COLUMNS_DEFINITION = False
 
-    _UPLOAD_AFTER_ROWS = 20000
+    _CONN_TYPE = EWAHStripeHook.conn_type
 
-    _listable = stripe.api_resources.abstract.ListableAPIResource
-    _singleton = stripe.api_resources.abstract.SingletonAPIResource
-
-    def __init__(self, *args, resource=None, expand=None, **kwargs):
+    def __init__(self, *args, resource=None, expand=None, batch_size=10000, **kwargs):
         if resource is None:
             resource = kwargs.get("target_table_name")
-        _msg = "Not a valid resource: {0}!".format(resource)
-        assert hasattr(stripe, resource), _msg
-        resource = getattr(stripe, resource)
-        # use issubclass instead of isinstance
-        assert issubclass(resource, (self._listable, self._singleton)), _msg
         kwargs["primary_key_column_name"] = "id"
         super().__init__(*args, **kwargs)
         self.resource = resource
         self.expand = expand
+        self.batch_size = batch_size
 
     def ewah_execute(self, context):
-        # authenticate using API key
-        stripe.api_key = self.source_conn.password
-
-        # get data
-        data = []
-        resource = self.resource
-        if issubclass(resource, self._listable):
-            all_items = resource.list(limit=100, expand=self.expand)
-            for item in all_items.auto_paging_iter():
-                data += [item.to_dict_recursive()]
-                if len(data) > self._UPLOAD_AFTER_ROWS:
-                    # intermittend data upload
-                    self.upload_data(data)
-                    data = []
-        elif issubclass(resource, self._singleton):
-            data = [resource.retrieve(expand=self.expand).to_dict_recursive()]
-            # singletons have no id, but we need it as PK -> set it manually:
-            data[0]["id"] = 1
-            assert len(data) == 1, "Not a singleton!"
-        else:
-            raise Exception("Invalid resource!")
-
-        # final data upload
-        self.upload_data(data)
+        for batch in self.source_hook.get_data_in_batches(
+            resource=self.resource,
+            expand=self.expand,
+            batch_size=self.batch_size,
+        ):
+            self.upload_data(batch)

@@ -320,6 +320,8 @@ el_dags:
           resource: Product
         refunds:
           resource: Refund
+        transactions:
+          resource: issuing.Transaction
 
   # EL_Zendesk: tbd
 
