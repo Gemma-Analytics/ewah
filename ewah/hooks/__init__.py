@@ -1,5 +1,6 @@
 import os, sys
 from ewah.hooks.base import EWAHBaseHook
+from ewah.hooks.sql_base import EWAHSQLBaseHook
 
 # import all hooks by walking through all files in this directory and
 # importing all objects that are subclasses of EWAHBaseHook
@@ -18,5 +19,9 @@ for py_file in relevant_files:
     mod = __import__(".".join([__name__, py_file]), fromlist=[py_file])
     classes = [getattr(mod, x) for x in dir(mod) if isinstance(getattr(mod, x), type)]
     for cls in classes:
-        if issubclass(cls, EWAHBaseHook) and not cls == EWAHBaseHook:
+        if (
+            issubclass(cls, EWAHBaseHook)
+            and not cls == EWAHBaseHook
+            and not cld == EWAHSQLBaseHook
+        ):
             hook_class_names.append(name_template.format(py_file, cls.__name__))

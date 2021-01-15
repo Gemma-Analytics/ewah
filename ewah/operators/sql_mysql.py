@@ -1,9 +1,5 @@
 from ewah.operators.sql_base import EWAHSQLBaseOperator
-from ewah.constants import EWAHConstants as EC
-
-from ewah.hooks.base import EWAHBaseHook as BaseHook
-
-import pymysql
+from ewah.hooks.mysql import EWAHMySQLHook
 
 
 class EWAHMySQLOperator(EWAHSQLBaseOperator):
@@ -22,30 +18,18 @@ class EWAHMySQLOperator(EWAHSQLBaseOperator):
     """
     _SQL_PARAMS = "%({0})s"
 
+    _CONN_TYPE = EWAHMySQLHook.conn_type
+
     def _get_data_from_sql(self, sql, params=None, return_dict=True):
-        if return_dict:
-            cursor_class = pymysql.cursors.DictCursor
-        else:
-            cursor_class = pymysql.cursors.Cursor
-        database_conn = pymysql.connect(
-            **{
-                "host": self.source_conn.host,
-                "user": self.source_conn.login,
-                "passwd": self.source_conn.password,
-                "port": self.source_conn.port,
-                "database": self.source_conn.schema,
-                "cursorclass": cursor_class,
-            }
-        )
-        cursor = database_conn.cursor()
         self.log.info(
             "Executing:\n{0}\n\nWith params:\n{1}".format(
                 sql,
                 str(params),
             )
         )
-        cursor.execute(sql, args=params)
-        data = cursor.fetchall()
-        cursor.close()
-        database_conn.close()
+        data = self.source_hook.get_data_from_sql(
+            sql=sql,
+            params=params,
+            return_dict=return_dict,
+        )
         return data
