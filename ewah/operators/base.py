@@ -15,6 +15,7 @@ import hashlib
 
 from typing import Optional, List, Dict
 
+
 class EWAHBaseOperator(BaseOperator):
     """Extension of airflow's native Base Operator.
 
