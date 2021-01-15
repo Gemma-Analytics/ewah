@@ -4,6 +4,7 @@ from typing import Dict, List, Any, Optional
 
 import stripe
 
+
 class EWAHStripeHook(EWAHBaseHook):
 
     _ATTR_RELABEL = {
@@ -40,11 +41,12 @@ class EWAHStripeHook(EWAHBaseHook):
         :return: Stripe API Resource.
         """
         result = stripe.api_resources
-        for subresource in resource.split('.'):
+        for subresource in resource.split("."):
             result = getattr(result, subresource)
         return result
 
-    def get_data_in_batches(self,
+    def get_data_in_batches(
+        self,
         resource: str,
         expand: Optional[List[str]] = None,
         batch_size: int = 10000,
@@ -59,7 +61,7 @@ class EWAHStripeHook(EWAHBaseHook):
                 if len(data) >= batch_size:
                     yield data
                     data = []
-            if data: # Last batch
+            if data:  # Last batch
                 yield data
         elif issubclass(resource, self._singleton):
             data = [resource.retrieve(expand=expand).to_dict_recursive()]
