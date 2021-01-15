@@ -13,6 +13,7 @@ import time
 import copy
 import hashlib
 
+from typing import Optional, List, Dict
 
 class EWAHBaseOperator(BaseOperator):
     """Extension of airflow's native Base Operator.
@@ -121,10 +122,14 @@ class EWAHBaseOperator(BaseOperator):
         wait_for_seconds=120,  # seconds past next_execution_date to wait until
         # wait_for_seconds only applies for incremental loads
         add_metadata=True,
+        rename_columns: Optional[Dict[str, str]] = None,  # Rename columns
         *args,
         **kwargs
     ):
         super().__init__(*args, **kwargs)
+
+        assert not (rename_columns and columns_definition)
+        assert rename_columns is None or isinstance(rename_columns, dict)
 
         for item in EWAHBaseOperator.template_fields:
             # Make sure template_fields was not overwritten
@@ -267,6 +272,7 @@ class EWAHBaseOperator(BaseOperator):
         self.hashlib_func_name = hashlib_func_name
         self.wait_for_seconds = wait_for_seconds
         self.add_metadata = add_metadata
+        self.rename_columns = rename_columns
 
         self.uploader = get_uploader(self.dwh_engine)
 
@@ -540,24 +546,30 @@ class EWAHBaseOperator(BaseOperator):
             )
         )
 
-        if self.add_metadata:
-            self.log.info("Adding metadata...")
-            metadata = copy.deepcopy(self._metadata)  # from individual operator
-            # for all operators alike
-            metadata.update(
-                {
-                    "_ewah_executed_at": self._execution_time,
-                    "_ewah_execution_chunk": self.upload_call_count,
-                    "_ewah_dag_id": self._context["dag"].dag_id,
-                    "_ewah_dag_run_id": self._context["run_id"],
-                    "_ewah_dag_run_execution_date": self._context["execution_date"],
-                    "_ewah_dag_run_next_execution_date": self._context[
-                        "next_execution_date"
-                    ],
-                }
-            )
+        if self.add_metadata or self.rename_columns:
+            if self.add_metadata:
+                self.log.info("Adding metadata...")
+                metadata = copy.deepcopy(self._metadata)  # from individual operator
+                # for all operators alike
+                metadata.update(
+                    {
+                        "_ewah_executed_at": self._execution_time,
+                        "_ewah_execution_chunk": self.upload_call_count,
+                        "_ewah_dag_id": self._context["dag"].dag_id,
+                        "_ewah_dag_run_id": self._context["run_id"],
+                        "_ewah_dag_run_execution_date": self._context["execution_date"],
+                        "_ewah_dag_run_next_execution_date": self._context[
+                            "next_execution_date"
+                        ],
+                    }
+                )
+            rename_columns = self.rename_columns or {}
             for datum in data:
-                datum.update(metadata)
+                if self.add_metadata:
+                    datum.update(metadata)
+                if rename_columns:
+                    for (old_name, new_name) in rename_columns.items():
+                        datum[new_name] = datum.pop(old_name, None)
 
         columns_definition = columns_definition or self.columns_definition
         if not columns_definition:
