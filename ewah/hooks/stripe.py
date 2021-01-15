@@ -11,8 +11,8 @@ class EWAHStripeHook(EWAHBaseHook):
         "api_key": "password",
     }
 
-    conn_name_attr = "stripe_conn_id"
-    default_conn_name = "stripe_default"
+    conn_name_attr = "ewah_stripe_conn_id"
+    default_conn_name = "ewah_stripe_default"
     conn_type = "ewah_stripe"
     hook_name = "EWAH Stripe Connection"
 
