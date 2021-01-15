@@ -30,7 +30,7 @@ setuptools.setup(
         "cx_Oracle",
         "facebook_business",
         "pymysql",
-        # "snowflake-connector-lite", # "snowflake-connector-python==2.0.2",
+        "snowflake-connector-python>=2.3.8",  # 2.3.8 vendored urrlib3 and requests
         "pymongo",
         "googlemaps",
         "sshtunnel>=0.2.2",
