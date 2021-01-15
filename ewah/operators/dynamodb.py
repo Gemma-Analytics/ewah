@@ -37,30 +37,10 @@ class EWAHDynamoDBOperator(EWAHBaseOperator):
         self.filter_expression = filter_expression
 
     def ewah_execute(self, context):
-        # TODO: create / update filter_expression with data_from / data_until
-
-        # Get credentials and connect to table
-        conn = self.source_conn
-        resource_kwargs = {
-            "aws_access_key_id": conn.login,
-            "aws_secret_access_key": conn.password,
-        }
-        if isinstance(conn.extra_dejson, dict):
-            resource_kwargs.update(conn.extra_dejson)
-        if self.region_name:
-            resource_kwargs["region_name"] = self.region_name
-        resource = boto3.resource("dynamodb", **resource_kwargs)
-        table = resource.Table(self.source_table_name)
-
-        # Paginate through table
-        scan_kwargs = {}
-        if self.pagination_limit:
-            scan_kwargs["Limit"] = self.pagination_limit
-        if self.filter_expression:
-            scan_kwargs["FilterExpression"] = self.filter_expression
-        keep_going = True
-        while keep_going:
-            response = table.scan(**scan_kwargs)
-            self.upload_data(response.get("Items"))
-            keep_going = response.get("LastEvaluatedKey") or False
-            scan_kwargs["ExclusiveStartKey"] = keep_going
+        for batch in self.source_hook.get_dynamodb_data_in_batches(
+            table_name=self.source_table_name,
+            region=self.region_name,
+            pagination_limit=self.pagination_limit,
+            filter_expression=self.filter_expression,
+        ):
+            self.upload_data(batch)

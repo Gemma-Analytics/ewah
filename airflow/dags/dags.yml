@@ -311,7 +311,10 @@ el_dags:
         Balance: {} # resource defaults to table name
         balance_transactions:
           resource: BalanceTransaction
-        Customer: {}
+        Customer:
+          rename_columns:
+            currency: currency_name
+            delinquent: is_delinquent
         Payout: {}
         Charge:
           expand: # expand a list of strings as required
