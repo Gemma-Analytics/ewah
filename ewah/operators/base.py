@@ -4,7 +4,6 @@ from airflow.utils.decorators import apply_defaults
 from ewah.uploaders import get_uploader
 from ewah.hooks.base import EWAHBaseHook
 from ewah.constants import EWAHConstants as EC
-from ewah.ewah_utils.ssh_tunnel import start_ssh_tunnel
 from ewah.ewah_utils.airflow_utils import airflow_datetime_adjustments as ada
 from ewah.ewah_utils.airflow_utils import datetime_utcnow_with_tz
 
@@ -294,43 +293,16 @@ class EWAHBaseOperator(BaseOperator):
         called by this general execute() method.
         """
 
-        def close_ssh_tunnels():
-            # close SSH tunnels if they exist
-            if hasattr(self, "source_ssh_tunnel_forwarder"):
-                self.source_ssh_tunnel_forwarder.stop()
-                del self.source_ssh_tunnel_forwarder
-            if hasattr(self, "target_ssh_tunnel_forwarder"):
-                self.target_ssh_tunnel_forwarder.stop()
-                del self.target_ssh_tunnel_forwarder
-
         # required for metadata in data upload
         self._execution_time = datetime_utcnow_with_tz()
         self._context = context
 
-        # the upload hook is used in the self.upload_data() function
-        # which is called by the child's ewah_execute function whenever there is
-        # data to upload. If applicable: start SSH tunnel first!
-        if self.target_ssh_tunnel_conn_id:
-            self.log.info("Opening SSH tunnel to target...")
-            self.target_ssh_tunnel_forwarder, self.dwh_conn = start_ssh_tunnel(
-                ssh_conn_id=self.target_ssh_tunnel_conn_id,
-                remote_conn_id=self.dwh_conn_id,
-            )
-        else:
-            self.dwh_conn = EWAHBaseHook.get_connection(self.dwh_conn_id)
+        self.dwh_conn = EWAHBaseHook.get_connection(self.dwh_conn_id)
         self.uploader = self.uploader(self.dwh_conn)
 
-        # open SSH tunnel for the data source connection, if applicable
-        if self.source_ssh_tunnel_conn_id:
-            self.log.info("Opening SSH tunnel to source...")
-            self.source_ssh_tunnel_forwarder, self.source_conn = start_ssh_tunnel(
-                ssh_conn_id=self.source_ssh_tunnel_conn_id,
-                remote_conn_id=self.source_conn_id,
-            )
-        elif self.source_conn_id:
+        if self.source_conn_id:
             # resolve conn id here & delete the object to avoid usage elsewhere
             self.source_conn = EWAHBaseHook.get_connection(self.source_conn_id)
-        if hasattr(self, "source_conn"):
             self.source_hook = self.source_conn.get_hook()
         del self.source_conn_id
 
@@ -411,59 +383,51 @@ class EWAHBaseOperator(BaseOperator):
                 wait_for_timedelta = wait_until - datetime_utcnow_with_tz()
                 time.sleep(max(0, min(wait_for_timedelta.total_seconds(), 5)))
 
-        try:
-            # execute operator
-            if self.load_data_chunking_timedelta and data_from and data_until:
-                # Chunking to avoid OOM
-                assert data_until > data_from
-                assert self.load_data_chunking_timedelta > timedelta(days=0)
-                while self.data_from < data_until:
-                    self.data_until = self.data_from
-                    self.data_until += self.load_data_chunking_timedelta
-                    self.data_until = min(self.data_until, data_until)
-                    self.ewah_execute(context)
-                    self.data_from += self.load_data_chunking_timedelta
-            else:
+        # execute operator
+        if self.load_data_chunking_timedelta and data_from and data_until:
+            # Chunking to avoid OOM
+            assert data_until > data_from
+            assert self.load_data_chunking_timedelta > timedelta(days=0)
+            while self.data_from < data_until:
+                self.data_until = self.data_from
+                self.data_until += self.load_data_chunking_timedelta
+                self.data_until = min(self.data_until, data_until)
                 self.ewah_execute(context)
+                self.data_from += self.load_data_chunking_timedelta
+        else:
+            self.ewah_execute(context)
 
-            # if PostgreSQL and arg given: create indices
-            for column in self.index_columns:
-                assert self.dwh_engine == EC.DWH_ENGINE_POSTGRES
-                # Use hashlib to create a unique 63 character string as index
-                # name to avoid breaching index name length limits & accidental
-                # duplicates / missing indices due to name truncation leading to
-                # identical index names.
-                self.hook.execute(
-                    self._INDEX_QUERY.format(
-                        "__ewah_"
-                        + hashlib.blake2b(
-                            (
-                                temp_schema_name
-                                + "."
-                                + self.target_table_name
-                                + "."
-                                + column
-                            ).encode(),
-                            digest_size=28,
-                        ).hexdigest(),
-                        self.target_schema_name + self.target_schema_suffix,
-                        self.target_table_name,
-                        column,
-                    )
+        # if PostgreSQL and arg given: create indices
+        for column in self.index_columns:
+            assert self.dwh_engine == EC.DWH_ENGINE_POSTGRES
+            # Use hashlib to create a unique 63 character string as index
+            # name to avoid breaching index name length limits & accidental
+            # duplicates / missing indices due to name truncation leading to
+            # identical index names.
+            self.hook.execute(
+                self._INDEX_QUERY.format(
+                    "__ewah_"
+                    + hashlib.blake2b(
+                        (
+                            temp_schema_name
+                            + "."
+                            + self.target_table_name
+                            + "."
+                            + column
+                        ).encode(),
+                        digest_size=28,
+                    ).hexdigest(),
+                    self.target_schema_name + self.target_schema_suffix,
+                    self.target_table_name,
+                    column,
                 )
+            )
 
-            # commit only at the end, so that no data may be committed before an
-            # error occurs.
-            self.log.info("Now committing changes!")
-            self.uploader.commit()
-            self.uploader.close()
-        except:
-            # close SSH tunnels on failure before raising the error
-            close_ssh_tunnels()
-            raise
-
-        # everything worked, now close SSH tunnels
-        close_ssh_tunnels()
+        # commit only at the end, so that no data may be committed before an
+        # error occurs.
+        self.log.info("Now committing changes!")
+        self.uploader.commit()
+        self.uploader.close()
 
     def test_if_target_table_exists(self):
         # Need to use existing hook to work within open transaction
