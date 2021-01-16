@@ -4,8 +4,6 @@ from airflow.models import BaseOperator
 from airflow.sensors.sql import SqlSensor
 
 from ewah.hooks.base import EWAHBaseHook
-from ewah.hooks.postgres import EWAHPostgresHook
-from ewah.hooks.snowflake import EWAHSnowflakeHook
 from ewah.constants import EWAHConstants as EC
 
 from datetime import datetime, timedelta, timezone
