@@ -1,4 +1,4 @@
-from datetime import datetime, date
+from datetime import datetime, date, timedelta
 
 
 class EWAHConstants:
@@ -89,6 +89,7 @@ class EWAHConstants:
             bool: "boolean",
             datetime: "timestamp with time zone",
             date: "date",
+            timedelta: "interval",
         },
         DWH_ENGINE_SNOWFLAKE: {
             QBC_TYPE_MAPPING_DEFAULT: "VARCHAR",
