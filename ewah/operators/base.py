@@ -600,20 +600,3 @@ class EWAHBaseOperator(BaseOperator):
             and any intermediate commit may be subsequently followed by an
             error, which would then result in incomplete data committed.
         """
-
-
-class EWAHEmptyOperator(EWAHBaseOperator):
-    _ACCEPTED_EXTRACT_STRATEGIES = {
-        EC.ES_FULL_REFRESH: True,
-        EC.ES_INCREMENTAL: True,
-    }
-
-    def __init__(self, *args, **kwargs):
-        raise Exception(
-            "Failed to load operator! Probably missing"
-            + " requirements for the operator in question.\n\nSupplied args:"
-            + "\n\t"
-            + "\n\t".join(args)
-            + "\n\nSupplied kwargs:\n\t"
-            + "\n\t".join(["{0}: {1}".format(k, v) for k, v in kwargs.items()])
-        )
