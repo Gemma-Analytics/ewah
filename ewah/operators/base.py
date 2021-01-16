@@ -297,8 +297,7 @@ class EWAHBaseOperator(BaseOperator):
         self._execution_time = datetime_utcnow_with_tz()
         self._context = context
 
-        self.dwh_conn = EWAHBaseHook.get_connection(self.dwh_conn_id)
-        self.uploader = self.uploader(self.dwh_conn)
+        self.uploader = self.uploader(EWAHBaseHook.get_connection(self.dwh_conn_id))
 
         if self.source_conn_id:
             # resolve conn id here & delete the object to avoid usage elsewhere
@@ -404,7 +403,7 @@ class EWAHBaseOperator(BaseOperator):
             # name to avoid breaching index name length limits & accidental
             # duplicates / missing indices due to name truncation leading to
             # identical index names.
-            self.hook.execute(
+            self.uploader.dwh_hook.execute(
                 self._INDEX_QUERY.format(
                     "__ewah_"
                     + hashlib.blake2b(
@@ -558,12 +557,10 @@ class EWAHBaseOperator(BaseOperator):
                     )
                 columns_definition[pk_name][EC.QBC_FIELD_PK] = True
 
-        hook = self.uploader
-
         if (self.extract_strategy == EC.ES_INCREMENTAL) or (self.upload_call_count > 1):
             self.log.info("Checking for, and applying schema changes.")
             _new_schema_name = self.target_schema_name + self.target_schema_suffix
-            new_cols, del_cols = hook.detect_and_apply_schema_changes(
+            new_cols, del_cols = self.uploader.detect_and_apply_schema_changes(
                 new_schema_name=_new_schema_name,
                 new_table_name=self.target_table_name,
                 new_columns_dictionary=columns_definition,
@@ -581,7 +578,7 @@ class EWAHBaseOperator(BaseOperator):
             )
 
         self.log.info("Uploading data now.")
-        hook.create_or_update_table(
+        self.uploader.create_or_update_table(
             data=data,
             columns_definition=columns_definition,
             table_name=self.target_table_name,
