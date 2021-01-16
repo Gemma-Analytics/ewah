@@ -46,7 +46,6 @@ def dag_factory_fullcremental(
     schedule_interval_incremental: timedelta = timedelta(hours=1),
     end_date: Optional[datetime] = None,
     read_right_users: Optional[Union[List[str], str]] = None,
-    dwh_ssh_tunnel_conn_id: Optional[str] = None,
     additional_dag_args: Optional[dict] = None,
     additional_task_args: Optional[dict] = None,
     logging_func: Optional[Callable] = None,
@@ -64,8 +63,6 @@ def dag_factory_fullcremental(
     additional_dag_args = additional_dag_args or {}
     additional_task_args = additional_task_args or {}
 
-    if dwh_ssh_tunnel_conn_id and not dwh_engine == EC.DWH_ENGINE_POSTGRES:
-        raise_exception("DWH tunneling only implemented for PostgreSQL DWHs!")
     if not read_right_users is None:
         if isinstance(read_right_users, str):
             read_right_users = [u.strip() for u in read_right_users.split(",")]
@@ -135,7 +132,6 @@ def dag_factory_fullcremental(
         target_schema_suffix=target_schema_suffix,
         target_database_name=target_database_name,
         read_right_users=read_right_users,
-        ssh_tunnel_conn_id=dwh_ssh_tunnel_conn_id,
         **additional_task_args
     )
 
@@ -147,7 +143,6 @@ def dag_factory_fullcremental(
         target_schema_suffix=target_schema_suffix,
         target_database_name=target_database_name,
         read_right_users=read_right_users,
-        ssh_tunnel_conn_id=dwh_ssh_tunnel_conn_id,
         **additional_task_args
     )
 
@@ -215,7 +210,6 @@ def dag_factory_fullcremental(
                 "target_schema_name": target_schema_name,
                 "target_schema_suffix": target_schema_suffix,
                 "target_database_name": target_database_name,
-                "target_ssh_tunnel_conn_id": dwh_ssh_tunnel_conn_id,
             }
         )
         arg_dict_fr = deepcopy(arg_dict_inc)

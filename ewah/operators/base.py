@@ -115,9 +115,6 @@ class EWAHBaseOperator(BaseOperator):
         # columns_definition was supplied (e.g. for select * with sql)
         index_columns=[],  # list of columns to create an index on. can be
         # an expression, must be quoted in list if quoting is required.
-        source_ssh_tunnel_conn_id=None,  # create SSH tunnel if set; uses host
-        # and port from source_conn_id as remote host and port
-        target_ssh_tunnel_conn_id=None,  # see source_ssh_tunnel_conn_id
         hash_columns=None,  # str or list of str - columns to hash pre-upload
         hashlib_func_name="sha256",  # specify hashlib hashing function
         wait_for_seconds=120,  # seconds past next_execution_date to wait until
@@ -169,22 +166,8 @@ class EWAHBaseOperator(BaseOperator):
         if index_columns and not dwh_engine == EC.DWH_ENGINE_POSTGRES:
             raise Exception("Indices are only allowed for PostgreSQL DWHs!")
 
-        if dwh_engine == EC.DWH_ENGINE_SNOWFLAKE:
-            if not target_database_name:
-                conn_db_name = EWAHBaseHook.get_connection(dwh_conn_id)
-                conn_db_name = conn_db_name.extra_dejson.get("database")
-                if conn_db_name:
-                    target_database_name = conn_db_name
-                else:
-                    raise Exception(
-                        "If using DWH Engine {0}, must provide {1}!".format(
-                            dwh_engine,
-                            '"target_database_name" to specify the Database',
-                        )
-                    )
-        else:
-            if target_database_name:
-                raise Exception('Received argument for "target_database_name"!')
+        if (not dwh_engine == EC.DWH_ENGINE_SNOWFLAKE) and target_database_name:
+            raise Exception('Received argument for "target_database_name"!')
 
         if self._REQUIRES_COLUMNS_DEFINITION:
             if not columns_definition:
@@ -267,8 +250,6 @@ class EWAHBaseOperator(BaseOperator):
         #   ... by a child class at execution!
         self.exclude_columns = exclude_columns
         self.index_columns = index_columns
-        self.source_ssh_tunnel_conn_id = source_ssh_tunnel_conn_id
-        self.target_ssh_tunnel_conn_id = target_ssh_tunnel_conn_id
         self.hash_columns = hash_columns
         self.hashlib_func_name = hashlib_func_name
         self.wait_for_seconds = wait_for_seconds

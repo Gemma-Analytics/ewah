@@ -4,7 +4,6 @@ from airflow.utils.file import TemporaryDirectory
 
 from ewah.constants import EWAHConstants as EC
 from ewah.ewah_utils.yml_loader import Loader, Dumper
-from ewah.ewah_utils.ssh_tunnel import start_ssh_tunnel
 
 import re
 import os
@@ -213,14 +212,7 @@ class EWAHdbtOperator(BaseOperator):
                     self.subfolder = os.path.sep + self.subfolder
                 dbt_dir += self.subfolder
 
-            # if applicable: open SSH tunnel
-            if self.ssh_tunnel_id:
-                self.ssh_tunnel_forwarder, dwh_conn = start_ssh_tunnel(
-                    ssh_conn_id=self.ssh_tunnel_id,
-                    remote_conn_id=self.dwh_conn_id,
-                )
-            else:
-                dwh_conn = BaseHook.get_connection(self.dwh_conn_id)
+            dwh_conn = BaseHook.get_connection(self.dwh_conn_id)
 
             # read profile name & create temporary profiles.yml
             project_yml_file = dbt_dir
@@ -254,21 +246,18 @@ class EWAHdbtOperator(BaseOperator):
                     },
                 }
             elif self.dwh_engine == EC.DWH_ENGINE_SNOWFLAKE:
-                extra = dwh_conn.extra_dejson
-                _db = extra.get("database", self.database_name)
-                _db = _db or dwh_conn.schema
                 profiles_yml[profile_name] = {
                     "target": "prod",  # same as the output defined below
                     "outputs": {
                         "prod": {  # for snowflake
                             "type": "snowflake",
-                            "account": extra.get("account", dwh_conn.host),
-                            "user": extra.get("user", dwh_conn.login),
-                            "password": extra.get("password", dwh_conn.password),
-                            "role": extra.get("role"),
-                            "database": _db,
-                            "warehouse": extra.get("warehouse"),
-                            "schema": self.schema_name,
+                            "account": dwh_conn.account,
+                            "user": dwh_conn.user,
+                            "password":  dwh_conn.password,
+                            "role": dwh_conn.role,
+                            "database": self.database_name or dwh_conn.database,
+                            "warehouse": dwh_conn.warehouse,
+                            "schema": self.schema_name or dwh_conn.schema,
                             "threads": self.threads,
                             "keepalives_idle": self.keepalives_idle,
                         },

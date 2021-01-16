@@ -35,13 +35,13 @@ class EWAHAWSHook(EWAHBaseHook):
     def get_boto_resource(self, resource: str, region: Optional[str] = None):
         aws_region = region or self.region
         if not self._resources[aws_region].get(resource):
-            self._resource[aws_region][resource] = boto3.resource(
+            self._resources[aws_region][resource] = boto3.resource(
                 resource,
                 aws_access_key_id=self.conn.access_key_id,
                 aws_secret_access_key=self.conn.secret_access_key,
-                region=aws_region,
+                region_name=aws_region,
             )
-        return self._resource[aws_region][resource]
+        return self._resources[aws_region][resource]
 
     def get_dynamodb_data_in_batches(
         self,

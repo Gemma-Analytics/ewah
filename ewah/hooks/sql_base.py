@@ -1,5 +1,6 @@
-from ewah.hooks.base import EWWAHBaseHook
+from ewah.hooks.base import EWAHBaseHook
 
+from typing import Optional, Dict, Any, Union, List
 
 class EWAHSQLBaseHook(EWAHBaseHook):
     """Base hook extension for use as parent of various SQL hooks.
@@ -14,28 +15,12 @@ class EWAHSQLBaseHook(EWAHBaseHook):
 
     _DEFAULT_PORT = 1234  # overwrite in child
 
-    @staticmethod
-    def get_connection_form_widgets() -> dict:
-        """Returns connection widgets to add to connection form
-
-        If you overwrite this in a child, make sure to include the fields defined herein
-        """
-        from flask_appbuilder.fieldwidgets import BS3TextFieldWidget
-        from wtforms import StringField
-
-        return {
-            f"extra__{self.conn_type}__ssh_conn_id": StringField(
-                "SSH Connection ID (optional)",
-                widget=BS3TextFieldWidget(),
-            ),
-        }
-
     @property
     def dbconn(self):
         if not hasattr(self, "_dbconn"):
             if self.conn.ssh_conn_id:
                 if not hasattr(self, "_ssh_hook"):
-                    self._ssh_hook - EWAHBaseHook.get_hook_from_conn_id(
+                    self._ssh_hook = EWAHBaseHook.get_hook_from_conn_id(
                         conn_id=self.conn.ssh_conn_id
                     )
                     self.local_bind_address = self._ssh_hook.start_tunnel(
@@ -88,6 +73,7 @@ class EWAHSQLBaseHook(EWAHBaseHook):
         cur = self.dictcursor if return_dict else self.cursor
         self.execute(sql, params=params, cursor=cur, commit=False)
         while True:
+            self.log.info("Fetching next batch...")
             data = cur.fetchmany(batch_size)
             if data:
                 yield data
@@ -113,7 +99,7 @@ class EWAHSQLBaseHook(EWAHBaseHook):
             if hasattr(self, "_ssh_hook"):
                 self._ssh_hook.stop_tunnel()
                 del self._ssh_hook
-            self._dbcoon.close()
+            self._dbconn.close()
             del self._dbconn
 
     def __del__(self):

@@ -2,6 +2,7 @@ from ewah.hooks.sql_base import EWAHSQLBaseHook
 
 import cx_Oracle
 
+from typing import Optional, List, Union
 
 class EWAHOracleSQLOperator(EWAHSQLBaseHook):
 
@@ -28,6 +29,19 @@ class EWAHOracleSQLOperator(EWAHSQLBaseHook):
                 "host": "Hostname / IP",
                 "post": "Port (default: 1521)",
             },
+        }
+
+    @staticmethod
+    def get_connection_form_widgets() -> dict:
+        """Returns connection widgets to add to connection form"""
+        from flask_appbuilder.fieldwidgets import BS3TextFieldWidget
+        from wtforms import StringField
+
+        return {
+            f"extra__ewah_oracle__ssh_conn_id": StringField(
+                "SSH Connection ID (optional)",
+                widget=BS3TextFieldWidget(),
+            ),
         }
 
     @staticmethod
@@ -78,7 +92,10 @@ class EWAHOracleSQLOperator(EWAHSQLBaseHook):
         self, sql: str, params: Optional[dict] = None, commit: bool = False, cursor=None
     ) -> None:
         params = params or {}
-        self.log.info(f"Executing SQL:\n\n{sql}\n\n")
+        self.log.info("Executing SQL:\n\n{0}\n\nWith params:\n{1}".format(
+            sql,
+            "\n".join(['{0}: {1}'.format(key, str(value)) for (key, value) in params.items()]) if params else "No params!"
+        ))
         (cursor or self.cursor).execute(self._adjust_sql(sql), **params)
         if commit:
             self.commit()

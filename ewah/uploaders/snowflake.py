@@ -9,7 +9,7 @@ from ewah.constants import EWAHConstants as EC
 import os
 import csv
 
-# import snowflake.connector
+import snowflake.connector
 from tempfile import NamedTemporaryFile
 from airflow.utils.file import TemporaryDirectory
 from airflow.models import BaseOperator
@@ -85,14 +85,14 @@ class EWAHSnowflakeUploader(EWAHBaseUploader):
         table_name,
         schema_name,
         schema_suffix,
-        database_name,
         columns_definition,
         columns_partial_query,
         update_on_columns,
         drop_and_replace,
-        logging_function,
+        database_name=None,
         pk_columns=None,
     ):
+        database_name = database_name or self.dwh_hook.conn.database
         pk_columns = pk_columns or []
         self.log.info("Preparing DWH Tables...")
         schema_name += schema_suffix
@@ -244,7 +244,7 @@ class EWAHSnowflakeUploader(EWAHBaseUploader):
     ):
         self.dwh_hook.execute(
             "USE DATABASE {0}".format(
-                database_name or self.database,
+                database_name or self.database or self.dwh_hook.conn.database,
             )
         )
         return 0 < len(
@@ -254,7 +254,7 @@ class EWAHSnowflakeUploader(EWAHBaseUploader):
             WHERE table_schema LIKE '{1}'
             AND table_name LIKE '{2}'
             """.format(
-                    database_name or self.database,
+                    database_name or self.database or self.dwh_hook.conn.database,
                     schema_name,
                     table_name,
                 )

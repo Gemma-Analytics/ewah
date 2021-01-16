@@ -177,7 +177,7 @@ class EWAHBaseUploader(LoggingMixin):
             "table_name": new_table_name,
         }
         if self.dwh_engine == EC.DWH_ENGINE_SNOWFLAKE:
-            database = database or self.database
+            database = database or self.database or self.dwh_hook.conn.database
             params["database_name"] = database
         if not self.test_if_table_exists(**params):
             return ([], [])  # Table did not previously exist, so there is nothing to do

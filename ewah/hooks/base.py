@@ -120,5 +120,5 @@ class EWAHBaseHook(BaseHook):
 
     @classmethod
     def get_hook_from_conn_id(cls, conn_id: str):
-        conn = self.get_connection(conn_id=conn_id)
+        conn = cls.get_connection(conn_id=conn_id)
         return conn.hook_cls(conn=conn)

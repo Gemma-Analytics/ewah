@@ -3,7 +3,6 @@ from airflow.operators.dummy import DummyOperator as DO
 from airflow.models import BaseOperator
 from airflow.sensors.sql import SqlSensor
 
-from ewah.ewah_utils.ssh_tunnel import start_ssh_tunnel
 from ewah.hooks.base import EWAHBaseHook
 from ewah.hooks.postgres import EWAHPostgresHook
 from ewah.hooks.snowflake import EWAHSnowflakeHook
@@ -41,49 +40,19 @@ class PGO(BaseOperator):
         self,
         sql,
         postgres_conn_id,
-        autocommit=False,
         parameters=None,
-        database=None,
         *args,
-        ssh_tunnel_conn_id=None,
         **kwargs
     ):
         self.sql = sql
         self.postgres_conn_id = postgres_conn_id
-        if autocommit:
-            print("WARNING: autocommit=True not implemented!")
-        self.autocommit = autocommit
         self.parameters = parameters
-        self.database = database
-        self.ssh_tunnel_conn_id = ssh_tunnel_conn_id
         super().__init__(*args, **kwargs)
 
     def execute(self, context):
-        self.log.info("Executing: %s", self.sql)
-        if self.autocommit:
-            self.log.warn("Autocommit feature is not implemented!")
-
-        # open SSH tunnel if applicable
-        if self.ssh_tunnel_conn_id:
-            self.ssh_tunnel_forwarder, conn = start_ssh_tunnel(
-                ssh_conn_id=self.ssh_tunnel_conn_id,
-                remote_conn_id=self.postgres_conn_id,
-            )
-        else:
-            conn = EWAHBaseHook.get_connection(self.postgres_conn_id)
-
-        if self.database:
-            conn.schema = self.database
-
-        hook = EWAHPostgresHook(conn)
+        hook = EWAHBaseHook.get_hook_from_conn_id(self.postgres_conn_id)
         hook.execute(sql=self.sql, params=self.parameters, commit=True)
         hook.close()  # SSH tunnel does not close if hook is not closed first
-
-        # close SSH tunnel if applicable
-        if hasattr(self, "ssh_tunnel_forwarder"):
-            self.ssh_tunnel_forwarder.close()
-            del self.ssh_tunnel_forwarder
-
 
 def datetime_utcnow_with_tz():
     return datetime.utcnow().replace(tzinfo=pytz.utc)
@@ -137,7 +106,6 @@ def etl_schema_tasks(
     target_schema_suffix="_next",
     target_database_name=None,
     read_right_users=None,  # Only for PostgreSQL
-    ssh_tunnel_conn_id=None,
     **additional_task_args
 ):
 
@@ -191,9 +159,6 @@ def etl_schema_tasks(
                 "task_id": "kickoff_{0}".format(target_schema_name),
                 "dag": dag,
                 "postgres_conn_id": dwh_conn_id,
-                "ssh_tunnel_conn_id": ssh_tunnel_conn_id,
-                # 'retries': 1,
-                # 'retry_delay': timedelta(minutes=1),
             }
         )
         task_2_args.update(
@@ -202,15 +167,12 @@ def etl_schema_tasks(
                 "task_id": "final_{0}".format(target_schema_name),
                 "dag": dag,
                 "postgres_conn_id": dwh_conn_id,
-                "ssh_tunnel_conn_id": ssh_tunnel_conn_id,
-                # 'retries': 1,
-                # 'retry_delay': timedelta(minutes=1),
             }
         )
         return (PGO(**task_1_args), PGO(**task_2_args))
     elif dwh_engine == EC.DWH_ENGINE_SNOWFLAKE:
         target_database_name = target_database_name or (
-            EWAHBaseHook.get_connection(dwh_conn_id).extra_dejson.get("database")
+            EWAHBaseHook.get_connection(dwh_conn_id).database
         )
         sql_kickoff = """
             DROP SCHEMA IF EXISTS
@@ -232,7 +194,7 @@ def etl_schema_tasks(
         )
 
         def execute_snowflake(sql, conn_id, **kwargs):
-            hook = EWAHSnowflakeHook(EWAHBaseHook.get_connection(conn_id))
+            hook = EWAHBaseHook.get_hook_from_conn_id(conn_id)
             hook.execute(sql)
             hook.close()
 

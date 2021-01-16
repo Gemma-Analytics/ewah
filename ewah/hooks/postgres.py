@@ -5,7 +5,7 @@ from psycopg2.extras import RealDictCursor
 from typing import Optional, List, Union, Dict, Any
 
 
-class EWAHPostgresHook(EWAHBaseHook):
+class EWAHPostgresHook(EWAHSQLBaseHook):
 
     _DEFAULT_PORT = 5432
 
@@ -33,6 +33,19 @@ class EWAHPostgresHook(EWAHBaseHook):
             },
         }
 
+    @staticmethod
+    def get_connection_form_widgets() -> dict:
+        """Returns connection widgets to add to connection form"""
+        from flask_appbuilder.fieldwidgets import BS3TextFieldWidget
+        from wtforms import StringField
+
+        return {
+            f"extra__ewah_postgres__ssh_conn_id": StringField(
+                "SSH Connection ID (optional)",
+                widget=BS3TextFieldWidget(),
+            ),
+        }
+
     def _get_db_conn(self):
         return pg_connect(
             "dbname='{0}' user='{1}' host='{2}' password='{3}' port='{4}'".format(
@@ -53,7 +66,10 @@ class EWAHPostgresHook(EWAHBaseHook):
     def execute(
         self, sql: str, params: Optional[dict] = None, commit: bool = False, cursor=None
     ) -> None:
-        self.log.info(f"Executing SQL:\n\n{sql}\n\n")
+        self.log.info("Executing SQL:\n\n{0}\n\nWith params:\n{1}".format(
+            sql,
+            "\n".join(['{0}: {1}'.format(key, str(value)) for (key, value) in params.items()]) if params else "No params!"
+        ))
         (cursor or self.cursor).execute(sql.strip(), vars=params)
         if commit:
             self.commit()
@@ -65,7 +81,13 @@ class EWAHPostgresHook(EWAHBaseHook):
         self.execute(sql, params=params, cursor=cur, commit=False)
         return cur.fetchall()
 
-    def get_data_in_batches(self, sql: str, params: Optional[dict] = None, return_dict: bool = True, batch_size: int = 100000):
+    def get_data_in_batches(
+        self,
+        sql: str,
+        params: Optional[dict] = None,
+        return_dict: bool = True,
+        batch_size: int = 100000,
+    ):
         cur = self.dictcursor if return_dict else self.cursor
         self.execute(sql, params=params, cursor=cur, commit=False)
         while True:

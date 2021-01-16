@@ -22,6 +22,6 @@ for py_file in relevant_files:
         if (
             issubclass(cls, EWAHBaseHook)
             and not cls == EWAHBaseHook
-            and not cld == EWAHSQLBaseHook
+            and not cls == EWAHSQLBaseHook
         ):
             hook_class_names.append(name_template.format(py_file, cls.__name__))
