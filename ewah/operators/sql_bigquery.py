@@ -1,4 +1,4 @@
-from ewah.operators.sql_base import EWAHSQLBaseOperator
+from ewah.operators.sql_base import EWAHSQLBaseOperatorOld
 from ewah.constants import EWAHConstants as EC
 
 from ewah.hooks.base import EWAHBaseHook as BaseHook
@@ -10,7 +10,7 @@ from datetime import timedelta
 import os
 
 
-class EWAHBigQueryOperator(EWAHSQLBaseOperator):
+class EWAHBigQueryOperator(EWAHSQLBaseOperatorOld):
 
     _NAMES = ["bq", "biqguery"]
 
