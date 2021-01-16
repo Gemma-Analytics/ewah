@@ -3,10 +3,6 @@ Ewah: ELT With Airflow Helper - Classes and functions to make apache airflow lif
 
 Functions to create all DAGs required for ELT using only a simple config file.
 
-## Resources
-
-- [Setting up airflow with `LocalExecutor`](ewah/resources/setting_up_airflow.md)
-
 ## DWHs Implemented
 - Snowflake
 - PostgreSQL
@@ -18,17 +14,27 @@ Functions to create all DAGs required for ELT using only a simple config file.
 
 EWAH currently supports the following operators:
 
-- PostgreSQL / Redshift
-- MySQL
-- OracleSQL
+- Aircall
+- BigQuery
+- DynamoDB
+- Facebook (partially, so far: ads insights; incremental only)
+- FX Rates (from Yahoo Finance)
 - Google Ads
 - Google Analytics (incremental only)
-- S3 (for CSV or JSON files stored in an S3 bucket, e.g. from Kinesis Firehose)
-- FX Rates (from Yahoo Finance)
-- Facebook (partially, so far: ads insights; incremental only)
+- Google Maps (location data from an address)
 - Google Sheets
+- Hubspot
+- Mailchimp
+- Mailingwork
 - MongoDB
+- MySQL
+- OracleSQL
+- Pipedrive
+- PostgreSQL / Redshift
+- S3 (for CSV or JSON files stored in an S3 bucket, e.g. from Kinesis Firehose)
+- Salesforce
 - Shopify
+- Stripe
 - Zendesk
 
 ### Universal operator arguments
