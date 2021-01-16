@@ -64,7 +64,7 @@ class EWAHSSHHook(EWAHBaseHook):
             remote_host:remote_port via the SSH tunnel.
         """
 
-        if not hasattr(self, "ssh_tunnel_forwarder"):
+        if not hasattr(self, "_ssh_tunnel_forwarder"):
             # Tunnel is not started yet - start it now!
 
             # Set a specific tunnel timeout if applicable
@@ -72,42 +72,44 @@ class EWAHSSHHook(EWAHBaseHook):
                 old_timeout = sshtunnel.TUNNEL_TIMEOUT
                 sshtunnel.TUNNEL_TIMEOUT = tunnel_timeout
 
-            # Build kwargs dict for SSH Tunnel Forwarder
-            kwargs = {
-                "ssh_address_or_host": (self.conn.host, self.conn.port or 22),
-                "remote_bind_address": (remote_host, remote_port),
-            }
-            if self.conn.username:
-                kwargs["ssh_username"] = self.conn.username
-            if self.conn.password:
-                kwargs["ssh_password"] = self.conn.password
+            try:
+                # Build kwargs dict for SSH Tunnel Forwarder
+                kwargs = {
+                    "ssh_address_or_host": (self.conn.host, self.conn.port or 22),
+                    "remote_bind_address": (remote_host, remote_port),
+                }
+                if self.conn.username:
+                    kwargs["ssh_username"] = self.conn.username
+                if self.conn.password:
+                    kwargs["ssh_password"] = self.conn.password
 
-            # Save private key in a temporary file, if applicable
-            with NamedTemporaryFile() as keyfile:
-                if self.conn.private_key:
-                    keyfile.write(self.conn.private_key.encode())
-                    keyfile.flush()
-                    kwargs["ssh_pkey"] = os.path.abspath(keyfile.name)
-                self.log.info(
-                    "Opening SSH Tunnel to {0}:{1}...".format(
-                        *kwargs["ssh_address_or_host"]
+                # Save private key in a temporary file, if applicable
+                with NamedTemporaryFile() as keyfile:
+                    if self.conn.private_key:
+                        keyfile.write(self.conn.private_key.encode())
+                        keyfile.flush()
+                        kwargs["ssh_pkey"] = os.path.abspath(keyfile.name)
+                    self.log.info(
+                        "Opening SSH Tunnel to {0}:{1}...".format(
+                            *kwargs["ssh_address_or_host"]
+                        )
                     )
-                )
-                self.ssh_tunnel_forwarder = sshtunnel.SSHTunnelForwarder(**kwargs)
-                self.ssh_tunnel_forwarder.start()
+                    self._ssh_tunnel_forwarder = sshtunnel.SSHTunnelForwarder(**kwargs)
+                    self._ssh_tunnel_forwarder.start()
+            except:
+                # Set package constant back to original setting, if applicable
+                if tunnel_timeout:
+                    sshtunnel.TUNNEL_TIMEOUT = old_timeout
+                raise
 
-            # Set package constant back to original setting, if applicable
-            if tunnel_timeout:
-                sshtunnel.TUNNEL_TIMEOUT = old_timeout
-
-        return ("localhost", self.ssh_tunnel_forwarder.local_bind_port)
+        return ("localhost", self._ssh_tunnel_forwarder.local_bind_port)
 
     def stop_tunnel(self) -> None:
         """Close an open SSH tunnel, if it is indeed open."""
-        if hasattr(self, "ssh_tunnel_forwarder"):
+        if hasattr(self, "_ssh_tunnel_forwarder"):
             self.log.info("Closing SSH tunnel!")
-            self.ssh_tunnel_forwarder.stop()
-            del self.ssh_tunnel_forwarder
+            self._ssh_tunnel_forwarder.stop()
+            del self._ssh_tunnel_forwarder
 
     def __del__(self) -> None:
         self.stop_tunnel()
