@@ -56,13 +56,3 @@ class EWAHMySQLHook(EWAHBaseHook):
         (cursor or self.cursor).execute(sql.strip(), args=params)
         if commit:
             self.commit()
-
-    def get_data_from_sql(
-        self,
-        sql: str,
-        params: Optional[dict] = None,
-        return_dict: bool = True,
-    ) -> Union[List[list], List[dict]]:
-        cur = self.dictcursor if return_dict else self.cursor
-        cur.execute(sql, args=params)
-        return cur.fetchall()

@@ -78,6 +78,22 @@ class EWAHSQLBaseHook(EWAHBaseHook):
         self.execute(sql=sql, params=params, commit=False, cursor=cursor)
         return cursor.fetchall()
 
+    def get_data_in_batches(
+        self,
+        sql: str,
+        params: Optional[dict] = None,
+        return_dict: bool = True,
+        batch_size: int = 100000,
+    ):
+        cur = self.dictcursor if return_dict else self.cursor
+        self.execute(sql, params=params, cursor=cur, commit=False)
+        while True:
+            data = cur.fetchmany(batch_size)
+            if data:
+                yield data
+            else:
+                break
+
     def commit(self):
         self.log.info("Committing changes!")
         return self.dbconn.commit()
