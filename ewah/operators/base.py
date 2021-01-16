@@ -1,18 +1,19 @@
 from airflow.models import BaseOperator
-from airflow.utils.decorators import apply_defaults
 
-from ewah.uploaders import get_uploader
-from ewah.hooks.base import EWAHBaseHook
 from ewah.constants import EWAHConstants as EC
-from ewah.ewah_utils.airflow_utils import airflow_datetime_adjustments as ada
-from ewah.ewah_utils.airflow_utils import datetime_utcnow_with_tz
+from ewah.ewah_utils.airflow_utils import (
+    datetime_utcnow_with_tz,
+    airflow_datetime_adjustments as ada,
+)
+from ewah.hooks.base import EWAHBaseHook
+from ewah.uploaders import get_uploader
 
 from datetime import datetime, timedelta
-import time
+from typing import Optional, List, Dict
+
 import copy
 import hashlib
-
-from typing import Optional, List, Dict
+import time
 
 
 class EWAHBaseOperator(BaseOperator):
