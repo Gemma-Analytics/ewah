@@ -1,15 +1,15 @@
 from airflow.models import BaseOperator
-from ewah.hooks.base import EWAHBaseHook as BaseHook
 from airflow.utils.file import TemporaryDirectory
 
+from ewah.hooks.base import EWAHBaseHook
 from ewah.constants import EWAHConstants as EC
 from ewah.ewah_utils.yml_loader import Loader, Dumper
+from ewah.ewah_utils.run_commands import run_cmd
 
 import re
 import os
 import venv
 import yaml
-import subprocess
 from tempfile import NamedTemporaryFile
 
 
@@ -37,14 +37,11 @@ class EWAHdbtOperator(BaseOperator):
         git_conn_id=None,
         dbt_commands=["run"],  # string or list of strings - dbt commands
         dbt_version="0.18.1",
-        git_link=None,  # SSH link to a remote git repository, if using git repo
-        git_branch=None,  # optional: branch to check out
         subfolder=None,  # optional: supply if dbt project is in a subfolder
         threads=4,  # see https://docs.getdbt.com/dbt-cli/configure-your-profile/#understanding-threads
         schema_name="analytics",  # see https://docs.getdbt.com/dbt-cli/configure-your-profile/#understanding-target-schemas
         database_name=None,  # Snowflake only - name of the database
         keepalives_idle=0,  # see https://docs.getdbt.com/reference/warehouse-profiles/postgres-profile/
-        ssh_tunnel_id=None,
         *args,
         **kwargs
     ):
@@ -84,13 +81,6 @@ class EWAHdbtOperator(BaseOperator):
         if not max([1 if "&" in cmd else 0 for cmd in dbt_commands]) == 0:
             raise Exception("Ampersand (&) is an invalid character in dbt_commands!")
 
-        if repo_type == "git":
-            assert git_link
-            assert re.search("@(.*):", git_link), "only SSH currently work for git_link"
-            assert not "&" in git_link, "Ampersand is an illegal character in git_link!"
-        else:
-            raise Exception("Not implemented!")
-
         super().__init__(*args, **kwargs)
 
         self.repo_type = repo_type
@@ -99,33 +89,13 @@ class EWAHdbtOperator(BaseOperator):
         self.dwh_conn_id = dwh_conn_id
         self.dbt_commands = dbt_commands
         self.dbt_version = dbt_version
-        self.git_link = git_link
-        self.git_branch = git_branch
         self.subfolder = subfolder
         self.threads = threads
         self.schema_name = schema_name
         self.keepalives_idle = keepalives_idle
-        self.ssh_tunnel_id = ssh_tunnel_id
         self.database_name = database_name
 
     def execute(self, context):
-        def run_cmd(cmd, env):
-            # run a bash command (cmd) with the environment variables env
-            if isinstance(cmd, list):
-                cmd = " && ".join(cmd)
-            self.log.info("running:\n\n\t{0}\n\n".format(cmd))
-            with subprocess.Popen(
-                cmd,
-                executable="/bin/bash",
-                shell=True,  # required when parsing string as command
-                stdout=subprocess.PIPE,
-                stderr=subprocess.STDOUT,
-                env=env,
-            ) as p:
-                # write output to log without delay
-                for stdout_line in p.stdout:
-                    self.log.info(stdout_line.decode().strip())
-            assert p.returncode == 0  # fail task if process failed
 
         # env to be used in processes later
         env = os.environ.copy()
@@ -135,54 +105,8 @@ class EWAHdbtOperator(BaseOperator):
             # clone repo into temp directory
             repo_dir = tmp_dir + os.path.sep + "repo"
             if self.repo_type == "git":
-                git_repo_link = ""
-                if self.git_branch:
-                    git_repo_link = "-b {0} ".format(self.git_branch)
-                git_repo_link += self.git_link
-                cmd = []
-                with NamedTemporaryFile(dir=tmp_dir) as f:
-                    # temporarily have a file with the SSH key when cloning
-                    cmd.append("eval `ssh-agent`")
-                    if self.git_conn_id:
-                        git_conn = BaseHook.get_connection(self.git_conn_id)
-                        ssh_key_text = git_conn.extra
-                        file_name = os.path.abspath(f.name)
-                        f.write(ssh_key_text.encode())
-                        f.seek(0)
-                        # if there is a password set in the git conn, it's
-                        # the password for the SSH key! supply it!
-                        # use SSH_ASKPASS env var & a temp file to do so
-                        ssh_pw = ""
-                        if git_conn.password:
-                            f_pw_path = tmp_dir + os.path.sep + "ssh_key_pw"
-                            with open(f_pw_path, "w+") as f_pw:
-                                # create file in temp folder -> ssh-add cannot
-                                # open a NamedTemporaryFile in context manager
-                                f_pw.write(
-                                    '#!/bin/bash\necho "{0}"'.format(git_conn.password)
-                                )
-                                f_pw.seek(0)
-                            ssh_pw = 'DISPLAY=":0.0" SSH_ASKPASS="{0}"'.format(
-                                f_pw_path
-                            )
-                            cmd.append("chmod 777 {0}".format(f_pw_path))
-                        cmd.append("{1} ssh-add {0}".format(file_name, ssh_pw))
-                    else:
-                        cmd.append('echo "cloning without credentials!"')
-                    ssh_domain = re.search("@(.*):", self.git_link).group(1)
-                    cmd.append("mkdir -p $HOME/.ssh")
-                    cmd.append(
-                        "ssh-keyscan -H {0} >> $HOME/.ssh/known_hosts".format(
-                            ssh_domain
-                        )
-                    )
-                    cmd.append(
-                        "git clone {0} {1}".format(
-                            git_repo_link,
-                            repo_dir,
-                        )
-                    )
-                    run_cmd(cmd, env)  # cloning repo
+                git_hook = EWAHBaseHook.get_hook_from_conn_id(conn_id=self.git_conn_id)
+                git_hook.clone_repo(repo_dir, env)
             else:
                 raise Exception("Not Implemented!")
 
@@ -204,7 +128,7 @@ class EWAHdbtOperator(BaseOperator):
             )
             cmd.append("dbt --version")
             cmd.append("deactivate")
-            run_cmd(cmd, env)
+            assert run_cmd(cmd, env, self.log.info) == 0
 
             dbt_dir = repo_dir
             if self.subfolder:
@@ -212,7 +136,7 @@ class EWAHdbtOperator(BaseOperator):
                     self.subfolder = os.path.sep + self.subfolder
                 dbt_dir += self.subfolder
 
-            dwh_conn = BaseHook.get_connection(self.dwh_conn_id)
+            dwh_conn = EWAHBaseHook.get_connection(self.dwh_conn_id)
 
             # read profile name & create temporary profiles.yml
             project_yml_file = dbt_dir
@@ -281,7 +205,7 @@ class EWAHdbtOperator(BaseOperator):
                 cmd.append("dbt deps")
                 [cmd.append("dbt {0}".format(dc)) for dc in self.dbt_commands]
                 cmd.append("deactivate")
-                run_cmd(cmd, env)
+                assert run_cmd(cmd, env, self.log.info) == 0
 
             # if applicable: close SSH tunnel
             if hasattr(self, "ssh_tunnel_forwarder"):

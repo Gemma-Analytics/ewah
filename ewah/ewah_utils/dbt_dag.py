@@ -264,10 +264,7 @@ def dbt_dag_factory_new(
     dwh_conn_id,
     database_name=None,
     git_conn_id=None,  # if provided, expecting private SSH key in conn extra
-    # dbt_commands=['run'], # string or list of strings - dbt commands
     dbt_version="0.18.1",
-    git_link=None,  # SSH link to a remote git repository, if using git repo
-    git_branch=None,  # optional: branch to check out
     subfolder=None,  # optional: supply if dbt project is in a subfolder
     threads=4,  # see https://docs.getdbt.com/dbt-cli/configure-your-profile/#understanding-threads
     schema_name="analytics",  # see https://docs.getdbt.com/dbt-cli/configure-your-profile/#understanding-target-schemas
@@ -276,7 +273,6 @@ def dbt_dag_factory_new(
     schedule_interval=timedelta(hours=1),
     start_date=datetime(2019, 1, 1),
     default_args=None,
-    ssh_tunnel_id=None,
     run_flags=None,  # e.g. --model tag:base
 ):
     run_flags = run_flags or ""  # use empty string instead of None
@@ -329,13 +325,10 @@ def dbt_dag_factory_new(
         "dwh_conn_id": dwh_conn_id,
         "git_conn_id": git_conn_id,
         "dbt_version": dbt_version,
-        "git_link": git_link,
-        "git_branch": git_branch,
         "subfolder": subfolder,
         "threads": threads,
         "schema_name": schema_name,
         "keepalives_idle": 0,
-        "ssh_tunnel_id": ssh_tunnel_id,
         "dwh_engine": dwh_engine,
         "database_name": database_name,
     }
@@ -377,8 +370,6 @@ def dbt_snapshot_dag(
     dwh_engine,
     dwh_conn_id,
     git_conn_id,
-    git_link,
-    git_branch=None,
     database_name=None,
     dbt_version="0.18.1",
     subfolder=None,
@@ -389,7 +380,6 @@ def dbt_snapshot_dag(
     schedule_interval=timedelta(hours=1),
     start_date=None,
     default_args=None,
-    ssh_tunnel_id=None,
 ):
     # only PostgreSQL & Snowflake implemented as of now!
     assert dwh_engine in (EC.DWH_ENGINE_POSTGRES, EC.DWH_ENGINE_SNOWFLAKE)
@@ -411,15 +401,12 @@ def dbt_snapshot_dag(
         dwh_engine=dwh_engine,
         dwh_conn_id=dwh_conn_id,
         git_conn_id=git_conn_id,
-        git_link=git_link,
-        git_branch=git_branch,
         database_name=database_name,
         dbt_version=dbt_version,
         subfolder=subfolder,
         threads=threads,
         schema_name=schema_name,
         keepalives_idle=keepalives_idle,
-        ssh_tunnel_id=ssh_tunnel_id,
     )
 
     return dag
