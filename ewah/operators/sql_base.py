@@ -26,7 +26,9 @@ class EWAHSQLBaseOperator(EWAHBaseOperator):
     def __init__(
         self,
         source_schema_name: Optional[str] = None,
-        source_table_name: Optional[str] = None,  # defaults to same as target_table_name
+        source_table_name: Optional[
+            str
+        ] = None,  # defaults to same as target_table_name
         source_database_name: Optional[str] = None,  # bigquery: project id
         sql_select_statement: Optional[str] = None,  # Alternative to specifying table
         timestamp_column: Optional[str] = None,

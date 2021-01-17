@@ -66,7 +66,7 @@ class EWAHSalesforceHook(EWAHBaseHook):
         columns: Optional[list] = None,
         data_from: Optional[datetime] = None,
         data_until: Optional[datetime] = None,
-        batch_size: int = 10000
+        batch_size: int = 10000,
     ) -> List[Dict[str, Any]]:
         """Generator to return all data of a salesforce object"""
 

@@ -253,7 +253,7 @@ class EWAHdbtOperator(BaseOperator):
                             "type": "snowflake",
                             "account": dwh_conn.account,
                             "user": dwh_conn.user,
-                            "password":  dwh_conn.password,
+                            "password": dwh_conn.password,
                             "role": dwh_conn.role,
                             "database": self.database_name or dwh_conn.database,
                             "warehouse": dwh_conn.warehouse,

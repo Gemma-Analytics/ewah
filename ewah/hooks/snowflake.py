@@ -93,10 +93,19 @@ class EWAHSnowflakeHook(EWAHBaseHook):
     def execute(
         self, sql: str, params: Optional[dict] = None, commit: bool = False, cursor=None
     ) -> None:
-        self.log.info("Executing SQL:\n\n{0}\n\nWith params:\n{1}".format(
-            sql,
-            "\n".join(['{0}: {1}'.format(key, str(value)) for (key, value) in params.items()]) if params else "No params!"
-        ))
+        self.log.info(
+            "Executing SQL:\n\n{0}\n\nWith params:\n{1}".format(
+                sql,
+                "\n".join(
+                    [
+                        "{0}: {1}".format(key, str(value))
+                        for (key, value) in params.items()
+                    ]
+                )
+                if params
+                else "No params!",
+            )
+        )
         sql = self._adjust_sql(sql)
         for statement in sql.split(";"):
             (cursor or self.cursor).execute(statement.strip(), *[params])

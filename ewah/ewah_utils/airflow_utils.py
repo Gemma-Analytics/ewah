@@ -34,14 +34,7 @@ class PGO(BaseOperator):
     template_fields = ("sql",)
     template_ext = (".sql",)
 
-    def __init__(
-        self,
-        sql,
-        postgres_conn_id,
-        parameters=None,
-        *args,
-        **kwargs
-    ):
+    def __init__(self, sql, postgres_conn_id, parameters=None, *args, **kwargs):
         self.sql = sql
         self.postgres_conn_id = postgres_conn_id
         self.parameters = parameters
@@ -51,6 +44,7 @@ class PGO(BaseOperator):
         hook = EWAHBaseHook.get_hook_from_conn_id(self.postgres_conn_id)
         hook.execute(sql=self.sql, params=self.parameters, commit=True)
         hook.close()  # SSH tunnel does not close if hook is not closed first
+
 
 def datetime_utcnow_with_tz():
     return datetime.utcnow().replace(tzinfo=pytz.utc)

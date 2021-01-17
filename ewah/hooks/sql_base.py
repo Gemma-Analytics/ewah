@@ -2,6 +2,7 @@ from ewah.hooks.base import EWAHBaseHook
 
 from typing import Optional, Dict, Any, Union, List
 
+
 class EWAHSQLBaseHook(EWAHBaseHook):
     """Base hook extension for use as parent of various SQL hooks.
 

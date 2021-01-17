@@ -22,7 +22,9 @@ class EWAHPipedriveHook(EWAHBaseHook):
     _URL: str = "https://{company}.pipedrive.com/api/v1/{endpoint}"
     _REQUESTS_LEFT = "x-ratelimit-remaining"
 
-    def get_data_in_batches(self, object: str, batch_size: int = 10000, **kwargs) -> List[Dict[str, Any]]:
+    def get_data_in_batches(
+        self, object: str, batch_size: int = 10000, **kwargs
+    ) -> List[Dict[str, Any]]:
         params = copy.deepcopy(kwargs)
         # Pagination
         params["start"] = 0
