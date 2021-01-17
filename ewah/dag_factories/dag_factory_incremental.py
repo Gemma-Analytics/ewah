@@ -80,7 +80,6 @@ def dag_factory_incremental_loading(
     schedule_interval_future: timedelta = timedelta(hours=1),
     end_date: Optional[datetime] = None,
     read_right_users: Optional[Union[List[str], str]] = None,
-    dwh_ssh_tunnel_conn_id: Optional[str] = None,
     additional_dag_args: Optional[dict] = None,
     additional_task_args: Optional[dict] = None,
     logging_func: Optional[Callable] = None,
@@ -131,8 +130,6 @@ def dag_factory_incremental_loading(
     :param read_right_users: List of strings of users or roles that should
         receive read rights on the loaded tables. Can also be a comma-separated
         string instead of a list of strings.
-    :param dwh_ssh_tunnel_conn_id: Airflow connection ID for credentials for
-        the SSH Tunnel, if an SSH Tunnel is required to connect to the DWH.
     :param additional_dag_args: kwargs applied to the DAG. Can be any DAG
         kwarg that is not used directly within the function.
     :param additional_task_args: kwargs applied to the tasks. Can be any Task
@@ -152,8 +149,6 @@ def dag_factory_incremental_loading(
     additional_dag_args = additional_dag_args or {}
     additional_task_args = additional_task_args or {}
 
-    if dwh_ssh_tunnel_conn_id and not dwh_engine == EC.DWH_ENGINE_POSTGRES:
-        raise_exception("DWH tunneling only implemented for PostgreSQL DWHs!")
     if not isinstance(schedule_interval_future, timedelta):
         raise_exception("Schedule intervals must be datetime.timedelta!")
     if not isinstance(schedule_interval_backfill, timedelta):
@@ -265,7 +260,6 @@ def dag_factory_incremental_loading(
             postgres_conn_id=dwh_conn_id,
             task_id="delete_previous_schema_if_exists",
             dag=dags[2],
-            ssh_tunnel_conn_id=dwh_ssh_tunnel_conn_id,
             **additional_task_args,
         )
     elif dwh_engine == EC.DWH_ENGINE_SNOWFLAKE:
@@ -291,7 +285,6 @@ def dag_factory_incremental_loading(
         target_database_name=target_database_name,
         dwh_conn_id=dwh_conn_id,
         read_right_users=read_right_users,
-        ssh_tunnel_conn_id=dwh_ssh_tunnel_conn_id,
         **additional_task_args,
     )
 
@@ -304,7 +297,6 @@ def dag_factory_incremental_loading(
         target_database_name=target_database_name,
         dwh_conn_id=dwh_conn_id,
         read_right_users=read_right_users,
-        ssh_tunnel_conn_id=dwh_ssh_tunnel_conn_id,
         **additional_task_args,
     )
 
@@ -361,7 +353,6 @@ def dag_factory_incremental_loading(
                 "target_schema_name": target_schema_name,
                 "target_schema_suffix": target_schema_suffix,
                 "target_database_name": target_database_name,
-                "target_ssh_tunnel_conn_id": dwh_ssh_tunnel_conn_id,
             }
         )
 

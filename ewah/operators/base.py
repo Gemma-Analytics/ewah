@@ -1,17 +1,19 @@
 from airflow.models import BaseOperator
-from airflow.utils.decorators import apply_defaults
 
-from ewah.uploaders import get_uploader
-from ewah.hooks.base import EWAHBaseHook
 from ewah.constants import EWAHConstants as EC
-from ewah.ewah_utils.ssh_tunnel import start_ssh_tunnel
-from ewah.ewah_utils.airflow_utils import airflow_datetime_adjustments as ada
-from ewah.ewah_utils.airflow_utils import datetime_utcnow_with_tz
+from ewah.ewah_utils.airflow_utils import (
+    datetime_utcnow_with_tz,
+    airflow_datetime_adjustments as ada,
+)
+from ewah.hooks.base import EWAHBaseHook
+from ewah.uploaders import get_uploader
 
 from datetime import datetime, timedelta
-import time
+from typing import Optional, List, Dict
+
 import copy
 import hashlib
+import time
 
 
 class EWAHBaseOperator(BaseOperator):
@@ -113,17 +115,19 @@ class EWAHBaseOperator(BaseOperator):
         # columns_definition was supplied (e.g. for select * with sql)
         index_columns=[],  # list of columns to create an index on. can be
         # an expression, must be quoted in list if quoting is required.
-        source_ssh_tunnel_conn_id=None,  # create SSH tunnel if set; uses host
-        # and port from source_conn_id as remote host and port
-        target_ssh_tunnel_conn_id=None,  # see source_ssh_tunnel_conn_id
         hash_columns=None,  # str or list of str - columns to hash pre-upload
         hashlib_func_name="sha256",  # specify hashlib hashing function
         wait_for_seconds=120,  # seconds past next_execution_date to wait until
         # wait_for_seconds only applies for incremental loads
+        add_metadata=True,
+        rename_columns: Optional[Dict[str, str]] = None,  # Rename columns
         *args,
         **kwargs
     ):
         super().__init__(*args, **kwargs)
+
+        assert not (rename_columns and columns_definition)
+        assert rename_columns is None or isinstance(rename_columns, dict)
 
         for item in EWAHBaseOperator.template_fields:
             # Make sure template_fields was not overwritten
@@ -162,22 +166,8 @@ class EWAHBaseOperator(BaseOperator):
         if index_columns and not dwh_engine == EC.DWH_ENGINE_POSTGRES:
             raise Exception("Indices are only allowed for PostgreSQL DWHs!")
 
-        if dwh_engine == EC.DWH_ENGINE_SNOWFLAKE:
-            if not target_database_name:
-                conn_db_name = EWAHBaseHook.get_connection(dwh_conn_id)
-                conn_db_name = conn_db_name.extra_dejson.get("database")
-                if conn_db_name:
-                    target_database_name = conn_db_name
-                else:
-                    raise Exception(
-                        "If using DWH Engine {0}, must provide {1}!".format(
-                            dwh_engine,
-                            '"target_database_name" to specify the Database',
-                        )
-                    )
-        else:
-            if target_database_name:
-                raise Exception('Received argument for "target_database_name"!')
+        if (not dwh_engine == EC.DWH_ENGINE_SNOWFLAKE) and target_database_name:
+            raise Exception('Received argument for "target_database_name"!')
 
         if self._REQUIRES_COLUMNS_DEFINITION:
             if not columns_definition:
@@ -260,11 +250,11 @@ class EWAHBaseOperator(BaseOperator):
         #   ... by a child class at execution!
         self.exclude_columns = exclude_columns
         self.index_columns = index_columns
-        self.source_ssh_tunnel_conn_id = source_ssh_tunnel_conn_id
-        self.target_ssh_tunnel_conn_id = target_ssh_tunnel_conn_id
         self.hash_columns = hash_columns
         self.hashlib_func_name = hashlib_func_name
         self.wait_for_seconds = wait_for_seconds
+        self.add_metadata = add_metadata
+        self.rename_columns = rename_columns
 
         self.uploader = get_uploader(self.dwh_engine)
 
@@ -285,43 +275,15 @@ class EWAHBaseOperator(BaseOperator):
         called by this general execute() method.
         """
 
-        def close_ssh_tunnels():
-            # close SSH tunnels if they exist
-            if hasattr(self, "source_ssh_tunnel_forwarder"):
-                self.source_ssh_tunnel_forwarder.stop()
-                del self.source_ssh_tunnel_forwarder
-            if hasattr(self, "target_ssh_tunnel_forwarder"):
-                self.target_ssh_tunnel_forwarder.stop()
-                del self.target_ssh_tunnel_forwarder
-
         # required for metadata in data upload
         self._execution_time = datetime_utcnow_with_tz()
         self._context = context
 
-        # the upload hook is used in the self.upload_data() function
-        # which is called by the child's ewah_execute function whenever there is
-        # data to upload. If applicable: start SSH tunnel first!
-        if self.target_ssh_tunnel_conn_id:
-            self.log.info("Opening SSH tunnel to target...")
-            self.target_ssh_tunnel_forwarder, self.dwh_conn = start_ssh_tunnel(
-                ssh_conn_id=self.target_ssh_tunnel_conn_id,
-                remote_conn_id=self.dwh_conn_id,
-            )
-        else:
-            self.dwh_conn = EWAHBaseHook.get_connection(self.dwh_conn_id)
-        self.uploader = self.uploader(self.dwh_conn)
+        self.uploader = self.uploader(EWAHBaseHook.get_connection(self.dwh_conn_id))
 
-        # open SSH tunnel for the data source connection, if applicable
-        if self.source_ssh_tunnel_conn_id:
-            self.log.info("Opening SSH tunnel to source...")
-            self.source_ssh_tunnel_forwarder, self.source_conn = start_ssh_tunnel(
-                ssh_conn_id=self.source_ssh_tunnel_conn_id,
-                remote_conn_id=self.source_conn_id,
-            )
-        elif self.source_conn_id:
+        if self.source_conn_id:
             # resolve conn id here & delete the object to avoid usage elsewhere
             self.source_conn = EWAHBaseHook.get_connection(self.source_conn_id)
-        if hasattr(self, "source_conn"):
             self.source_hook = self.source_conn.get_hook()
         del self.source_conn_id
 
@@ -402,59 +364,51 @@ class EWAHBaseOperator(BaseOperator):
                 wait_for_timedelta = wait_until - datetime_utcnow_with_tz()
                 time.sleep(max(0, min(wait_for_timedelta.total_seconds(), 5)))
 
-        try:
-            # execute operator
-            if self.load_data_chunking_timedelta and data_from and data_until:
-                # Chunking to avoid OOM
-                assert data_until > data_from
-                assert self.load_data_chunking_timedelta > timedelta(days=0)
-                while self.data_from < data_until:
-                    self.data_until = self.data_from
-                    self.data_until += self.load_data_chunking_timedelta
-                    self.data_until = min(self.data_until, data_until)
-                    self.ewah_execute(context)
-                    self.data_from += self.load_data_chunking_timedelta
-            else:
+        # execute operator
+        if self.load_data_chunking_timedelta and data_from and data_until:
+            # Chunking to avoid OOM
+            assert data_until > data_from
+            assert self.load_data_chunking_timedelta > timedelta(days=0)
+            while self.data_from < data_until:
+                self.data_until = self.data_from
+                self.data_until += self.load_data_chunking_timedelta
+                self.data_until = min(self.data_until, data_until)
                 self.ewah_execute(context)
+                self.data_from += self.load_data_chunking_timedelta
+        else:
+            self.ewah_execute(context)
 
-            # if PostgreSQL and arg given: create indices
-            for column in self.index_columns:
-                assert self.dwh_engine == EC.DWH_ENGINE_POSTGRES
-                # Use hashlib to create a unique 63 character string as index
-                # name to avoid breaching index name length limits & accidental
-                # duplicates / missing indices due to name truncation leading to
-                # identical index names.
-                self.hook.execute(
-                    self._INDEX_QUERY.format(
-                        "__ewah_"
-                        + hashlib.blake2b(
-                            (
-                                temp_schema_name
-                                + "."
-                                + self.target_table_name
-                                + "."
-                                + column
-                            ).encode(),
-                            digest_size=28,
-                        ).hexdigest(),
-                        self.target_schema_name + self.target_schema_suffix,
-                        self.target_table_name,
-                        column,
-                    )
+        # if PostgreSQL and arg given: create indices
+        for column in self.index_columns:
+            assert self.dwh_engine == EC.DWH_ENGINE_POSTGRES
+            # Use hashlib to create a unique 63 character string as index
+            # name to avoid breaching index name length limits & accidental
+            # duplicates / missing indices due to name truncation leading to
+            # identical index names.
+            self.uploader.dwh_hook.execute(
+                self._INDEX_QUERY.format(
+                    "__ewah_"
+                    + hashlib.blake2b(
+                        (
+                            temp_schema_name
+                            + "."
+                            + self.target_table_name
+                            + "."
+                            + column
+                        ).encode(),
+                        digest_size=28,
+                    ).hexdigest(),
+                    self.target_schema_name + self.target_schema_suffix,
+                    self.target_table_name,
+                    column,
                 )
+            )
 
-            # commit only at the end, so that no data may be committed before an
-            # error occurs.
-            self.log.info("Now committing changes!")
-            self.uploader.commit()
-            self.uploader.close()
-        except:
-            # close SSH tunnels on failure before raising the error
-            close_ssh_tunnels()
-            raise
-
-        # everything worked, now close SSH tunnels
-        close_ssh_tunnels()
+        # commit only at the end, so that no data may be committed before an
+        # error occurs.
+        self.log.info("Now committing changes!")
+        self.uploader.commit()
+        self.uploader.close()
 
     def test_if_target_table_exists(self):
         # Need to use existing hook to work within open transaction
@@ -538,28 +492,34 @@ class EWAHBaseOperator(BaseOperator):
             )
         )
 
-        self.log.info("Adding metadata...")
-        metadata = copy.deepcopy(self._metadata)  # from individual operator
-        # for all operators alike
-        metadata.update(
-            {
-                "_ewah_executed_at": self._execution_time,
-                "_ewah_execution_chunk": self.upload_call_count,
-                "_ewah_dag_id": self._context["dag"].dag_id,
-                "_ewah_dag_run_id": self._context["run_id"],
-                "_ewah_dag_run_execution_date": self._context["execution_date"],
-                "_ewah_dag_run_next_execution_date": self._context[
-                    "next_execution_date"
-                ],
-            }
-        )
-        for datum in data:
-            datum.update(metadata)
+        if self.add_metadata or self.rename_columns:
+            if self.add_metadata:
+                self.log.info("Adding metadata...")
+                metadata = copy.deepcopy(self._metadata)  # from individual operator
+                # for all operators alike
+                metadata.update(
+                    {
+                        "_ewah_executed_at": self._execution_time,
+                        "_ewah_execution_chunk": self.upload_call_count,
+                        "_ewah_dag_id": self._context["dag"].dag_id,
+                        "_ewah_dag_run_id": self._context["run_id"],
+                        "_ewah_dag_run_execution_date": self._context["execution_date"],
+                        "_ewah_dag_run_next_execution_date": self._context[
+                            "next_execution_date"
+                        ],
+                    }
+                )
+            rename_columns = self.rename_columns or {}
+            for datum in data:
+                if self.add_metadata:
+                    datum.update(metadata)
+                if rename_columns:
+                    for (old_name, new_name) in rename_columns.items():
+                        datum[new_name] = datum.pop(old_name, None)
 
         columns_definition = columns_definition or self.columns_definition
         if not columns_definition:
             self.log.info("Creating table schema on the fly based on data.")
-            # Note: This is also where metadata is added, if applicable
             columns_definition = self._create_columns_definition(data)
 
         if self.update_on_columns:
@@ -579,12 +539,10 @@ class EWAHBaseOperator(BaseOperator):
                     )
                 columns_definition[pk_name][EC.QBC_FIELD_PK] = True
 
-        hook = self.uploader
-
         if (self.extract_strategy == EC.ES_INCREMENTAL) or (self.upload_call_count > 1):
             self.log.info("Checking for, and applying schema changes.")
             _new_schema_name = self.target_schema_name + self.target_schema_suffix
-            new_cols, del_cols = hook.detect_and_apply_schema_changes(
+            new_cols, del_cols = self.uploader.detect_and_apply_schema_changes(
                 new_schema_name=_new_schema_name,
                 new_table_name=self.target_table_name,
                 new_columns_dictionary=columns_definition,
@@ -602,7 +560,7 @@ class EWAHBaseOperator(BaseOperator):
             )
 
         self.log.info("Uploading data now.")
-        hook.create_or_update_table(
+        self.uploader.create_or_update_table(
             data=data,
             columns_definition=columns_definition,
             table_name=self.target_table_name,
@@ -624,20 +582,3 @@ class EWAHBaseOperator(BaseOperator):
             and any intermediate commit may be subsequently followed by an
             error, which would then result in incomplete data committed.
         """
-
-
-class EWAHEmptyOperator(EWAHBaseOperator):
-    _ACCEPTED_EXTRACT_STRATEGIES = {
-        EC.ES_FULL_REFRESH: True,
-        EC.ES_INCREMENTAL: True,
-    }
-
-    def __init__(self, *args, **kwargs):
-        raise Exception(
-            "Failed to load operator! Probably missing"
-            + " requirements for the operator in question.\n\nSupplied args:"
-            + "\n\t"
-            + "\n\t".join(args)
-            + "\n\nSupplied kwargs:\n\t"
-            + "\n\t".join(["{0}: {1}".format(k, v) for k, v in kwargs.items()])
-        )

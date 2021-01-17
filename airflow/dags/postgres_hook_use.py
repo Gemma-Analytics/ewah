@@ -22,5 +22,5 @@ with DAG(
     task = PythonOperator(
         task_id="a_task",
         python_callable=task_func,
-        op_kwargs={"conn_id": "dwh", "sql": "select 1"},
+        op_kwargs={"conn_id": "dwh", "sql": "select 1 as a, 'b' as b"},
     )

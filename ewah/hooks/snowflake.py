@@ -1,13 +1,13 @@
 from ewah.constants import EWAHConstants as EC
 from ewah.hooks.base import EWAHBaseHook
 
-# import snowflake.connector
+import snowflake.connector
 from typing import Optional, List, Union
 
 
 class EWAHSnowflakeHook(EWAHBaseHook):
 
-    _ATTR_RELABEL: dict = {
+    _ATTR_RELABEL = {
         "user": "login",
         "account": "host",
     }
@@ -17,7 +17,7 @@ class EWAHSnowflakeHook(EWAHBaseHook):
     conn_type = "ewah_snowflake"
     hook_name = "EWAH Snowflake Connection"
 
-    def __init__(self, *args, database: Optional[str] = None, **kwwargs):
+    def __init__(self, *args, database: Optional[str] = None, **kwargs):
         self.database = database
         return super().__init__(*args, **kwargs)
 
@@ -58,7 +58,7 @@ class EWAHSnowflakeHook(EWAHBaseHook):
     def snow_conn(self):
         if not hasattr(self, "_snow_conn"):
             self._snow_conn = snowflake.connector.connect(
-                user=self.user,
+                user=self.conn.user,
                 password=self.conn.password,
                 role=self.conn.role,
                 warehouse=self.conn.warehouse,
@@ -66,6 +66,13 @@ class EWAHSnowflakeHook(EWAHBaseHook):
                 database=self.database or self.conn.database,
             )
         return self._snow_conn
+
+    @staticmethod
+    def _adjust_sql(sql):
+        sql = sql.strip()
+        if sql[-1:] == ";":
+            sql = sql[:-1].strip()
+        return sql
 
     @property
     def cursor(self):
@@ -86,8 +93,21 @@ class EWAHSnowflakeHook(EWAHBaseHook):
     def execute(
         self, sql: str, params: Optional[dict] = None, commit: bool = False, cursor=None
     ) -> None:
-        self.log.info(f"Executing SQL:\n\n{sql}\n\n")
-        for statement in sql.strip().split(";"):
+        self.log.info(
+            "Executing SQL:\n\n{0}\n\nWith params:\n{1}".format(
+                sql,
+                "\n".join(
+                    [
+                        "{0}: {1}".format(key, str(value))
+                        for (key, value) in params.items()
+                    ]
+                )
+                if params
+                else "No params!",
+            )
+        )
+        sql = self._adjust_sql(sql)
+        for statement in sql.split(";"):
             (cursor or self.cursor).execute(statement.strip(), *[params])
         if commit:
             self.commit()

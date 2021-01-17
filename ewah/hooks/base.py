@@ -95,7 +95,17 @@ class EWAHBaseHook(BaseHook):
         if conn_id:
             conn = self.get_connection(conn_id)
         self.conn = conn
-        return super().__init__(*args, **kwargs)
+
+        if not self.conn_name_attr:
+            raise AirflowException("conn_name_attr is not defined")
+        elif len(args) == 1:
+            setattr(self, self.conn_name_attr, args[0])
+        elif self.conn_name_attr not in kwargs:
+            setattr(self, self.conn_name_attr, self.default_conn_name)
+        else:
+            setattr(self, self.conn_name_attr, kwargs[self.conn_name_attr])
+
+        return super().__init__()
 
     @classmethod
     def get_connection(cls, conn_id: str) -> EWAHConnection:
@@ -110,4 +120,5 @@ class EWAHBaseHook(BaseHook):
 
     @classmethod
     def get_hook_from_conn_id(cls, conn_id: str):
-        return conn.hook_cls(conn=cls.get_connection(conn_id))
+        conn = cls.get_connection(conn_id=conn_id)
+        return conn.hook_cls(conn=conn)

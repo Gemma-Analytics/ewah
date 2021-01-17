@@ -15,8 +15,8 @@ class EWAHSalesforceHook(EWAHBaseHook):
         "domain": "schema",
     }
 
-    conn_name_attr: str = "salesforce_conn_id"
-    default_conn_name: str = "salesforce_default"
+    conn_name_attr: str = "ewah_salesforce_conn_id"
+    default_conn_name: str = "ewah_salesforce_default"
     conn_type: str = "ewah_salesforce"
     hook_name: str = "EWAH Salesforce Connection"
 
@@ -66,6 +66,7 @@ class EWAHSalesforceHook(EWAHBaseHook):
         columns: Optional[list] = None,
         data_from: Optional[datetime] = None,
         data_until: Optional[datetime] = None,
+        batch_size: int = 10000,
     ) -> List[Dict[str, Any]]:
         """Generator to return all data of a salesforce object"""
 
@@ -94,17 +95,24 @@ class EWAHSalesforceHook(EWAHBaseHook):
 
         # Yield results
         result = self.sf_conn.query(query, include_deleted=True)
+        data = []
         while (result.get("done") and result.get("rescords")) or result.get(
             "nextRecordsUrl"
         ):
-            data = result.pop("records")
-            for datum in data:
+            result_data = result.pop("records")
+            for datum in result_data:
                 del datum["attributes"]
                 datum = dict(datum)
-            yield data
+            data += result_data
             next_page = result.get("nextRecordsUrl")
             if next_page:
                 result = self.sf_conn.query_more(next_page, True)
+            if len(data) >= batch_size:
+                yield data
+                data = []
+
+        if data:
+            yield data
 
         # Make sure there was no error on the way
         if not result.get("done"):

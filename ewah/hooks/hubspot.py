@@ -72,9 +72,10 @@ class EWAHHubspotHook(EWAHBaseHook):
             for property in (properties or self.get_properties_for_object(object))
             if not property in (exclude_properties or [])
         ]
+        params_object["properties"] = properties
 
         self.log.info(
-            "Loading these propeties:\n\n\t- {0}\n\n".format("\n\t- ".join(properties))
+            "Loading these properties:\n\n\t- {0}\n\n".format("\n\t- ".join(properties))
         )
         if associations:
             self.log.info(
@@ -153,5 +154,5 @@ class EWAHHubspotHook(EWAHBaseHook):
 
             # Yield data when appropriate
             if (len(batch_data) >= batch_size) or (not keepgoing and batch_data):
-                yield batch_data[:batch_size]
-                del batch_data[:batch_size]
+                yield batch_data
+                batch_data = []

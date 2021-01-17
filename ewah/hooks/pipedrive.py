@@ -22,7 +22,9 @@ class EWAHPipedriveHook(EWAHBaseHook):
     _URL: str = "https://{company}.pipedrive.com/api/v1/{endpoint}"
     _REQUESTS_LEFT = "x-ratelimit-remaining"
 
-    def get_data_in_batches(self, object: str, **kwargs) -> List[Dict[str, Any]]:
+    def get_data_in_batches(
+        self, object: str, batch_size: int = 10000, **kwargs
+    ) -> List[Dict[str, Any]]:
         params = copy.deepcopy(kwargs)
         # Pagination
         params["start"] = 0
@@ -33,6 +35,7 @@ class EWAHPipedriveHook(EWAHBaseHook):
         url = self._URL.format(company=self.conn.company, endpoint=object)
 
         first_call = True
+        data = []
         while first_call or (success and params["start"]):
             first_call = False
             request = requests.get(url, params=params)
@@ -43,7 +46,7 @@ class EWAHPipedriveHook(EWAHBaseHook):
                     # Wait for ratelimit to fill up again
                     time.sleep(2)
 
-                yield result["data"]
+                data += result["data"]
                 if (
                     result.get("additional_data", {})
                     .get("pagination", {})
@@ -55,6 +58,10 @@ class EWAHPipedriveHook(EWAHBaseHook):
                 else:
                     # Stop iterating, no more pages to go
                     params["start"] = None
+
+                if data and ((params["start"] is None) or (len(data) >= batch_size)):
+                    yield data
+                    data = []
 
         if not success:
             raise Exception("Error - request response: {0}".format(request.text))

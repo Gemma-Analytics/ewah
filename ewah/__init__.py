@@ -1,2 +1,2 @@
 # If you change VERSION, remember to change it in Dockerfile also!
-VERSION = "0.3.4"
+VERSION = "0.3.11"

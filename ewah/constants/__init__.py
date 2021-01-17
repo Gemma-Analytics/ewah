@@ -1,4 +1,4 @@
-from datetime import datetime, date
+from datetime import datetime, date, timedelta
 
 
 class EWAHConstants:
@@ -89,6 +89,7 @@ class EWAHConstants:
             bool: "boolean",
             datetime: "timestamp with time zone",
             date: "date",
+            timedelta: "interval",
         },
         DWH_ENGINE_SNOWFLAKE: {
             QBC_TYPE_MAPPING_DEFAULT: "VARCHAR",
@@ -126,5 +127,17 @@ class EWAHConstants:
         DWH_ENGINE_GS: {  # must have these two values evaluate to True as bool
             QBC_TYPE_MAPPING_DEFAULT: "x",
             QBC_TYPE_MAPPING_INCONSISTENT: "x",
+            # EWAH tries to dump all non-mapped types, thus map even if map is never used!
+            str: "x",
+            int: "x",
+            float: "x",
+            dict: "x",
+            list: "x",
+            tuple: "x",
+            set: "x",
+            frozenset: "x",
+            bool: "x",
+            datetime: "timestamp with time x",
+            date: "x",
         },
     }

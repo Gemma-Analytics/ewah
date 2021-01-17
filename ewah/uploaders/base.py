@@ -177,7 +177,7 @@ class EWAHBaseUploader(LoggingMixin):
             "table_name": new_table_name,
         }
         if self.dwh_engine == EC.DWH_ENGINE_SNOWFLAKE:
-            database = database or self.database
+            database = database or self.database or self.dwh_hook.conn.database
             params["database_name"] = database
         if not self.test_if_table_exists(**params):
             return ([], [])  # Table did not previously exist, so there is nothing to do
@@ -247,15 +247,20 @@ class EWAHBaseUploader(LoggingMixin):
         # check this again with Snowflake!!
         database_name = database_name or getattr(self, "database", None)
 
-        mapped_types = EC.QBC_TYPE_MAPPING[self.dwh_engine].keys()
-        mapped_types = tuple([k for k in mapped_types if isinstance(k, type)])
+        mapped_types = tuple(
+            [
+                k
+                for k in EC.QBC_TYPE_MAPPING[self.dwh_engine].keys()
+                if isinstance(k, type)
+            ]
+        )
 
         raw_row = {}  # Used as template for params at execution
         sql_part_columns = []  # Used for CREATE and INSERT / UPDATE query
         jsonb_columns = []  # JSON columns require special treatment
         create_update_on_columns = not (drop_and_replace or update_on_columns)
         update_on_columns = update_on_columns or []
-        if not (type([]) == type(update_on_columns)):
+        if not isinstance(update_on_columns, list):
             raise Exception(
                 '"update_on_columns" must be a list!'
                 + "Is currently: type {0}".format(str(type(update_on_columns)))

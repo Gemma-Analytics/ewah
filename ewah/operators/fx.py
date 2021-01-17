@@ -35,13 +35,13 @@ class EWAHFXOperator(EWAHBaseOperator):
         # No connection id required for this operator
         if kwargs.get("source_conn_id"):
             self.log.info(
-                "source_conn_id is not required for operator! " + "Ignoring argument."
+                "source_conn_id is not required for operator! Ignoring argument."
             )
         kwargs["source_conn_id"] = None
         # If incremental, the primary key column is 'date'
         if kwargs.get("update_on_columns"):
             self.log.info(
-                "update_on_columns is fixed for this operator. " + "Using the default."
+                "update_on_columns is fixed for this operator. Using the default."
             )
         kwargs["update_on_columns"] = ["date"]
 
