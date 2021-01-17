@@ -19,7 +19,7 @@ class EWAHSQLBaseHook(EWAHBaseHook):
     @property
     def dbconn(self):
         if not hasattr(self, "_dbconn"):
-            if self.conn.ssh_conn_id:
+            if hasattr(self.conn, "ssh_conn_id") and self.conn.ssh_conn_id:
                 if not hasattr(self, "_ssh_hook"):
                     self._ssh_hook = EWAHBaseHook.get_hook_from_conn_id(
                         conn_id=self.conn.ssh_conn_id

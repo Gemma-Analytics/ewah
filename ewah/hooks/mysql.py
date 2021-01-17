@@ -28,7 +28,7 @@ class EWAHMySQLHook(EWAHSQLBaseHook):
                 "login": "User",
                 "schema": "Database",
                 "host": "Hostname / IP",
-                "post": "Port (default: 3306)",
+                "port": "Port (default: 3306)",
             },
         }
 

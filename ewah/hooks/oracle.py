@@ -28,7 +28,7 @@ class EWAHOracleSQLOperator(EWAHSQLBaseHook):
                 "login": "User",
                 "schema": "SID",
                 "host": "Hostname / IP",
-                "post": "Port (default: 1521)",
+                "port": "Port (default: 1521)",
             },
         }
 

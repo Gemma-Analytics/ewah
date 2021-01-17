@@ -29,7 +29,7 @@ class EWAHPostgresHook(EWAHSQLBaseHook):
                 "login": "User",
                 "schema": "Database",
                 "host": "Hostname / IP",
-                "post": "Port (default: 5432)",
+                "port": "Port (default: 5432)",
             },
         }
 
