@@ -73,6 +73,7 @@ el_dags:
           source_table_name: bijan_weight
 
   EL_BigQuery_events: !yml_from_file secret_dag_bq.yml
+  EL_BigQuery_SQL: !yml_from_file secret_dag_bq_sql.yml
   # EL_BigQuery_events_sharded: !yml_from_file secret_dag_bq_sharded.yml
 
   EL_DynamoDB:
