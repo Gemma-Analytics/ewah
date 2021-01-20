@@ -225,7 +225,8 @@ class EWAHSnowflakeUploader(EWAHBaseUploader):
                 new_table_name,
                 " AND ".join(
                     ['a."{0}" = b."{0}"'.format(col) for col in update_on_columns]
-                ) or "FALSE",
+                )
+                or "FALSE",
                 ", ".join(['a."{0}" = b."{0}"'.format(col) for col in update_set_cols]),
                 '"' + '", "'.join(list(columns_definition.keys())) + '"',
                 ", ".join(
