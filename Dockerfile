@@ -135,8 +135,8 @@ ENV EWAH_IMAGE_TYPE='PROD'
 ENV EWAH_RUN_DEV_SUPPORT_SCRIPTS='0'
 
 # install from pip
-# if you change the version, remember to change it in ewah/__init__.py as well!
-RUN pip install --user --upgrade --no-cache-dir ewah==0.3.12
+ARG package_version
+RUN pip install --user --upgrade --no-cache-dir ewah==${package_version}
 
 # copy default EWAH files into the dags folder
 COPY airflow/kubernetes_dags_folder /opt/airflow/dags
