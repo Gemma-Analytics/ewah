@@ -3,7 +3,7 @@ name: Full EWAH Release - GitHub tag, PyPi package, and Docker image
 on:
   push:  # only run on a merged PR to main
     branches:
-      - main
+      - master
     paths:  # Only run if VERSION is bumped by the push
       - VERSION
 
