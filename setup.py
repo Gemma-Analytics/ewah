@@ -1,8 +1,10 @@
 import setuptools
-from ewah import VERSION
 
 with open("README.md", "r") as fh:
     long_description = fh.read()
+
+with open("VERSION", "r") as v:
+    VERSION = v.read()
 
 setuptools.setup(
     name="ewah",

@@ -83,6 +83,9 @@ class EWAHBigQueryHook(EWAHSQLBaseHook):
 
             self.latest_query = self.client.query(sql, job_config=job_config)
 
+        def fetchall(self):
+            return self.fetch_all()
+
         def fetch_all(self):
             if not self.latest_query:
                 return []
