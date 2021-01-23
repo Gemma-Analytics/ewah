@@ -57,6 +57,7 @@ def commit_conns(filepath: str) -> None:
 
 env = os.environ
 
+# [START] DELETE after 2.0.1 release
 # The datatype of extra in the airflow metadata databse is constrained to 500
 # characters by default. Remove this constraint.
 print("\n\n")
@@ -66,6 +67,7 @@ sql_conn_string = conf.get("core", "sql_alchemy_conn")
 engine = sqlalchemy.create_engine(sql_conn_string, echo=False)
 with engine.begin() as conn:
     conn.execute("ALTER TABLE connection ALTER COLUMN extra TYPE TEXT")
+# [END] DELETE after 2.0.1 release
 
 # if they exist, add connections from appropriate YAML files
 search_filepaths = [

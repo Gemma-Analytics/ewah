@@ -148,6 +148,13 @@ el_dags:
             - new_utm_content
         deals:
           associations: line_items
+          properties:
+            - amount
+            - dealstage
+            - dealtype
+            - ignoreme
+          exclude_properties:
+            - ignoreme
         feedback_submissions: {}
         line_items: {}
         products: {}
