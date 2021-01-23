@@ -1,0 +1,63 @@
+name: Full EWAH Release - GitHub tag, PyPi package, and Docker image
+
+on:
+  push:  # only run on a merged PR to main
+    branches:
+      - main
+    paths:  # Only run if VERSION is bumped by the push
+      - VERSION
+
+jobs:
+  build:
+    name: Full Release Workflow
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+      - name: Create GitHub Release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}  # To authenticate POST
+        run: |
+          VERSION=$(cat VERSION)
+          echo Creating Release v$VERSION
+          curl -X POST \
+            -H "Accept: application/vnd.github.v3+json" \
+            -H 'Authorization: token '"${GITHUB_TOKEN}" \
+            'https://api.github.com/repos/'"${GITHUB_REPOSITORY}"'/releases' \
+            -d '{"tag_name":"v'"${VERSION}"'", "name":"v'"${VERSION}"'", "body":"This Release was automatically created by a GitHub Action after the merge of a PR. Please check the appropriate PR for the changelog."}'
+      - name: Set up Python
+        uses: actions/setup-python@v2
+        with:
+          python-version: '3.8'
+      - name: Install dependencies for PyPi publication
+        run: |
+          python -m pip install --upgrade pip
+          pip install setuptools wheel twine
+      - name: Build and publish Python package to PyPi
+        env:
+          TWINE_USERNAME: ${{ secrets.PYPI_USERNAME }}
+          TWINE_PASSWORD: ${{ secrets.PYPI_PASSWORD }}
+        run: |
+          python setup.py sdist bdist_wheel
+          twine upload dist/*
+      - name: Wait for 30s to make sure package is available via pip
+        run: sleep 30
+      - name: Build and publish Docker images
+        env:
+          DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
+          DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
+        run: |
+          VERSION=$(cat VERSION)
+          echo $DOCKER_PASSWORD | docker login \
+            --username ${DOCKER_USERNAME} \
+            --password-stdin
+          docker build . \
+            --file Dockerfile \
+            --tag gemmaanalytics/ewah:v${VERSION} \
+            --build-arg package_version=${VERSION}
+          docker build . \
+            --file Dockerfile \
+            --tag gemmaanalytics/ewah \
+            --build-arg package_version=${VERSION}
+          docker push gemmaanalytics/ewah:v${VERSION}
+          docker push gemmaanalytics/ewah
