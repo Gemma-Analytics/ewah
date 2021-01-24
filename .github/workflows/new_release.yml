@@ -48,7 +48,7 @@ jobs:
           DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
         run: |
           echo First need to give executable rights locally, otherwise image will not
-          echo be able to run properly (will get a permission denied error on it)
+          echo be able to run properly - else will get a permission denied error on it
           chmod + x docker/scripts/entrypoint_prod.sh
           VERSION=$(cat VERSION)
           echo $DOCKER_PASSWORD | docker login \
