@@ -30,8 +30,8 @@ class EWAHSalesforceHook(EWAHBaseHook):
     def sf_conn(self) -> Salesforce:
         """Return an initialized Salesforce object based on the airflow connection."""
 
-        self.log.info(f"Initializing connection with username {self.conn.username}!")
         if not hasattr(self, "_sf_conn"):
+            self.log.info(f"Initializing connection with username {self.conn.username}!")
             if self.conn.client_secret:
                 response = requests.post(
                     self._OAUTH_URL.format(self.conn.domain or "login"),
@@ -96,7 +96,7 @@ class EWAHSalesforceHook(EWAHBaseHook):
         # Yield results
         result = self.sf_conn.query(query, include_deleted=True)
         data = []
-        while (result.get("done") and result.get("rescords")) or result.get(
+        while (result.get("done") and result.get("records")) or result.get(
             "nextRecordsUrl"
         ):
             result_data = result.pop("records")
