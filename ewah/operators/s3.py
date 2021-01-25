@@ -195,9 +195,9 @@ class EWAHS3Operator(EWAHBaseOperator):
             )
             for obj_iter in objects:
                 obj = hook.get_key(obj_iter["Key"], self.bucket_name)
-                if self.load_data_from and obj.last_modified < self.load_data_from:
+                if self.data_from and obj.last_modified < self.data_from:
                     continue
-                if self.load_data_until and obj.last_modified >= self.load_data_until:
+                if self.data_until and obj.last_modified >= self.data_until:
                     continue
                 if suffix and not suffix == obj.key[-len(suffix) :]:
                     continue
