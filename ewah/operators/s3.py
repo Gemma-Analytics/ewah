@@ -108,6 +108,20 @@ class EWAHS3Operator(EWAHBaseOperator):
             raise Exception("File format not implemented!")
 
     def execute_csv(self, context):
+
+        def chunk_upload(csv_reader):
+            i = 0
+            data = []
+            for row in csv_reader:
+                i += 1
+                data.append(row)
+                if i >= 100000:
+                    self.upload_data(data=data)
+                    data = []
+                    i = 0
+            if data:
+                self.upload_data(data=data)
+
         hook = S3Hook(self.source_conn.conn_id)
         suffix = self.suffix
         if self.key_name:
@@ -127,8 +141,8 @@ class EWAHS3Operator(EWAHBaseOperator):
                     raise
                 raw_data = raw_data.decode(self.csv_encoding).splitlines()
             reader = csv.DictReader(raw_data, **self.csv_format_options)
-            data = list(reader)
-            self.upload_data(data=data)
+            chunk_upload(reader)
+
         else:
             objects = self._iterate_through_bucket(
                 s3hook=hook,
@@ -165,7 +179,6 @@ class EWAHS3Operator(EWAHBaseOperator):
                         raise
                     raw_data = raw_data.decode(self.csv_encoding).splitlines()
                 reader = csv.DictReader(raw_data, **self.csv_format_options)
-                data = list(reader)
                 self._metadata.update(
                     {
                         "bucket_name": self.bucket_name,
@@ -173,7 +186,7 @@ class EWAHS3Operator(EWAHBaseOperator):
                         "file_last_modified": str(obj.last_modified),
                     }
                 )
-                self.upload_data(data=data)
+                chunk_upload(reader)
 
     def execute_json(self, context, f_get_data):
         hook = S3Hook(self.source_conn.conn_id)

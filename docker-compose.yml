@@ -54,6 +54,7 @@ services:
       - ./README.md:/opt/ewah/README.md # yes, this is required for dev install
       - ./setup.cfg:/opt/ewah/setup.cfg
       - ./setup.py:/opt/ewah/setup.py
+      - ./VERSION:/opt/ewah/VERSION
     ports:
       - 8084:8080
 
@@ -76,6 +77,7 @@ services:
       - ./README.md:/opt/ewah/README.md # yes, this is required for dev install
       - ./setup.cfg:/opt/ewah/setup.cfg
       - ./setup.py:/opt/ewah/setup.py
+      - ./VERSION:/opt/ewah/VERSION
 
 networks:
   default:
