@@ -84,6 +84,7 @@ def dag_factory_mixed(
 
     Full Refresh: The start_date should be chosen such that there is always only
     one DAG execution to be executed at any given point in time.
+    See dag_factory_atomic for the same calculation including detailed comments.
 
     The Incremental DAG starts at the start date + schedule interval of the
     Full Refresh DAG, so that the Incremental executions only happen after
@@ -92,22 +93,41 @@ def dag_factory_mixed(
     if not start_date.tzinfo:
         # if no timezone is given, assume UTC
         raise_exception("start_date must be timezone aware!")
-    time_now = datetime_utcnow_with_tz() + schedule_interval_incremental / 2
+    time_now = datetime_utcnow_with_tz()
+
+    if end_date:
+        end_date = min(end_date, time_now)
+    else:
+        end_date = time_now
+
     if start_date > time_now:
         # Start date for both is in the future
-        start_date_fr = start_date
-        start_date_inc = start_date
+        # start_date_fr = start_date
+        # start_date_inc = start_date
+        pass
     else:
-        _td = int((time_now - start_date) / schedule_interval_full_refresh) - 2
-        start_date_fr = start_date + _td * schedule_interval_full_refresh
-        start_date_inc = start_date_fr + schedule_interval_full_refresh
+        start_date += (
+            int((end_date - start_date) / schedule_interval_full_refresh)
+            * schedule_interval_full_refresh
+        )
+        if start_date == end_date:
+            start_date -= schedule_interval_full_refresh
+        else:
+            start_date -= schedule_interval_full_refresh
+            end_date = (
+                start_date + 2 * schedule_interval_full_refresh - timedelta(seconds=1)
+            )
+
+        # _td = int((time_now - start_date) / schedule_interval_full_refresh) - 2
+        # start_date_fr = start_date + _td * schedule_interval_full_refresh
+        # start_date_inc = start_date_fr + schedule_interval_full_refresh
 
     dag_name_fr = dag_name + "_Mixed_Atomic"
     dag_name_inc = dag_name + "_Mixed_Idempotent"
     dags = (
         DAG(
             dag_name_fr,
-            start_date=start_date_fr,
+            start_date=start_date,
             end_date=end_date,
             schedule_interval=schedule_interval_full_refresh,
             catchup=True,
@@ -117,8 +137,8 @@ def dag_factory_mixed(
         ),
         DAG(
             dag_name_inc,
-            start_date=start_date_inc,
-            end_date=end_date,
+            start_date=start_date + schedule_interval_full_refresh,
+            end_date=start_date + 2 * schedule_interval_full_refresh,
             schedule_interval=schedule_interval_incremental,
             catchup=True,
             max_active_runs=1,
@@ -127,7 +147,7 @@ def dag_factory_mixed(
         ),
         DAG(  # Reset DAG
             dag_name + "_Mixed_Reset",
-            start_date=start_date_fr,
+            start_date=start_date,
             end_date=end_date,
             schedule_interval=None,
             catchup=False,
@@ -257,8 +277,10 @@ def dag_factory_mixed(
         arg_dict_inc.update(op_conf)
         arg_dict_inc.update(
             {
-                "extract_strategy": kwargs.get("extract_strategy", EC.ES_INCREMENTAL),
-                "load_strategy": kwargs.get("load_strategy", EC.LS_UPSERT),
+                "extract_strategy": arg_dict_inc.get(
+                    "extract_strategy", EC.ES_INCREMENTAL
+                ),
+                "load_strategy": arg_dict_inc.get("load_strategy", EC.LS_UPSERT),
                 "task_id": "extract_load_" + re.sub(r"[^a-zA-Z0-9_]", "", table),
                 "dwh_engine": dwh_engine,
                 "dwh_conn_id": dwh_conn_id,
