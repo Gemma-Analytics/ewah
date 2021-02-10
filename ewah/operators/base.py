@@ -75,7 +75,7 @@ class EWAHBaseOperator(BaseOperator):
     _ACCEPTED_EXTRACT_STRATEGIES = {
         EC.ES_FULL_REFRESH: False,
         EC.ES_INCREMENTAL: False,
-        EC.ES_GET_NEXT: False,
+        EC.ES_SUBSEQUENT: False,
     }
 
     _REQUIRES_COLUMNS_DEFINITION = False  # raise error if true and None supplied
@@ -97,6 +97,7 @@ class EWAHBaseOperator(BaseOperator):
         dwh_engine,
         dwh_conn_id,
         extract_strategy,
+        load_strategy,
         target_table_name,
         target_schema_name,
         target_schema_suffix="_next",
@@ -121,6 +122,7 @@ class EWAHBaseOperator(BaseOperator):
         # wait_for_seconds only applies for incremental loads
         add_metadata=True,
         rename_columns: Optional[Dict[str, str]] = None,  # Rename columns
+        subsequent_field=None,  # field name to use for subsequent extract strategy
         *args,
         **kwargs
     ):
@@ -128,6 +130,58 @@ class EWAHBaseOperator(BaseOperator):
 
         assert not (rename_columns and columns_definition)
         assert rename_columns is None or isinstance(rename_columns, dict)
+
+        # Check if the extract and load strategies are allowed in combination
+        # Also check if required params are supplied for the strategies
+        if extract_strategy == EC.ES_SUBSEQUENT:
+            assert subsequent_field
+            assert load_strategy in (
+                EC.LS_UPSERT,
+                EC.LS_INSERT_ADD,
+                EC.LS_INSERT_REPLACE,
+            )
+            # insert_delete makes no sense in the subsequent context
+        elif extract_strategy == EC.ES_FULL_REFRESH:
+            assert load_strategy in (EC.LS_INSERT_REPLACE, EC.LS_INSERT_ADD)
+            # upsert makes no sense - it's a full refresh!
+            # insert_delete makes no sense - what to delete? Well, everyting!
+        elif extract_strategy == EC.ES_INCREMENTAL:
+            assert load_strategy in (EC.LS_UPSERT, EC.LS_INSERT_ADD)
+            # replace makes no sense - it's incremental loading after all!
+            # insert_delete makes sense but is not yet implemented
+        else:
+            raise Exception("Invalid extract_strategy {0}!".format(extract_strategy))
+
+        if load_strategy == EC.LS_UPSERT:
+            # upserts require a (composite) primary key of some sort
+            if not (
+                update_on_columns
+                or primary_key_column_name
+                or (
+                    columns_definition
+                    and (
+                        0
+                        < sum(
+                            [
+                                bool(columns_definition[col].get(EC.QBC_FIELD_PK))
+                                for col in list(columns_definition.keys())
+                            ]
+                        )
+                    )
+                )
+            ):
+                raise Exception(
+                    "If the load strategy is upsert, "
+                    "one of the following is required:"
+                    "\n- List of columns to update on (update_on_columns)"
+                    "\n- Name of the primary key (primary_key_column_name)"
+                    "\n- Columns definition (columns_definition) that includes"
+                    " the primary key(s)"
+                )
+        elif load_strategy in (EC.LS_INSERT_ADD, EC.LS_INSERT_REPLACE):
+            pass  # No requirements
+        else:
+            raise Exception("Invalid load_strategy {0}!".format(load_strategy))
 
         for item in EWAHBaseOperator.template_fields:
             # Make sure template_fields was not overwritten
@@ -180,34 +234,6 @@ class EWAHBaseOperator(BaseOperator):
                 "Cannot supply BOTH primary_key_column_name AND" + " update_on_columns!"
             )
 
-        if not extract_strategy in [EC.ES_FULL_REFRESH]:
-            # Required settings for incremental loads
-            # Update condition for new load strategies as required
-            if not (
-                update_on_columns
-                or primary_key_column_name
-                or (
-                    columns_definition
-                    and (
-                        0
-                        < sum(
-                            [
-                                bool(columns_definition[col].get(EC.QBC_FIELD_PK))
-                                for col in list(columns_definition.keys())
-                            ]
-                        )
-                    )
-                )
-            ):
-                raise Exception(
-                    "If this is incremental loading of a table, "
-                    + "one of the following is required:"
-                    + "\n- List of columns to update on (update_on_columns)"
-                    + "\n- Name of the primary key (primary_key_column_name)"
-                    + "\n- Column definition (columns_definition) that includes"
-                    + " the primary key(s)"
-                )
-
         _msg = "load_data_from_relative and load_data_until_relative must be"
         _msg += " timedelta if supplied!"
         assert isinstance(
@@ -228,6 +254,7 @@ class EWAHBaseOperator(BaseOperator):
         self.dwh_engine = dwh_engine
         self.dwh_conn_id = dwh_conn_id
         self.extract_strategy = extract_strategy
+        self.load_strategy = load_strategy
         self.target_table_name = target_table_name
         self.target_schema_name = target_schema_name
         self.target_schema_suffix = target_schema_suffix
@@ -255,6 +282,7 @@ class EWAHBaseOperator(BaseOperator):
         self.wait_for_seconds = wait_for_seconds
         self.add_metadata = add_metadata
         self.rename_columns = rename_columns
+        self.subsequent_field = subsequent_field
 
         self.uploader = get_uploader(self.dwh_engine)
 
@@ -274,6 +302,23 @@ class EWAHBaseOperator(BaseOperator):
         the child operators shall have an ewah_execute() function which is
         called by this general execute() method.
         """
+
+        self.log.info(
+            """
+
+        Running EWAH Operator {0}.
+        DWH: {1} (connection id: {2})
+        Extract Strategy: {3}
+        Load Strategy: {4}
+
+        """.format(
+                str(self),
+                self.dwh_engine,
+                self.dwh_conn_id,
+                self.extract_strategy,
+                self.load_strategy,
+            )
+        )
 
         # required for metadata in data upload
         self._execution_time = datetime_utcnow_with_tz()
@@ -295,9 +340,9 @@ class EWAHBaseOperator(BaseOperator):
         # Create a new copy of the target table.
         # This is so data is loaded into a new table and if data loading
         # fails, the original data is not corrupted. At a new try or re-run,
-        # the original table is just copited anew.
-        if not self.extract_strategy == EC.ES_FULL_REFRESH:
-            # Full refresh always drops and replaces the tables completely
+        # the original table is just copied anew.
+        if not self.load_strategy == EC.LS_INSERT_REPLACE:
+            # insert_replace always drops and replaces the tables completely
             self.uploader.copy_table(
                 old_schema=self.target_schema_name,
                 old_table=self.target_table_name,
@@ -324,7 +369,7 @@ class EWAHBaseOperator(BaseOperator):
             _ned += self.load_data_until_relative or _tdz
             data_until = min(_ned, data_until or _ned)
 
-        elif self.extract_strategy == EC.ES_FULL_REFRESH:
+        elif self.extract_strategy in (EC.ES_FULL_REFRESH, EC.ES_SUBSEQUENT):
             # Values may still be set as static values
             data_from = ada(self.reload_data_from) or data_from
 
@@ -425,6 +470,22 @@ class EWAHBaseOperator(BaseOperator):
         # Thus, fail until explicitly added
         raise Exception("Function not implemented!")
 
+    def get_max_value_of_column(self, column_name):
+        # Need to use existing hook to work within open transaction
+        kwargs = {
+            "column_name": column_name,
+            "table_name": self.target_table_name,
+            "schema_name": self.target_schema_name + self.target_schema_suffix,
+        }
+        if self.dwh_engine == EC.DWH_ENGINE_SNOWFLAKE:
+            kwargs["database_name"] = self.target_database_name
+            return self.uploader.get_max_value_of_column(**kwargs)
+        if self.dwh_engine in [EC.DWH_ENGINE_POSTGRES, EC.DWH_ENGINE_SNOWFLAKE]:
+            return self.uploader.get_max_value_of_column(**kwargs)
+        # For a new DWH, need to manually check if function works properly
+        # Thus, fail until explicitly added
+        raise Exception("Function not implemented!")
+
     def _create_columns_definition(self, data):
         "Create a columns_definition from data (list of dicts)."
         inconsistent_data_type = EC.QBC_TYPE_MAPPING[self.dwh_engine].get(
@@ -499,6 +560,8 @@ class EWAHBaseOperator(BaseOperator):
                 # for all operators alike
                 metadata.update(
                     {
+                        "_ewah_extract_strategy": self.extract_strategy,
+                        "_ewah_load_strategy": self.load_strategy,
                         "_ewah_executed_at": self._execution_time,
                         "_ewah_execution_chunk": self.upload_call_count,
                         "_ewah_dag_id": self._context["dag"].dag_id,
@@ -539,7 +602,9 @@ class EWAHBaseOperator(BaseOperator):
                     )
                 columns_definition[pk_name][EC.QBC_FIELD_PK] = True
 
-        if (self.extract_strategy == EC.ES_INCREMENTAL) or (self.upload_call_count > 1):
+        if (self.upload_call_count > 1) or (
+            not (self.load_strategy == EC.LS_INSERT_REPLACE)
+        ):
             self.log.info("Checking for, and applying schema changes.")
             _new_schema_name = self.target_schema_name + self.target_schema_suffix
             new_cols, del_cols = self.uploader.detect_and_apply_schema_changes(
@@ -562,13 +627,13 @@ class EWAHBaseOperator(BaseOperator):
         self.log.info("Uploading data now.")
         self.uploader.create_or_update_table(
             data=data,
+            load_strategy=self.load_strategy,
+            upload_call_count=self.upload_call_count,
             columns_definition=columns_definition,
             table_name=self.target_table_name,
             schema_name=self.target_schema_name,
             schema_suffix=self.target_schema_suffix,
             database_name=self.target_database_name,
-            drop_and_replace=(self.extract_strategy == EC.ES_FULL_REFRESH)
-            and (self.upload_call_count == 1),  # In case of chunking of uploads
             update_on_columns=self.update_on_columns,
             commit=False,  # See note below for reason
             clean_data_before_upload=self.clean_data_before_upload,

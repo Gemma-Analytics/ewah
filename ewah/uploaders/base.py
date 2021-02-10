@@ -152,6 +152,12 @@ class EWAHBaseUploader(LoggingMixin):
             {key: value for (key, value) in kwargs.items() if not value is None}
         )
         if self.test_if_table_exists(**test_kwargs):
+            try:  # refactor ASAP - snowflake bugfix
+                kwargs["database_name"] = (
+                    kwargs.get("database_name", None) or self.dwh_conn.database
+                )
+            except:
+                pass
             self.dwh_hook.execute(
                 sql=self._COPY_TABLE.format(
                     old_schema=old_schema,
@@ -232,12 +238,13 @@ class EWAHBaseUploader(LoggingMixin):
     def create_or_update_table(
         self,
         data,
+        load_strategy,
+        upload_call_count,
         columns_definition,
         table_name,
         schema_name,
         schema_suffix,
         database_name=None,
-        drop_and_replace=True,
         update_on_columns=None,
         commit=False,
         clean_data_before_upload=True,
@@ -258,7 +265,9 @@ class EWAHBaseUploader(LoggingMixin):
         raw_row = {}  # Used as template for params at execution
         sql_part_columns = []  # Used for CREATE and INSERT / UPDATE query
         jsonb_columns = []  # JSON columns require special treatment
-        create_update_on_columns = not (drop_and_replace or update_on_columns)
+        create_update_on_columns = not (
+            (load_strategy == EC.LS_INSERT_REPLACE) or update_on_columns
+        )
         update_on_columns = update_on_columns or []
         if not isinstance(update_on_columns, list):
             raise Exception(
@@ -370,7 +379,8 @@ class EWAHBaseUploader(LoggingMixin):
                 "columns_definition": columns_definition,
                 "columns_partial_query": sql_part_columns,
                 "update_on_columns": update_on_columns,
-                "drop_and_replace": drop_and_replace,
+                "load_strategy": load_strategy,
+                "upload_call_count": upload_call_count,
                 "pk_columns": pk_columns,
             }
         )

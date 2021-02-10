@@ -108,7 +108,6 @@ class EWAHS3Operator(EWAHBaseOperator):
             raise Exception("File format not implemented!")
 
     def execute_csv(self, context):
-
         def chunk_upload(csv_reader):
             i = 0
             data = []

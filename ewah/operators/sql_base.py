@@ -21,6 +21,7 @@ class EWAHSQLBaseOperator(EWAHBaseOperator):
     _ACCEPTED_EXTRACT_STRATEGIES = {
         EC.ES_FULL_REFRESH: True,
         EC.ES_INCREMENTAL: True,
+        EC.ES_SUBSEQUENT: True,
     }
 
     def __init__(
@@ -39,6 +40,13 @@ class EWAHSQLBaseOperator(EWAHBaseOperator):
         **kwargs
     ):
         source_table_name = source_table_name or kwargs["target_table_name"]
+
+        # default subsequent_field to timestamp_column if appropriate
+        if kwargs.get("extract_strategy") == EC.ES_SUBSEQUENT:
+            kwargs["subsequent_field"] = kwargs.get(
+                "subsequent_field", timestamp_column
+            )
+
         super().__init__(*args, **kwargs)
 
         if isinstance(where_clauses, str):
@@ -91,6 +99,15 @@ class EWAHSQLBaseOperator(EWAHBaseOperator):
                 )
             )
             params["data_until"] = self.data_until
+        if self.subsequent_field and self.test_if_target_table_exists():
+            where_clauses.append(
+                "{0} > {1}".format(
+                    self.subsequent_field, self._SQL_PARAMS.format("previous_max_value")
+                )
+            )
+            params["previous_max_value"] = self.get_max_value_of_column(
+                self.subsequent_field
+            )
 
         where_clauses = where_clauses or ["1 = 1"]
         sql = self.sql.format("\n  AND ".join(where_clauses))

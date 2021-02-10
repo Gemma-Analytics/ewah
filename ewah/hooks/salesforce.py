@@ -31,7 +31,9 @@ class EWAHSalesforceHook(EWAHBaseHook):
         """Return an initialized Salesforce object based on the airflow connection."""
 
         if not hasattr(self, "_sf_conn"):
-            self.log.info(f"Initializing connection with username {self.conn.username}!")
+            self.log.info(
+                f"Initializing connection with username {self.conn.username}!"
+            )
             if self.conn.client_secret:
                 response = requests.post(
                     self._OAUTH_URL.format(self.conn.domain or "login"),

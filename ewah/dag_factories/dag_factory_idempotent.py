@@ -65,7 +65,7 @@ class ExtendedETS(ExternalTaskSensor):
             super().execute(context)
 
 
-def dag_factory_incremental_loading(
+def dag_factory_idempotent(
     dag_name: str,
     dwh_engine: str,
     dwh_conn_id: str,
@@ -104,8 +104,8 @@ def dag_factory_incremental_loading(
     period of the backfill DAG. This DAG keeps the data in the DWH fresh.
 
     :param dag_name: Base name of the DAG. The returned DAGs will be named
-        after dag_nme with the suffixes "_Incremental_Reset",
-        "_Inremental_Backfill", and "_Incremental".
+        after dag_nme with the suffixes "_Idempotent_Reset",
+        "_Idempotent_Backfill", and "_Idempotent".
     :param dwh_engine: Type of the DWH (e.g. postgresql).
     :param dwh_conn_id: Airflow connection ID with DWH credentials.
     :param start_date: Start date of the DAGs (i.e. of the Backfill DAG).
@@ -201,7 +201,7 @@ def dag_factory_incremental_loading(
 
     dags = (
         DAG(  # Current DAG
-            dag_name + "_Incremental",
+            dag_name + "_Idempotent",
             start_date=switch_absolute_date,
             end_date=end_date,
             schedule_interval=schedule_interval_future,
@@ -211,7 +211,7 @@ def dag_factory_incremental_loading(
             **additional_dag_args,
         ),
         DAG(  # Backfill DAG
-            dag_name + "_Incremental_Backfill",
+            dag_name + "_Idempotent_Backfill",
             start_date=start_date,
             end_date=backfill_end_date,
             schedule_interval=schedule_interval_backfill,
@@ -221,7 +221,7 @@ def dag_factory_incremental_loading(
             **additional_dag_args,
         ),
         DAG(  # Reset DAG
-            dag_name + "_Incremental_Reset",
+            dag_name + "_Idempotent_Reset",
             start_date=start_date,
             end_date=end_date,
             schedule_interval=None,
@@ -235,10 +235,10 @@ def dag_factory_incremental_loading(
     # Create reset DAG
     reset_bash_command = " && ".join(  # First pause DAGs, then delete their metadata
         [
-            "airflow dags pause {dag_name}_Incremental",
-            "airflow dags pause {dag_name}_Incremental_Backfill",
-            "airflow dags delete {dag_name}_Incremental -y",
-            "airflow dags delete {dag_name}_Incremental_Backfill -y",
+            "airflow dags pause {dag_name}_Idempotent",
+            "airflow dags pause {dag_name}_Idempotent_Backfill",
+            "airflow dags delete {dag_name}_Idempotent -y",
+            "airflow dags delete {dag_name}_Idempotent_Backfill -y",
         ]
     ).format(dag_name=dag_name)
     reset_task = BashOperator(
@@ -343,7 +343,8 @@ def dag_factory_incremental_loading(
         # Overwrite / ignore changes to these kwargs:
         kwargs.update(
             {
-                "extract_strategy": EC.ES_INCREMENTAL,
+                "extract_strategy": kwargs.get("extract_strategy", EC.ES_INCREMENTAL),
+                "load_strategy": kwargs.get("load_strategy", EC.LS_UPSERT),
                 "task_id": "extract_load_" + re.sub(r"[^a-zA-Z0-9_]", "", table),
                 "dwh_engine": dwh_engine,
                 "dwh_conn_id": dwh_conn_id,
@@ -355,11 +356,20 @@ def dag_factory_incremental_loading(
                 "target_database_name": target_database_name,
             }
         )
+        assert kwargs["extract_strategy"] in (
+            EC.ES_FULL_REFRESH,
+            EC.ES_SUBSEQUENT,
+            EC.ES_INCREMENTAL,
+        )
 
-        task_backfill = el_operator(dag=dags[1], **kwargs)
-        kickoff_backfill >> task_backfill >> final_backfill
+        if kwargs["extract_strategy"] == EC.ES_INCREMENTAL:
+            # Backfill ignores non-incremental extract strategy types
+            task_backfill = el_operator(dag=dags[1], **kwargs)
+            kickoff_backfill >> task_backfill >> final_backfill
 
         task = el_operator(dag=dags[0], **kwargs)
         kickoff >> task >> final
 
+    # For the unlikely case that there is no incremental task
+    kickoff_backfill >> final_backfill
     return dags

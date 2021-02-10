@@ -188,6 +188,7 @@ def etl_schema_tasks(
         def execute_snowflake(sql, conn_id, **kwargs):
             hook = EWAHBaseHook.get_hook_from_conn_id(conn_id)
             hook.execute(sql)
+            hook.commit()
             hook.close()
 
         task_1_args = deepcopy(additional_task_args)

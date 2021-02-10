@@ -67,9 +67,14 @@ class EWAHGSheetsUploader(EWAHBaseUploader):
         columns_definition,  # unused but always given
         columns_partial_query,  # unused but always given
         update_on_columns,  # unused but always given
-        drop_and_replace,  # must be true!
+        load_strategy,  # Must be LS_INSERT_REPLACE
+        upload_call_count,  # Must be 1
         pk_columns=None,  # must accept arg, but it must also always be []
     ):
+        # Google Sheets only works with drop & replace in one go
+        assert load_strategy == EC.LS_INSERT_REPLACE
+        assert upload_call_count == 1
+
         if pk_columns:
             raise Exception("Arg pk_columns invalidly supplied!")
 

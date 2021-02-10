@@ -58,13 +58,14 @@ class EWAHPostgresUploader(EWAHBaseUploader):
         columns_definition,
         columns_partial_query,
         update_on_columns,
-        drop_and_replace,
-        upload_chunking=100000,
-        pk_columns=[],
+        load_strategy,
+        upload_call_count,
+        pk_columns=None,
     ):
+        pk_columns = pk_columns or []
         self.log.info("Preparing DWH Tables...")
         schema_name += schema_suffix
-        if drop_and_replace or (
+        if (upload_call_count == 1 and load_strategy == EC.LS_INSERT_REPLACE) or (
             not self.test_if_table_exists(
                 table_name=table_name,
                 schema_name=schema_name,
@@ -93,7 +94,7 @@ class EWAHPostgresUploader(EWAHBaseUploader):
                     )
                 )
 
-        if not drop_and_replace and update_on_columns:
+        if update_on_columns:
             # make sure there is a unique constraint for update_on_columns
             self.dwh_hook.execute(
                 sql="""
@@ -128,7 +129,7 @@ class EWAHPostgresUploader(EWAHBaseUploader):
                     "placeholder": "{placeholder}",
                     "column_names": '", "'.join(cols_list),
                     "do_on_conflict": "DO NOTHING"
-                    if drop_and_replace or not update_on_columns
+                    if not update_on_columns
                     else """
                 ("{update_on_columns}") DO UPDATE SET\n\t{sets}
             """.format(
@@ -154,18 +155,13 @@ class EWAHPostgresUploader(EWAHBaseUploader):
         cols_map = {cols_list[i]: "col_" + str(i) for i in range(len(cols_list))}
         template = "(%(" + ")s, %(".join([val for key, val in cols_map.items()]) + ")s)"
         cur = self.dwh_hook.cursor
-        while data:
-            upload_data = [
-                {cols_map[key]: val for key, val in row.items()}
-                for row in data[:upload_chunking]
-            ]
-            del data[:upload_chunking]  # Free up memory ASAP
-            execute_values(
-                cur=cur,
-                sql=sql,
-                argslist=upload_data,
-                template=template,
-            )
+        upload_data = [{cols_map[key]: val for key, val in row.items()} for row in data]
+        execute_values(
+            cur=cur,
+            sql=sql,
+            argslist=upload_data,
+            template=template,
+        )
         self.log.info("Upload done.")
 
         self.dwh_hook.execute(
@@ -180,3 +176,12 @@ class EWAHPostgresUploader(EWAHBaseUploader):
                 params={"name": '"{0}"."{1}"'.format(schema_name, table_name)},
             )[0][0]
         )
+
+    def get_max_value_of_column(self, column_name, table_name, schema_name):
+        return self.dwh_hook.execute_and_return_result(
+            sql='SELECT MAX("{0}") FROM {1}'.format(
+                column_name,
+                f'"{schema_name}"."{table_name}"',
+            ),
+            return_dict=False,
+        )[0][0]

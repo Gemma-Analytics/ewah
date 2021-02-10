@@ -33,15 +33,21 @@ class EWAHConstants:
         DWH_ENGINE_BIGQUERY: DWH_ENGINE_BIGQUERY,
     }
 
+    # DAG Strategies
+    DS_ATOMIC = "atomic"
+    DS_MIXED = "mixed"
+    DS_IDEMPOTENT = "idempotent"
+
     # Available Extract Strategies
     ES_FULL_REFRESH = "full-refresh"  # load all available data
     ES_INCREMENTAL = "incremental"  # just load data pertaining to a certain time
-    ES_GET_NEXT = "get-next"  # just load newest data
+    ES_SUBSEQUENT = "subsequent"  # just load newest data
 
     # Available Load Strategies
-    LS_DROP_AND_REPLACE = "drop-and-replace"
-    LS_UPDATE = "update"  # update data based on a (composite) primary key
-    LS_APPEND = "append"  # just append data
+    LS_UPSERT = "upsert"  # update data based on a (composite) primary key
+    LS_INSERT_ADD = "insert_add"  # just append data
+    LS_INSERT_REPLACE = "insert_replace"  # replace data
+    LS_INSERT_DELETE = "insert_delete"  # delete relevant data before writing new data
 
     # EC.LS_FULLCREMENTAL = 'fullcremental'
     # fullcremental is a mix of full refresh and incremental

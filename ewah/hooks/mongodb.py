@@ -48,7 +48,7 @@ class EWAHMongoDBHook(EWAHBaseHook):
             ),
             "extra__ewah_mongodb__tls": BooleanField("SSL / TLS?"),
             "extra__ewah_mongodb__tls_insecure": BooleanField(
-                "TLS: Allow insecure connections? Aka 'tlsInseure'"
+                "TLS: Allow insecure connections? Aka 'tlsInsecure'"
             ),
             "extra__ewah_mongodb__ssl_cert": StringField(
                 "SSL Certificate",
