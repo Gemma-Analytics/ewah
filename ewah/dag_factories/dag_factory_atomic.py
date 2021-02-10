@@ -12,7 +12,7 @@ from typing import Optional, Type, Callable, List, Tuple, Union
 import re
 
 
-def dag_factory_drop_and_replace(
+def dag_factory_atomic(
     dag_name: str,
     dwh_engine: str,
     dwh_conn_id: str,
@@ -103,7 +103,12 @@ def dag_factory_drop_and_replace(
                     "task_id": "extract_load_" + re.sub(r"[^a-zA-Z0-9_]", "", table),
                     "dwh_engine": dwh_engine,
                     "dwh_conn_id": dwh_conn_id,
-                    "extract_strategy": EC.ES_FULL_REFRESH,
+                    "extract_strategy": table_config.get(  # Default to full refresh
+                        "extract_strategy", EC.ES_FULL_REFRESH
+                    ),
+                    "load_strategy": table_config.get(  # Default to insert_replace
+                        "load_strategy", EC.LS_INSERT_REPLACE
+                    ),
                     "target_table_name": operator_config["tables"][table].get(
                         "target_table_name", table
                     ),
@@ -111,6 +116,11 @@ def dag_factory_drop_and_replace(
                     "target_schema_suffix": target_schema_suffix,
                     "target_database_name": target_database_name,
                 }
+            )
+            # Atomic DAG only works with full refresh and subsequent strategies!
+            assert table_config["extract_strategy"] in (
+                EC.ES_FULL_REFRESH,
+                EC.ES_SUBSEQUENT,
             )
             table_task = el_operator(**table_config)
             kickoff >> table_task >> final

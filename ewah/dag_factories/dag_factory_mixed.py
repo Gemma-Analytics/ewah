@@ -11,9 +11,11 @@ also captured.
 """
 
 from airflow import DAG
+from airflow.operators.bash import BashOperator
+
 
 from ewah.constants import EWAHConstants as EC
-from ewah.dag_factories.dag_factory_incremental import ExtendedETS
+from ewah.dag_factories.dag_factory_idempotent import ExtendedETS
 from ewah.ewah_utils.airflow_utils import (
     etl_schema_tasks,
     datetime_utcnow_with_tz,
@@ -21,6 +23,7 @@ from ewah.ewah_utils.airflow_utils import (
 )
 from ewah.operators.base import EWAHBaseOperator
 from ewah.hooks.base import EWAHBaseHook
+from ewah.uploaders.snowflake import SnowflakeOperator
 
 from datetime import datetime, timedelta
 from collections.abc import Iterable
@@ -30,7 +33,7 @@ from typing import Optional, Type, Callable, List, Tuple, Union
 import re
 
 
-def dag_factory_fullcremental(
+def dag_factory_mixed(
     dag_name: str,
     dwh_engine: str,
     dwh_conn_id: str,
@@ -49,7 +52,7 @@ def dag_factory_fullcremental(
     additional_dag_args: Optional[dict] = None,
     additional_task_args: Optional[dict] = None,
     logging_func: Optional[Callable] = None,
-    **kwargs
+    **kwargs,
 ) -> Tuple[DAG, DAG]:
     def raise_exception(msg: str) -> None:
         """Add information to error message before raising."""
@@ -95,12 +98,12 @@ def dag_factory_fullcremental(
         start_date_fr = start_date
         start_date_inc = start_date
     else:
-        _td = int((time_now - start_date) / schedule_interval_full_refresh) - 1
+        _td = int((time_now - start_date) / schedule_interval_full_refresh) - 2
         start_date_fr = start_date + _td * schedule_interval_full_refresh
         start_date_inc = start_date_fr + schedule_interval_full_refresh
 
-    dag_name_fr = dag_name + "_Periodic_Full_Refresh"
-    dag_name_inc = dag_name + "_Intraperiod_Incremental"
+    dag_name_fr = dag_name + "_Mixed_Atomic"
+    dag_name_inc = dag_name + "_Mixed_Idempotent"
     dags = (
         DAG(
             dag_name_fr,
@@ -110,7 +113,7 @@ def dag_factory_fullcremental(
             catchup=True,
             max_active_runs=1,
             default_args=default_args,
-            **additional_dag_args
+            **additional_dag_args,
         ),
         DAG(
             dag_name_inc,
@@ -120,9 +123,61 @@ def dag_factory_fullcremental(
             catchup=True,
             max_active_runs=1,
             default_args=default_args,
-            **additional_dag_args
+            **additional_dag_args,
+        ),
+        DAG(  # Reset DAG
+            dag_name + "_Mixed_Reset",
+            start_date=start_date_fr,
+            end_date=end_date,
+            schedule_interval=None,
+            catchup=False,
+            max_active_runs=1,
+            default_args=default_args,
+            **additional_dag_args,
         ),
     )
+
+    # Create reset DAG
+    reset_bash_command = " && ".join(  # First pause DAGs, then delete their metadata
+        [
+            "airflow dags pause {dag_name}_Mixed_Atomic",
+            "airflow dags pause {dag_name}_Mixed_Idempotent",
+            "airflow dags delete {dag_name}_Mixed_Atomic -y",
+            "airflow dags delete {dag_name}_Mixed_Idempotent -y",
+        ]
+    ).format(dag_name=dag_name)
+    reset_task = BashOperator(
+        bash_command=reset_bash_command,
+        task_id="reset_by_deleting_all_task_instances",
+        dag=dags[2],
+        **additional_task_args,
+    )
+    drop_sql = """
+        DROP SCHEMA IF EXISTS "{target_schema_name}" CASCADE;
+        DROP SCHEMA IF EXISTS "{target_schema_name}{suffix}" CASCADE;
+    """.format(
+        target_schema_name=target_schema_name,
+        suffix=target_schema_suffix,
+    )
+    if dwh_engine == EC.DWH_ENGINE_POSTGRES:
+        drop_task = PGO(
+            sql=drop_sql,
+            postgres_conn_id=dwh_conn_id,
+            task_id="delete_previous_schema_if_exists",
+            dag=dags[2],
+            **additional_task_args,
+        )
+    elif dwh_engine == EC.DWH_ENGINE_SNOWFLAKE:
+        drop_task = SnowflakeOperator(
+            sql=drop_sql,
+            snowflake_conn_id=dwh_conn_id,
+            database=target_database_name,
+            task_id="delete_previous_schema_if_exists",
+            dag=dags[2],
+            **additional_task_args,
+        )
+    else:
+        raise_exception(f'DWH "{dwh_engine}" not implemented for this task!')
 
     kickoff_fr, final_fr = etl_schema_tasks(
         dag=dags[0],
@@ -132,7 +187,7 @@ def dag_factory_fullcremental(
         target_schema_suffix=target_schema_suffix,
         target_database_name=target_database_name,
         read_right_users=read_right_users,
-        **additional_task_args
+        **additional_task_args,
     )
 
     kickoff_inc, final_inc = etl_schema_tasks(
@@ -143,7 +198,7 @@ def dag_factory_fullcremental(
         target_schema_suffix=target_schema_suffix,
         target_database_name=target_database_name,
         read_right_users=read_right_users,
-        **additional_task_args
+        **additional_task_args,
     )
 
     sql_fr = """
@@ -172,7 +227,7 @@ def dag_factory_fullcremental(
         dag=dags[0],
         poke_interval=5 * 60,
         mode="reschedule",  # don't block a worker and pool slot
-        **additional_task_args
+        **additional_task_args,
     )
 
     # Sense if a previous instance is complete excepts if its the first, then
@@ -189,7 +244,7 @@ def dag_factory_fullcremental(
         dag=dags[1],
         poke_interval=5 * 60,
         mode="reschedule",  # don't block a worker and pool slot
-        **additional_task_args
+        **additional_task_args,
     )
 
     fr_snsr >> kickoff_fr
@@ -202,7 +257,8 @@ def dag_factory_fullcremental(
         arg_dict_inc.update(op_conf)
         arg_dict_inc.update(
             {
-                "extract_strategy": EC.ES_INCREMENTAL,
+                "extract_strategy": kwargs.get("extract_strategy", EC.ES_INCREMENTAL),
+                "load_strategy": kwargs.get("load_strategy", EC.LS_UPSERT),
                 "task_id": "extract_load_" + re.sub(r"[^a-zA-Z0-9_]", "", table),
                 "dwh_engine": dwh_engine,
                 "dwh_conn_id": dwh_conn_id,
@@ -214,6 +270,7 @@ def dag_factory_fullcremental(
         )
         arg_dict_fr = deepcopy(arg_dict_inc)
         arg_dict_fr["extract_strategy"] = EC.ES_FULL_REFRESH
+        arg_dict_fr["load_strategy"] = EC.LS_INSERT_REPLACE
 
         task_fr = el_operator(dag=dags[0], **arg_dict_fr)
         task_inc = el_operator(dag=dags[1], **arg_dict_inc)

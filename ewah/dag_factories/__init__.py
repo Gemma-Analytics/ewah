@@ -2,9 +2,9 @@ from ewah.constants import EWAHConstants as EC
 from ewah.operators import operator_list as operators
 from ewah.operators.base import EWAHBaseOperator as EBO
 
-from .dag_factory_full_refresh import dag_factory_drop_and_replace
-from .dag_factory_fullcremental import dag_factory_fullcremental
-from .dag_factory_incremental import dag_factory_incremental_loading
+from .dag_factory_atomic import dag_factory_atomic
+from .dag_factory_idempotent import dag_factory_idempotent
+from .dag_factory_mixed import dag_factory_mixed
 
 from airflow.utils.log.logging_mixin import LoggingMixin
 
@@ -21,14 +21,18 @@ class EWAHDAGGenerator(LoggingMixin):
     """
 
     DAG_FACTORIES = {
-        "fr": dag_factory_drop_and_replace,
-        "full-refresh": dag_factory_drop_and_replace,
-        "full refresh": dag_factory_drop_and_replace,
-        "fullcremental": dag_factory_fullcremental,
-        "periodic fr": dag_factory_fullcremental,
-        "inc": dag_factory_incremental_loading,
-        "incr": dag_factory_incremental_loading,
-        "incremental": dag_factory_incremental_loading,
+        EC.DS_ATOMIC: dag_factory_atomic,
+        "fr": dag_factory_atomic,
+        "full-refresh": dag_factory_atomic,
+        "full refresh": dag_factory_atomic,
+        EC.DS_MIXED: dag_factory_mixed,
+        "fullcremental": dag_factory_mixed,
+        "periodic fr": dag_factory_mixed,
+        EC.DS_IDEMPOTENT: dag_factory_idempotent,
+        "idemnpotent": dag_factory_idempotent,
+        "inc": dag_factory_idempotent,
+        "incr": dag_factory_idempotent,
+        "incremental": dag_factory_idempotent,
     }
 
     @staticmethod
@@ -90,7 +94,7 @@ class EWAHDAGGenerator(LoggingMixin):
                 )
             config["dwh_engine"] = EC.DWH_ENGINE_SPELLING_VARIANTS[dwh_engine]
 
-            el_strategy = config.pop("el_strategy", None)
+            el_strategy = config.pop("el_strategy", config.pop("dag_strategy", None))
             if (
                 el_strategy is None
                 or not el_strategy.lower() in self.DAG_FACTORIES.keys()

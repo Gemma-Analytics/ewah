@@ -35,6 +35,7 @@ class SnowflakeOperator(BaseOperator):
             database=self.database,
         )
         hook.execute(self.sql, commit=True, params=self._params)
+        hook.commit()
         hook.close()
 
 
@@ -88,7 +89,8 @@ class EWAHSnowflakeUploader(EWAHBaseUploader):
         columns_definition,
         columns_partial_query,
         update_on_columns,
-        drop_and_replace,
+        load_strategy,
+        upload_call_count,
         database_name=None,
         pk_columns=None,
     ):
@@ -154,15 +156,15 @@ class EWAHSnowflakeUploader(EWAHBaseUploader):
                     USE DATABASE "{2}";
                     USE SCHEMA "{3}";
                     DROP FILE FORMAT IF EXISTS {1}_format;
-                    CREATE OR REPLACE FILE FORMAT {1}_format
+                    CREATE FILE FORMAT {1}_format
                         type = 'CSV'
                         field_delimiter = ','
                         field_optionally_enclosed_by = '"'
                     ;
                     DROP STAGE IF EXISTS {1}_stage;
-                    CREATE OR REPLACE STAGE {1}_stage
+                    CREATE STAGE {1}_stage
                         file_format = {1}_format;
-                    PUT file://{0} @{1}_stage;
+                    PUT file://{0} @{1}_stage AUTO_COMPRESS = TRUE OVERWRITE = TRUE;
                     COPY INTO "{2}"."{3}"."{1}" FROM '@{1}_stage/{4}.gz';
                 """.format(
                     file_name,
@@ -174,7 +176,7 @@ class EWAHSnowflakeUploader(EWAHBaseUploader):
                 self.log.info("Uploading data to Snowflake...")
                 self.dwh_hook.execute(sql_upload)
 
-        if drop_and_replace or (
+        if (load_strategy == EC.LS_INSERT_REPLACE and upload_call_count == 1) or (
             not self.test_if_table_exists(
                 table_name=table_name,
                 schema_name=schema_name,
@@ -213,9 +215,10 @@ class EWAHSnowflakeUploader(EWAHBaseUploader):
                     USING "{0}"."{1}"."{3}" AS b
                     ON {4}
                     WHEN MATCHED THEN UPDATE
-                    SET {5}
+                        SET {5}
                     WHEN NOT MATCHED THEN INSERT
-                    ({6}) VALUES ({7})
+                                ({6})
+                        VALUES  ({7})
                     ;
                 DROP TABLE "{0}"."{1}"."{3}" CASCADE;
             """.format(
@@ -261,3 +264,19 @@ class EWAHSnowflakeUploader(EWAHBaseUploader):
                 )
             )
         )
+
+    def get_max_value_of_column(
+        self, column_name, table_name, schema_name, database_name=None
+    ):
+        self.dwh_hook.execute(
+            "USE DATABASE {0}".format(
+                database_name or self.database or self.dwh_hook.conn.database,
+            )
+        )
+        return self.dwh_hook.execute_and_return_result(
+            sql='SELECT MAX("{0}") FROM {1}'.format(
+                column_name,
+                f'"{schema_name}"."{table_name}"',
+            ),
+            return_dict=False,
+        )[0][0]
