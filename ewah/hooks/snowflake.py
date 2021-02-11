@@ -24,12 +24,11 @@ class EWAHSnowflakeHook(EWAHBaseHook):
     @staticmethod
     def get_ui_field_behaviour() -> dict:
         return {
-            "hidden_fields": ["extra", "port"],
+            "hidden_fields": ["extra", "port", "schema"],
             "relabeling": {
                 "password": "Password",
                 "login": "User",
                 "host": "Account",
-                "schema": "Schema",
             },
         }
 

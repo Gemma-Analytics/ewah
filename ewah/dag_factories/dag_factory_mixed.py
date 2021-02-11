@@ -17,6 +17,7 @@ from airflow.operators.bash import BashOperator
 from ewah.constants import EWAHConstants as EC
 from ewah.dag_factories.dag_factory_idempotent import ExtendedETS
 from ewah.ewah_utils.airflow_utils import (
+    PGO,
     etl_schema_tasks,
     datetime_utcnow_with_tz,
     EWAHSqlSensor,
