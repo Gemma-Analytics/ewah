@@ -238,28 +238,7 @@ el_dags:
       tables:
         s_articles: {}
 
-  EL_MySQL_Symfony:
-    dag_strategy: fr
-    el_operator: mysql
-    target_schema_name: raw_symfony
-    dwh_conn_id: ssh_dwh
-    operator_config:
-      general_config:
-        source_conn_id: symfony
-        source_schema_name: symfony1
-      tables:
-        business_channel: {}
-        business_channel_offer:
-          primary_key_column_name: offer_id
-          subsequent_field: offer_id
-          extract_strategy: subsequent
-          where_clauses: "offer_id > 2300000"
-        product_check_value_history:
-          primary_key_column_name: id
-          timestamp_column: created_at
-          extract_strategy: subsequent
-          where_clauses:
-            - created_at > '2021-01-01'
+  EL_MySQL_Symfony: !yml_from_file secret_dag_mysql.yml
 
   EL_Oracle: !yml_from_file secret_dag_oracle_to_snowflake.yml
   EL_Oracle_2: !yml_from_file secret_dag_oracle_fullcremental.yml

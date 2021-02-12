@@ -19,6 +19,13 @@ class EWAHMySQLHook(EWAHSQLBaseHook):
     conn_type = "ewah_mysql"
     hook_name = "EWAH MySQL Connection"
 
+    _LIMIT_SQL = """
+        SELECT * FROM ({sql_query}) t
+        ORDER BY {order_by_columns}
+        LIMIT {limit}
+        OFFSET {offset}
+    """
+
     @staticmethod
     def get_ui_field_behaviour() -> dict:
         return {
