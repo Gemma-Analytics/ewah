@@ -155,7 +155,10 @@ class EWAHPostgresUploader(EWAHBaseUploader):
         cols_map = {cols_list[i]: "col_" + str(i) for i in range(len(cols_list))}
         template = "(%(" + ")s, %(".join([val for key, val in cols_map.items()]) + ")s)"
         cur = self.dwh_hook.cursor
-        upload_data = [{cols_map[key]: val for key, val in row.items()} for row in data]
+        upload_data = [
+            {cols_map[key]: val for key, val in row.items() if key in cols_map.keys()}
+            for row in data
+        ]
         execute_values(
             cur=cur,
             sql=sql,
