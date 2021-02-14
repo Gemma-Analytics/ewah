@@ -76,8 +76,13 @@ class EWAHSnowflakeUploader(EWAHBaseUploader):
     def commit(self):
         # Execute delayed upload
         if hasattr(self, "_tempdir"):
-            # Execute all schema checks
-            for check in self._delayed_check_args:
+            # Upload data from pickled files in the correct order
+            for filename in [
+                str(i + 1)
+                for i in range(max([int(x) for x in os.listdir(self.tempdir)]))
+            ]:
+                self.log.info("Unpickling and uploading data from {0}".format(filename))
+                check = self._delayed_check_args.pop(0)
                 new_cols, del_cols = super().detect_and_apply_schema_changes(
                     *check[0], **check[1]
                 )
@@ -87,14 +92,7 @@ class EWAHSnowflakeUploader(EWAHBaseUploader):
                         "\n\t".join(del_cols) or "\n",
                     )
                 )
-            self._delayed_check_args = []
 
-            # Upload data from pickled files in the correct order
-            for filename in [
-                str(i + 1)
-                for i in range(max([int(x) for x in os.listdir(self.tempdir)]))
-            ]:
-                self.log.info("Unpickling and uploading data from {0}".format(filename))
                 with open(self.tempdir + os.sep + filename, "rb") as pickle_file:
                     self._create_or_update_table_from_pickle(**pickle.load(pickle_file))
 
