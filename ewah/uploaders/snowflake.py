@@ -67,8 +67,6 @@ class EWAHSnowflakeUploader(EWAHBaseUploader):
             CLONE "{database_name}"."{old_schema}"."{old_table}";
     """
 
-    _delayed_check_args = []
-
     def __init__(self, *args, database=None, **kwargs):
         self.database = database  # TODO: can I remove this??
         super().__init__(EC.DWH_ENGINE_SNOWFLAKE, *args, **kwargs)
@@ -82,19 +80,22 @@ class EWAHSnowflakeUploader(EWAHBaseUploader):
                 for i in range(max([int(x) for x in os.listdir(self.tempdir)]))
             ]:
                 self.log.info("Unpickling and uploading data from {0}".format(filename))
-                check = self._delayed_check_args.pop(0)
-                new_cols, del_cols = super().detect_and_apply_schema_changes(
-                    *check[0], **check[1]
-                )
-                self.log.info(
-                    "Added fields:\n\t{0}\nDeleted fields:\n\t{1}".format(
-                        "\n\t".join(new_cols) or "\n",
-                        "\n\t".join(del_cols) or "\n",
-                    )
-                )
-
                 with open(self.tempdir + os.sep + filename, "rb") as pickle_file:
-                    self._create_or_update_table_from_pickle(**pickle.load(pickle_file))
+                    kwargs = pickle.load(pickle_file)
+                    if (kwargs["upload_call_count"] > 1) or (
+                        not (kwargs["load_strategy"] == EC.LS_INSERT_REPLACE)
+                    ):
+                        super().detect_and_apply_schema_changes(
+                            new_schema_name=(
+                                kwargs["schema_name"] + kwargs["schema_suffix"]
+                            ),
+                            new_table_name=kwargs["table_name"],
+                            new_columns_dictionary=kwargs["columns_definition"],
+                            database=kwargs.get("database_name", None),
+                            drop_missing_columns=False,
+                            commit=False,
+                        )
+                    self._create_or_update_table_from_pickle(**kwargs)
 
             self._tempdir.cleanup()
             del self._tempdir
@@ -114,7 +115,6 @@ class EWAHSnowflakeUploader(EWAHBaseUploader):
 
     def detect_and_apply_schema_changes(self, *args, **kwargs):
         # Overwrite parent's function: delay execution until the commit command!
-        self._delayed_check_args.append((args, kwargs))
         return (["(Execution delayed)"], ["(Execution delayed)"])
 
     def _create_or_update_table(self, **kwargs):
