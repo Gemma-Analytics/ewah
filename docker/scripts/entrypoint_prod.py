@@ -1,13 +1,26 @@
 from airflow import settings
 from airflow.models import Connection
-from airflow.configuration import conf
 
 from ewah.ewah_utils.yml_loader import Loader, Dumper
 
 import os
 import yaml
 import json
+
+
+# [START] DELETE after 2.0.2 release
+# The datatype of extra in the airflow metadata databse is constrained to 500
+# characters by default. Remove this constraint.
 import sqlalchemy
+from airflow.configuration import conf
+print("\n\n")
+print("Altering metadata db: allowing arbitrary length extras in connections.")
+print("\n\n")
+sql_conn_string = conf.get("core", "sql_alchemy_conn")
+engine = sqlalchemy.create_engine(sql_conn_string, echo=False)
+with engine.begin() as conn:
+    conn.execute("ALTER TABLE connection ALTER COLUMN extra TYPE TEXT")
+# [END] DELETE after 2.0.2 release
 
 
 def commit_conns(filepath: str) -> None:
@@ -57,12 +70,12 @@ def commit_conns(filepath: str) -> None:
 
 env = os.environ
 # if they exist, add connections from appropriate YAML files
-search_filepaths = [
+search_filepaths = [  # make sure all secret conns overwrite non-secret conns
     "/opt/airflow/docker/airflow_connections.yml",
+    "/opt/airflow/airflow_connections.yml",
     "/opt/airflow/docker/secret_airflow_connections.yml",
     "/opt/airflow/docker/secrets/airflow_connections.yml",
     "/opt/airflow/docker/secrets/secret_airflow_connections.yml",
-    "/opt/airflow/airflow_connections.yml",
     "/opt/airflow/secret_airflow_connections.yml",
     "/opt/airflow/secrets/airflow_connections.yml",
     "/opt/airflow/secrets/secret_airflow_connections.yml",
