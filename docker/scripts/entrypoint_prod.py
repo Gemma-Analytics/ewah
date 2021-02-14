@@ -13,6 +13,7 @@ import json
 # characters by default. Remove this constraint.
 import sqlalchemy
 from airflow.configuration import conf
+
 print("\n\n")
 print("Altering metadata db: allowing arbitrary length extras in connections.")
 print("\n\n")
