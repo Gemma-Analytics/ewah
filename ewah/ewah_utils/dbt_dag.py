@@ -75,7 +75,7 @@ def dbt_dags_factory_legacy(
 
     dag = DAG(
         dag_base_name,
-        catchup=False,
+        catchup=True,
         max_active_runs=1,
         schedule_interval=schedule_interval,
         start_date=start_date,
@@ -84,7 +84,7 @@ def dbt_dags_factory_legacy(
 
     dag_full_refresh = DAG(
         dag_base_name + "_full_refresh",
-        catchup=False,
+        catchup=True,
         max_active_runs=1,
         schedule_interval=None,
         start_date=start_date,
