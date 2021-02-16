@@ -5,13 +5,14 @@ from airflow.operators.bash import BashOperator
 from airflow.providers.postgres.operators.postgres import PostgresOperator
 
 from ewah.constants import EWAHConstants as EC
-from ewah.ewah_utils.airflow_utils import EWAHSqlSensor
+from ewah.ewah_utils.airflow_utils import EWAHSqlSensor, datetime_utcnow_with_tz
 from ewah.ewah_utils.dbt_operator import EWAHdbtOperator
 from ewah.hooks.base import EWAHBaseHook as BaseHook
 
 from datetime import datetime, timedelta
 
 import os
+import pytz
 
 
 def dbt_dags_factory_legacy(
@@ -74,7 +75,7 @@ def dbt_dags_factory_legacy(
 
     dag = DAG(
         dag_base_name,
-        catchup=False,
+        catchup=True,
         max_active_runs=1,
         schedule_interval=schedule_interval,
         start_date=start_date,
@@ -83,7 +84,7 @@ def dbt_dags_factory_legacy(
 
     dag_full_refresh = DAG(
         dag_base_name + "_full_refresh",
-        catchup=False,
+        catchup=True,
         max_active_runs=1,
         schedule_interval=None,
         start_date=start_date,
@@ -280,10 +281,19 @@ def dbt_dag_factory_new(
     # only PostgreSQL & Snowflake implemented as of now!
     assert dwh_engine in (EC.DWH_ENGINE_POSTGRES, EC.DWH_ENGINE_SNOWFLAKE)
 
+    # if start_date is timezone offset-naive, assume utc and turn into offset-aware
+    if not start_date.tzinfo:
+        start_date = start_date.replace(tzinfo=pytz.utc)
+
+    start_date += (
+        int((datetime_utcnow_with_tz() - start_date) / schedule_interval) - 1
+    ) * schedule_interval
+    end_date = start_date + 2 * schedule_interval - timedelta(seconds=1)
+
     dag_kwargs = {
         "catchup": False,
-        "max_active_runs": 1,
         "start_date": start_date,
+        "end_date": end_date,
         "default_args": default_args,
     }
     dag_1 = DAG(dag_base_name, schedule_interval=schedule_interval, **dag_kwargs)
@@ -291,16 +301,26 @@ def dbt_dag_factory_new(
 
     sensor_sql = """
         SELECT
-            -- only run if exatly equal to 0
+            -- only run if exactly equal to 0
             CASE WHEN COUNT(*) = 0 THEN 1 ELSE 0 END
         FROM public.dag_run
         WHERE dag_id IN ('{0}', '{1}')
-        and state = 'running'
-        and not (run_id = '{2}')
+          AND state = 'running'
+          AND not (run_id = '{2}')
+          AND (( -- Avoid deadlocks and prioritize scheduled over manual triggers
+              run_type = 'scheduled'
+              AND execution_date < '{3}' -- execution_date
+            ) OR (
+              run_type = 'manual'
+              AND execution_date < '{4}' -- next_execution_date
+          ))
+          -- Note: next_execution_date = execution_date if run_type = 'manual'
     """.format(
         dag_1._dag_id,
         dag_2._dag_id,
         "{{ run_id }}",
+        "{{ execution_date }}",
+        "{{ next_execution_date }}",
     )
 
     snsr_1 = EWAHSqlSensor(
