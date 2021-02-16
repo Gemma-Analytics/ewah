@@ -291,16 +291,18 @@ def dbt_dag_factory_new(
 
     sensor_sql = """
         SELECT
-            -- only run if exatly equal to 0
+            -- only run if exactly equal to 0
             CASE WHEN COUNT(*) = 0 THEN 1 ELSE 0 END
         FROM public.dag_run
         WHERE dag_id IN ('{0}', '{1}')
-        and state = 'running'
-        and not (run_id = '{2}')
+          AND state = 'running'
+          AND not (run_id = '{2}')
+          AND execution_date < '{3}'
     """.format(
         dag_1._dag_id,
         dag_2._dag_id,
         "{{ run_id }}",
+        "{{ execution_date }}",
     )
 
     snsr_1 = EWAHSqlSensor(
