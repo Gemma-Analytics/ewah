@@ -5,13 +5,14 @@ from airflow.operators.bash import BashOperator
 from airflow.providers.postgres.operators.postgres import PostgresOperator
 
 from ewah.constants import EWAHConstants as EC
-from ewah.ewah_utils.airflow_utils import EWAHSqlSensor
+from ewah.ewah_utils.airflow_utils import EWAHSqlSensor, datetime_utcnow_with_tz
 from ewah.ewah_utils.dbt_operator import EWAHdbtOperator
 from ewah.hooks.base import EWAHBaseHook as BaseHook
 
 from datetime import datetime, timedelta
 
 import os
+import pytz
 
 
 def dbt_dags_factory_legacy(
@@ -280,10 +281,20 @@ def dbt_dag_factory_new(
     # only PostgreSQL & Snowflake implemented as of now!
     assert dwh_engine in (EC.DWH_ENGINE_POSTGRES, EC.DWH_ENGINE_SNOWFLAKE)
 
+    # if start_date is timezone offset-naive, assume utc and turn into offset-aware
+    if not start_date.tzinfo:
+        start_date = start_date.replace(tzinfo=pytz.utc)
+
+    start_date += (
+        int((datetime_utcnow_with_tz() - start_date) / schedule_interval) - 1
+    ) * schedule_interval
+    end_date = start_date + 2 * schedule_interval - timedelta(seconds=1)
+
     dag_kwargs = {
         "catchup": False,
         "max_active_runs": 1,
         "start_date": start_date,
+        "end_date": end_date,
         "default_args": default_args,
     }
     dag_1 = DAG(dag_base_name, schedule_interval=schedule_interval, **dag_kwargs)
