@@ -75,7 +75,7 @@ def dbt_dags_factory_legacy(
 
     dag = DAG(
         dag_base_name,
-        catchup=True,
+        catchup=False,
         max_active_runs=1,
         schedule_interval=schedule_interval,
         start_date=start_date,
@@ -84,7 +84,7 @@ def dbt_dags_factory_legacy(
 
     dag_full_refresh = DAG(
         dag_base_name + "_full_refresh",
-        catchup=True,
+        catchup=False,
         max_active_runs=1,
         schedule_interval=None,
         start_date=start_date,
@@ -291,7 +291,7 @@ def dbt_dag_factory_new(
     end_date = start_date + 2 * schedule_interval - timedelta(seconds=1)
 
     dag_kwargs = {
-        "catchup": False,
+        "catchup": True,
         "start_date": start_date,
         "end_date": end_date,
         "default_args": default_args,
