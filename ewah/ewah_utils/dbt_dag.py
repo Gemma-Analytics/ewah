@@ -292,7 +292,6 @@ def dbt_dag_factory_new(
 
     dag_kwargs = {
         "catchup": False,
-        "max_active_runs": 1,
         "start_date": start_date,
         "end_date": end_date,
         "default_args": default_args,
@@ -308,12 +307,20 @@ def dbt_dag_factory_new(
         WHERE dag_id IN ('{0}', '{1}')
           AND state = 'running'
           AND not (run_id = '{2}')
-          AND execution_date < '{3}'
+          AND (( -- Avoid deadlocks and prioritize scheduled over manual triggers
+              run_type = 'scheduled'
+              AND execution_date < '{3}' -- execution_date
+            ) OR (
+              run_type = 'manual'
+              AND execution_date < '{4}' -- next_execution_date
+          ))
+          -- Note: next_execution_date = execution_date if run_type = 'manual'
     """.format(
         dag_1._dag_id,
         dag_2._dag_id,
         "{{ run_id }}",
         "{{ execution_date }}",
+        "{{ next_execution_date }}",
     )
 
     snsr_1 = EWAHSqlSensor(
