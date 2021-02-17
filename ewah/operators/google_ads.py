@@ -150,7 +150,7 @@ class EWAHGoogleAdsOperator(EWAHBaseOperator):
 
         self.log.info("executing this google ads query:\n{0}".format(query))
         cli = GoogleAdsClient.load_from_dict(credentials)
-        service = cli.get_service("GoogleAdsService", version="v3")
+        service = cli.get_service("GoogleAdsService")
         search = service.search(
             self.client_id.replace("-", ""),
             query=query,
