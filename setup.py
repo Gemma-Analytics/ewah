@@ -25,7 +25,7 @@ setuptools.setup(
         "azure-storage-blob>=2.1.0",  # a temporay 2.0.0 bugfix
         "cx_Oracle",
         "facebook_business",
-        "google-api-python-client",
+        "google-ads",
         "google-cloud-bigquery",
         "googlemaps",
         "gspread>=3.6",
