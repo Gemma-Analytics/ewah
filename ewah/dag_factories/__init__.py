@@ -10,6 +10,7 @@ from airflow.utils.log.logging_mixin import LoggingMixin
 
 from typing import Optional, Any
 from copy import deepcopy
+from jinja2 import Template
 
 import yaml
 from ewah.ewah_utils.yml_loader import Loader, Dumper
@@ -130,6 +131,8 @@ def dags_from_yml_file(file_path: str) -> EWAHDAGGenerator:
 
     Returns an initialized generator class that iterates over all the individual
     DAGs as defined in the provided YAML file.
+
+    This YAML file may contain Jinja2 templating.
 
     :param file_path: Complete path to the YAML file containing the DAGs
         definition.

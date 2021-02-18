@@ -29,6 +29,7 @@ setuptools.setup(
         "google-cloud-bigquery",
         "googlemaps",
         "gspread>=3.6",
+        "Jinja2",
         "mailchimp3",
         "oauth2client",
         "psycopg2",
