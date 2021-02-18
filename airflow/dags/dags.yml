@@ -102,22 +102,12 @@ el_dags:
         frequency: daily
         load_data_from: 2016-12-01 00:00:00+00:00 # tbd airflow 2.0 issue
       tables:
-        daily_fx_rates_usd_eur:
-          currency_pair: ['USD', 'EUR']
-        daily_fx_rates_usd_cad:
-          currency_pair: ['USD', 'CAD']
-        daily_fx_rates_usd_gbp:
-          currency_pair: ['USD', 'GBP']
-        daily_fx_rates_usd_chf:
-          currency_pair: ['USD', 'CHF']
-        daily_fx_rates_usd_ars:
-          currency_pair: ['USD', 'ARS']
-        daily_fx_rates_usd_clp:
-          currency_pair: ['USD', 'CLP']
-        daily_fx_rates_usd_ron:
-          currency_pair: ['USD', 'RON']
-        daily_fx_rates_usd_myr:
-          currency_pair: ['USD', 'MYR']
+        {% for currency in ["EUR", "CAD", "GBP", "CHF", "ARS", "CLP", "RON", "MYR", "AUD"] %}
+          daily_fx_rates_usd_{{ currency|lower() }}:
+            currency_pair:
+              - USD
+              - {{ currency|upper() }}
+        {% endfor %}
 
   EL_GAds: !yml_from_file secret_dag_gads.yml
 
