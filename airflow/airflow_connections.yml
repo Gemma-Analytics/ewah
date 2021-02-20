@@ -19,3 +19,8 @@ connections:
   - id: stripe # Official demo API key
     type: ewah_stripe
     password: sk_test_4eC39HqLyjWDarjtT1zdp7dc
+  - id: airflow_api
+    type: ewah_airflow
+    host: "http://host.docker.internal:8084"
+    login: ewah
+    password: ewah

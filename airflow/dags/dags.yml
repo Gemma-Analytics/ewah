@@ -59,6 +59,24 @@ el_dags:
           resource: tags
         teams: {}
 
+  EL_Airflow:
+    dag_strategy: atomic
+    el_operator: airflow
+    target_schema_name: raw_airflow_metadata
+    operator_config:
+      general_config:
+        source_conn_id: airflow_api
+      tables:
+        dags: {}
+        task_instance:
+          endpoint: taskInstance
+        dag_runs:
+          endpoint: dagRuns
+        connections: {}
+        variables: {}
+        health: {}
+
+
   EL_BigQuery:
     dag_strategy: fr
     el_operator: bq
