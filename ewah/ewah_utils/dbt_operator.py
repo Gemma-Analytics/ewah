@@ -3,8 +3,12 @@ from airflow.utils.file import TemporaryDirectory
 
 from ewah.hooks.base import EWAHBaseHook
 from ewah.constants import EWAHConstants as EC
-from ewah.ewah_utils.yml_loader import Loader, Dumper
 from ewah.ewah_utils.run_commands import run_cmd
+
+try:
+    from yaml import CLoader as Loader
+except ImportError:
+    from yaml import Loader as Loader
 
 import re
 import os
