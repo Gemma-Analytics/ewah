@@ -2,6 +2,7 @@ from ewah.constants import EWAHConstants as EC
 from ewah.hooks.airflow import EWAHAirflowHook
 from ewah.operators.base import EWAHBaseOperator
 
+
 class EWAHAirflowOperator(EWAHBaseOperator):
 
     _NAMES = ["airflow"]

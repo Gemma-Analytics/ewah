@@ -2,6 +2,7 @@ from ewah.hooks.base import EWAHBaseHook
 
 import requests
 
+
 class EWAHAirflowHook(EWAHBaseHook):
     """Get Airflow Metadata from an Airflow installation via the stable API."""
 
@@ -18,7 +19,7 @@ class EWAHAirflowHook(EWAHBaseHook):
     # Resolve some more complex endpoints
     _ENDPOINTS = {
         "dagRuns": "dags/~/dagRuns",
-        "taskInstance": "dags/~/dagRuns/~/taskInstances"
+        "taskInstance": "dags/~/dagRuns/~/taskInstances",
     }
 
     _BASE_URL = "{0}/api/v1/{1}"
@@ -36,7 +37,9 @@ class EWAHAirflowHook(EWAHBaseHook):
 
     def get_data_in_batches(self, endpoint, page_size=100, batch_size=10000):
         auth = requests.auth.HTTPBasicAuth(self.conn.login, self.conn.password)
-        url = self._BASE_URL.format(self.conn.host, self._ENDPOINTS.get(endpoint, endpoint))
+        url = self._BASE_URL.format(
+            self.conn.host, self._ENDPOINTS.get(endpoint, endpoint)
+        )
         params = {"limit": page_size, "offset": 0}
         data = []
         i = 0
