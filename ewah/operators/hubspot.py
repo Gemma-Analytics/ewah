@@ -31,7 +31,10 @@ class EWAHHubspotOperator(EWAHBaseOperator):
         assert (
             object in EWAHHubspotHook.ACCEPTED_OBJECTS
         ), "Object {0} is invalid!".format(object)
-        kwargs["primary_key_column_name"] = "id"
+        if object == "properties":
+            kwargs["primary_key_column_name"] = ["name", "object_type"]
+        else:
+            kwargs["primary_key_column_name"] = "id"
         super().__init__(*args, **kwargs)
         self.object = object
         if isinstance(properties, str):
