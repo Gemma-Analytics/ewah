@@ -173,6 +173,8 @@ el_dags:
         tickets: {}
         quotes_table:
           object: quotes
+        properties: {}
+        owners: {}
 
   EL_Mailchimp:
     dag_strategy: fr

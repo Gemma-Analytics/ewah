@@ -23,6 +23,7 @@ class EWAHHubspotHook(EWAHBaseHook):
     BASE_URL = "https://api.hubapi.com/crm/v3/objects/{0}"
     PROPERTIES_URL = "https://api.hubapi.com/crm/v3/properties/{0}"
     ASSOC_URL = "https://api.hubapi.com/crm/v3/associations/{fromObjectType}/{toObjectType}/batch/read"
+    OWNERS_URL = "https://api.hubapi.com/crm/v3/owners/"
 
     ACCEPTED_OBJECTS = [
         "companies",
@@ -33,6 +34,8 @@ class EWAHHubspotHook(EWAHBaseHook):
         "products",
         "tickets",
         "quotes",
+        "properties",
+        "owners",
     ]
 
     @staticmethod
@@ -45,6 +48,8 @@ class EWAHHubspotHook(EWAHBaseHook):
         }
 
     def get_properties_for_object(self, object: str):
+        if object == "properties":
+            return []
         request = requests.get(
             url=self.PROPERTIES_URL.format(object),
             params={"hapikey": self.conn.api_key},
@@ -65,24 +70,40 @@ class EWAHHubspotHook(EWAHBaseHook):
         self.log.info("Loading data for CRM object {0}!".format(object))
         params_auth = {"hapikey": self.conn.api_key}
         params_object = {"hapikey": self.conn.api_key, "limit": 100}
-        url_object = self.BASE_URL.format(object)
 
-        properties = [
-            property
-            for property in (properties or self.get_properties_for_object(object))
-            if not property in (exclude_properties or [])
-        ]
-        params_object["properties"] = properties
+        if object == "properties":
+            # Special case: not a normal object
+            assert not associations
+            assert not properties
+            object_list = [
+                o for o in self.ACCEPTED_OBJECTS if not o in ("properties", "owners")
+            ]
+            params_object["objectType"] = object_list.pop(0)
+            url_object = self.PROPERTIES_URL.format(params_object["objectType"])
+        elif object == "owners":
+            assert not associations
+            assert not properties
+            url_object = self.OWNERS_URL
+        else:
+            url_object = self.BASE_URL.format(object)
+            properties = [
+                property
+                for property in (properties or self.get_properties_for_object(object))
+                if not property in (exclude_properties or [])
+            ]
+            params_object["properties"] = properties
 
-        self.log.info(
-            "Loading these properties:\n\n\t- {0}\n\n".format("\n\t- ".join(properties))
-        )
-        if associations:
             self.log.info(
-                "Also loading these associations:\n\n\t- {0}".format(
-                    "\n\t- ".join(associations)
+                "Loading these properties:\n\n\t- {0}\n\n".format(
+                    "\n\t- ".join(properties)
                 )
             )
+            if associations:
+                self.log.info(
+                    "Also loading these associations:\n\n\t- {0}".format(
+                        "\n\t- ".join(associations)
+                    )
+                )
 
         keepgoing = True
         i = 0
@@ -142,15 +163,25 @@ class EWAHHubspotHook(EWAHBaseHook):
             # Clean up data:
             # 1) expand the properties field into individual fields
             # 2) add any available associations
+            # 3) if getting properties: add object metadata
             for datum in response_data:
                 datum.update(datum.pop("properties", {}))  # 1)
                 for association in associations or []:  # 2)
                     datum[
                         "ewah_associations_to_{0}".format(association)
                     ] = associations_data[association].get(datum["id"])
+                if object == "properties":  # 3)
+                    datum["object_type"] = params_object["objectType"]
 
             # batch_data saves all data until it is yielded
             batch_data += response_data
+
+            if not keepgoing and object == "properties":
+                # Iterate through list of all objects
+                if object_list:
+                    params_object["objectType"] = object_list.pop(0)
+                    url_object = self.PROPERTIES_URL.format(params_object["objectType"])
+                    keepgoing = True
 
             # Yield data when appropriate
             if (len(batch_data) >= batch_size) or (not keepgoing and batch_data):
