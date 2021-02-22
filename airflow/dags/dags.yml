@@ -104,10 +104,14 @@ el_dags:
         region_name: eu-central-1
       tables:
         admins:
-          primary_key_column_name: email
+          partition_key: email
         all_users:
-          primary_key_column_name: email
+          partition_key: email
           source_table_name: users
+        invoices:
+          partition_key: invoice_id
+          sort_key: status
+          source_table_name: invoice-reference
 
   EL_Facebook: !yml_from_file secret_dag_facebook.yml
 

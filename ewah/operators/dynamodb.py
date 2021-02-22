@@ -19,6 +19,8 @@ class EWAHDynamoDBOperator(EWAHBaseOperator):
 
     def __init__(
         self,
+        partition_key,
+        sort_key=None,
         source_table_name=None,  # defaults to target_table_name
         pagination_limit=None,  # optionally set a pagination limit
         region_name=None,  # must provide region, alternatively via connection
@@ -28,8 +30,9 @@ class EWAHDynamoDBOperator(EWAHBaseOperator):
     ):
 
         source_table_name = source_table_name or kwargs.get("target_table_name")
-        _msg = "DynamoDBOperator requires primary_key_column_name!"
-        assert kwargs.get("primary_key_column_name"), _msg
+        kwargs["primary_key_column_name"] = [partition_key]
+        if sort_key:
+            kwargs["primary_key_column_name"].append(sort_key)
         super().__init__(*args, **kwargs)
         self.source_table_name = source_table_name
         self.pagination_limit = pagination_limit
