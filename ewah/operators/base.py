@@ -14,6 +14,7 @@ from typing import Optional, List, Dict
 import copy
 import hashlib
 import time
+import sys
 
 
 class EWAHBaseOperator(BaseOperator):
@@ -91,7 +92,38 @@ class EWAHBaseOperator(BaseOperator):
 
     _metadata = {}  # to be updated by operator, if applicable
 
-    def __init__(
+    def __init__(self, *args, **kwargs):
+        try:
+            return self.base_init(*args, **kwargs)
+        except Exception as e:
+            # Add useful information to the raised Exception as it will be displayed
+            # in the Airflow UI
+            exc_type, exc_obj, exc_tb = sys.exc_info()
+            raise Exception(
+                """
+            EWAH Failed to import the DAG.
+            Exception Type: {0}
+            Error: {1}
+            DAG: {2}
+            Task: {3}
+
+            Args & kwargs: {4}
+
+            """.format(
+                    exc_type,
+                    str(exc_obj),
+                    self.dag.dag_id,
+                    kwargs["task_id"],
+                    "\n\nArgs:\n\t"
+                    + "\n\t".join(args)
+                    + "\n\nKwargs:\n\t"
+                    + "\n\t".join(
+                        ["{0}: {1}".format(k, str(v)) for (k, v) in kwargs.items()]
+                    ),
+                )
+            )
+
+    def base_init(
         self,
         source_conn_id,
         dwh_engine,

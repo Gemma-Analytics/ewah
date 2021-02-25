@@ -344,7 +344,6 @@ def dag_factory_idempotent(
         kwargs.update(
             {
                 "extract_strategy": kwargs.get("extract_strategy", EC.ES_INCREMENTAL),
-                "load_strategy": kwargs.get("load_strategy", EC.LS_UPSERT),
                 "task_id": "extract_load_" + re.sub(r"[^a-zA-Z0-9_]", "", table),
                 "dwh_engine": dwh_engine,
                 "dwh_conn_id": dwh_conn_id,
@@ -360,6 +359,10 @@ def dag_factory_idempotent(
             EC.ES_FULL_REFRESH,
             EC.ES_SUBSEQUENT,
             EC.ES_INCREMENTAL,
+        )
+        kwargs["load_strategy"] = kwargs.get(
+            "load_strategy",
+            EC.DEFAULT_LS_PER_ES[kwargs["extract_strategy"]],
         )
 
         if kwargs["extract_strategy"] == EC.ES_INCREMENTAL:

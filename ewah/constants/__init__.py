@@ -49,6 +49,13 @@ class EWAHConstants:
     LS_INSERT_REPLACE = "insert_replace"  # replace data
     LS_INSERT_DELETE = "insert_delete"  # delete relevant data before writing new data
 
+    # Default load strategy depending on extract strategy
+    DEFAULT_LS_PER_ES = {
+        ES_FULL_REFRESH: LS_INSERT_REPLACE,
+        ES_SUBSEQUENT: LS_UPSERT,
+        ES_INCREMENTAL: LS_UPSERT,
+    }
+
     # EC.LS_FULLCREMENTAL = 'fullcremental'
     # fullcremental is a mix of full refresh and incremental
     # --> not an independent load strategy!

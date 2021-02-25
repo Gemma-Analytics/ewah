@@ -252,6 +252,7 @@ el_dags:
       tables:
         s_articles: {}
 
+  EL_MySQL_Atomic: !yml_from_file secret_dag_mysql_atomic.yml
   EL_MySQL_Symfony: !yml_from_file secret_dag_mysql.yml
 
   EL_Oracle: !yml_from_file secret_dag_oracle_to_snowflake.yml
