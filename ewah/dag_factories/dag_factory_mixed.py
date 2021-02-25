@@ -281,7 +281,6 @@ def dag_factory_mixed(
                 "extract_strategy": arg_dict_inc.get(
                     "extract_strategy", EC.ES_INCREMENTAL
                 ),
-                "load_strategy": arg_dict_inc.get("load_strategy", EC.LS_UPSERT),
                 "task_id": "extract_load_" + re.sub(r"[^a-zA-Z0-9_]", "", table),
                 "dwh_engine": dwh_engine,
                 "dwh_conn_id": dwh_conn_id,
@@ -290,6 +289,9 @@ def dag_factory_mixed(
                 "target_schema_suffix": target_schema_suffix,
                 "target_database_name": target_database_name,
             }
+        )
+        arg_dict_inc["load_strategy"] = arg_dict_inc.get(
+            "load_strategy", EC.DEFAULT_LS_PER_ES[arg_dict_inc["extract_strategy"]]
         )
         arg_dict_fr = deepcopy(arg_dict_inc)
         arg_dict_fr["extract_strategy"] = EC.ES_FULL_REFRESH

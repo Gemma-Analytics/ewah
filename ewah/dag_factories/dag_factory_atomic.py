@@ -106,9 +106,6 @@ def dag_factory_atomic(
                     "extract_strategy": table_config.get(  # Default to full refresh
                         "extract_strategy", EC.ES_FULL_REFRESH
                     ),
-                    "load_strategy": table_config.get(  # Default to insert_replace
-                        "load_strategy", EC.LS_INSERT_REPLACE
-                    ),
                     "target_table_name": operator_config["tables"][table].get(
                         "target_table_name", table
                     ),
@@ -121,6 +118,10 @@ def dag_factory_atomic(
             assert table_config["extract_strategy"] in (
                 EC.ES_FULL_REFRESH,
                 EC.ES_SUBSEQUENT,
+            )
+            table_config["load_strategy"] = table_config.get(
+                "load_strategy",
+                EC.DEFAULT_LS_PER_ES[table_config["extract_strategy"]],
             )
             table_task = el_operator(**table_config)
             kickoff >> table_task >> final
