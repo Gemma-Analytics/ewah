@@ -88,14 +88,14 @@ class EWAHSQLBaseOperator(EWAHBaseOperator):
 
         params = self.extra_params or {}
         where_clauses = self.where_clauses or []
-        if self.data_from:
+        if self.data_from and self.timestamp_column:
             where_clauses.append(
                 "{0} >= {1}".format(
                     self.timestamp_column, self._SQL_PARAMS.format("data_from")
                 )
             )
             params["data_from"] = self.data_from
-        if self.data_until:
+        if self.data_until and self.timestamp_column:
             where_clauses.append(
                 "{0} <= {1}".format(
                     self.timestamp_column, self._SQL_PARAMS.format("data_until")
