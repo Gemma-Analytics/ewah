@@ -275,11 +275,17 @@ def dbt_dag_factory_new(
     start_date=datetime(2019, 1, 1),
     default_args=None,
     run_flags=None,  # e.g. --model tag:base
+    project=None,  # BigQuery alias
+    dataset=None,  # BigQuery alias
 ):
     run_flags = run_flags or ""  # use empty string instead of None
 
     # only PostgreSQL & Snowflake implemented as of now!
-    assert dwh_engine in (EC.DWH_ENGINE_POSTGRES, EC.DWH_ENGINE_SNOWFLAKE)
+    assert dwh_engine in (
+        EC.DWH_ENGINE_POSTGRES,
+        EC.DWH_ENGINE_SNOWFLAKE,
+        EC.DWH_ENGINE_BIGQUERY,
+    )
 
     # if start_date is timezone offset-naive, assume utc and turn into offset-aware
     if not start_date.tzinfo:
@@ -351,6 +357,8 @@ def dbt_dag_factory_new(
         "keepalives_idle": 0,
         "dwh_engine": dwh_engine,
         "database_name": database_name,
+        "project": project,
+        "dataset": dataset,
     }
 
     run_1 = EWAHdbtOperator(

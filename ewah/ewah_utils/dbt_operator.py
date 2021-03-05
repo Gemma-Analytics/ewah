@@ -14,6 +14,7 @@ import re
 import os
 import venv
 import yaml
+import json
 from tempfile import NamedTemporaryFile
 
 
@@ -44,11 +45,15 @@ class EWAHdbtOperator(BaseOperator):
         subfolder=None,  # optional: supply if dbt project is in a subfolder
         threads=4,  # see https://docs.getdbt.com/dbt-cli/configure-your-profile/#understanding-threads
         schema_name="analytics",  # see https://docs.getdbt.com/dbt-cli/configure-your-profile/#understanding-target-schemas
-        database_name=None,  # Snowflake only - name of the database
+        database_name=None,  # Snowflake & BigQuery only - name of the database / project
         keepalives_idle=0,  # see https://docs.getdbt.com/reference/warehouse-profiles/postgres-profile/
+        dataset=None,  # BigQuery alias for schema_name
+        project=None,  # BigQuery alias for database_name
         *args,
         **kwargs
     ):
+        schema_name = dataset or schema_name
+        database_name = project or database_name
 
         assert repo_type in ("git")
         assert dbt_commands
@@ -56,10 +61,19 @@ class EWAHdbtOperator(BaseOperator):
         assert threads
         assert schema_name
 
-        assert dwh_engine in (EC.DWH_ENGINE_POSTGRES, EC.DWH_ENGINE_SNOWFLAKE)
+        assert dwh_engine in (
+            EC.DWH_ENGINE_POSTGRES,
+            EC.DWH_ENGINE_SNOWFLAKE,
+            EC.DWH_ENGINE_BIGQUERY,
+        )
 
         # only Snowflake is allowed to have the database_name kwarg
-        assert (dwh_engine == EC.DWH_ENGINE_SNOWFLAKE) or (not database_name)
+        assert (dwh_engine in (EC.DWH_ENGINE_SNOWFLAKE, EC.DWH_ENGINE_BIGQUERY)) or (
+            not database_name
+        )
+
+        if dwh_engine == EC.DWH_ENGINE_BIGQUERY:
+            assert schema_name and database_name
 
         if isinstance(dbt_commands, str):
             dbt_commands = [dbt_commands]
@@ -191,6 +205,26 @@ class EWAHdbtOperator(BaseOperator):
                         },
                     },
                 }
+            elif self.dwh_engine == EC.DWH_ENGINE_BIGQUERY:
+                profiles_yml[profile_name] = {
+                    "target": "prod",  # same as the output defined below
+                    "outputs": {
+                        "prod": {  # for snowflake
+                            "type": "bigquery",
+                            "method": "service-account-json",
+                            "project": self.database_name,
+                            "dataset": self.schema_name,
+                            "threads": self.threads,
+                            "timeout_seconds": self.keepalives_idle or 300,
+                            "priority": "interactive",
+                            "keyfile_json": json.loads(dwh_conn.service_account_json),
+                        },
+                    },
+                }
+                if dwh_conn.location:
+                    profiles_yml[profile_name]["outputs"]["prod"][
+                        "location"
+                    ] = dwh_conn.location
             else:
                 raise Exception("DWH Engine not implemented!")
 

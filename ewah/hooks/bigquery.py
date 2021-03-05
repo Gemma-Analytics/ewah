@@ -38,6 +38,10 @@ class EWAHBigQueryHook(EWAHSQLBaseHook):
                 "Service Account JSON",
                 widget=EWAHTextAreaWidget(rows=12),
             ),
+            "extra__ewah_bigquery__location": StringField(
+                "[dbt - optional] location",
+                widget=EWAHTextAreaWidget(rows=1),
+            ),
         }
 
     class bq_cursor(object):
