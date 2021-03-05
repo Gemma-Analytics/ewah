@@ -94,31 +94,44 @@ class EWAHBaseOperator(BaseOperator):
 
     def __init__(self, *args, **kwargs):
         try:
+            dag = kwargs.get("dag")  # For error handling below
             return self.base_init(*args, **kwargs)
         except Exception as e:
             # Add useful information to the raised Exception as it will be displayed
             # in the Airflow UI
             exc_type, exc_obj, exc_tb = sys.exc_info()
+            try:
+                dag_id = (dag or self.dag).dag_id
+            except Exception as e:
+                dag_id = "[unknown]"
             raise Exception(
                 """
+
             EWAH Failed to import the DAG.
-            Exception Type: {0}
-            Error: {1}
-            DAG: {2}
-            Task: {3}
 
-            Args & kwargs: {4}
+            \tDAG: {3}
+            \tTask: {4}
+            \tOperator: {2}
 
-            """.format(
+            \tException Type: {0}
+            \tError: {1}
+
+            See below for positional and keyword: {5}
+
+            """.replace(
+                    "            ", ""
+                ).format(
                     exc_type,
-                    str(exc_obj),
-                    self.dag.dag_id,
+                    str(e),
+                    type(self).__name__,
+                    dag_id,
                     kwargs["task_id"],
-                    "\n\nArgs:\n\t"
-                    + "\n\t".join(args)
-                    + "\n\nKwargs:\n\t"
-                    + "\n\t".join(
+                    "\n\n\tPositional arguments:\n\t\t"
+                    + "\n\t\t".join(args or ["(None)"])
+                    + "\n\n\tKeyword arguments:\n\t\t"
+                    + "\n\t\t".join(
                         ["{0}: {1}".format(k, str(v)) for (k, v) in kwargs.items()]
+                        or ["(None)"]
                     ),
                 )
             )
