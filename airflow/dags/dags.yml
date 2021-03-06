@@ -64,17 +64,27 @@ el_dags:
     el_operator: airflow
     target_schema_name: raw_airflow_metadata
     operator_config:
-      general_config:
-        source_conn_id: airflow_api
       tables:
-        dags: {}
-        task_instance:
-          endpoint: taskInstance
-        dag_runs:
-          endpoint: dagRuns
-        connections: {}
-        variables: {}
-        health: {}
+        {% for conn_name in ["airflow_api", "url_test", "ssh_test"] %}
+          {{ conn_name }}_dags:
+            endpoint: dags
+            source_conn_id: "{{ conn_name }}"
+          {{ conn_name }}_task_instance:
+            endpoint: taskInstance
+            source_conn_id: "{{ conn_name }}"
+          {{ conn_name }}_dag_runs:
+            endpoint: dagRuns
+            source_conn_id: "{{ conn_name }}"
+          {{ conn_name }}_connections:
+            endpoint: connections
+            source_conn_id: "{{ conn_name }}"
+          {{ conn_name }}_variables:
+            endpoint: variables
+            source_conn_id: "{{ conn_name }}"
+          {{ conn_name }}_health:
+            endpoint: health
+            source_conn_id: "{{ conn_name }}"
+        {% endfor %}
 
 
   EL_BigQuery:
