@@ -65,7 +65,7 @@ el_dags:
     target_schema_name: raw_airflow_metadata
     operator_config:
       tables:
-        {% for conn_name in ["airflow_api", "url_test", "ssh_test"] %}
+        {% for conn_name in ["airflow_api", "airflow_via_ssh_vpn", "airflow_via_ssh", "airflow_via_url"] %}
           {{ conn_name }}_dags:
             endpoint: dags
             source_conn_id: "{{ conn_name }}"

@@ -20,6 +20,7 @@ class EWAHAirflowHook(EWAHBaseHook):
     _ENDPOINTS = {
         "dagRuns": "dags/~/dagRuns",
         "taskInstance": "dags/~/dagRuns/~/taskInstances",
+        "taskInstances": "dags/~/dagRuns/~/taskInstances",
     }
 
     _BASE_URL = "{0}/api/v1/{1}"
@@ -29,9 +30,9 @@ class EWAHAirflowHook(EWAHBaseHook):
         return {
             "hidden_fields": ["schema", "extra"],
             "relabeling": {
-                "host": "URL (without endpoint, e.g. 'http://myairflowurl.com')",
+                "host": "URL (without endpoint, e.g. 'myairflowurl.com')",
                 "login": "Basic Auth Username",
-                "password": "Baisc Auth Password",
+                "password": "Basic Auth Password",
                 "port": "Port (only if using SSH)",
             },
         }
@@ -40,12 +41,16 @@ class EWAHAirflowHook(EWAHBaseHook):
     def get_connection_form_widgets() -> dict:
         """Returns connection widgets to add to connection form"""
         from flask_appbuilder.fieldwidgets import BS3TextFieldWidget
-        from wtforms import StringField
+        from wtforms import StringField, SelectField
 
         return {
-            f"extra__ewah_airflow__ssh_conn_id": StringField(
+            "extra__ewah_airflow__ssh_conn_id": StringField(
                 "SSH Connection ID to Airflow Server (optional)",
                 widget=BS3TextFieldWidget(),
+            ),
+            "extra__ewah_airflow__protocol": SelectField(
+                "Connection protocol (if using SSH or not specified in URL)",
+                choices=[("http", "http"), ("https", "https")],
             ),
         }
 
@@ -53,10 +58,22 @@ class EWAHAirflowHook(EWAHBaseHook):
         auth = requests.auth.HTTPBasicAuth(self.conn.login, self.conn.password)
         if self.conn.ssh_conn_id:
             ssh_hook = EWAHBaseHook.get_hook_from_conn_id(conn_id=self.conn.ssh_conn_id)
-            local_bind_address = ssh_hook.start_tunnel("localhost", int(self.conn.port or 8080))
-            host = "http://{0}:{1}".format(local_bind_address[0], str(local_bind_address[1]))
+            ssh_host = self.conn.host or "localhost"
+            ssh_host = ssh_host.replace("https://", "").replace("http://", "")
+            ssh_port = self.conn.port
+            if not ssh_port:
+                if self.conn.protocol=="http":
+                    ssh_port = 80
+                else:
+                    ssh_port = 443
+            else:
+                ssh_port = int(ssh_port)
+            local_bind_address = ssh_hook.start_tunnel(ssh_host, ssh_port)
+            host = "{2}://{0}:{1}".format(local_bind_address[0], str(local_bind_address[1]), self.conn.protocol or "http")
         else:
             host = self.conn.host
+            if not host.startswith("http"):
+                host = self.conn.protocol + "://" + host
         url = self._BASE_URL.format(
             host, self._ENDPOINTS.get(endpoint, endpoint)
         )
