@@ -62,21 +62,23 @@ class EWAHAirflowHook(EWAHBaseHook):
             ssh_host = ssh_host.replace("https://", "").replace("http://", "")
             ssh_port = self.conn.port
             if not ssh_port:
-                if self.conn.protocol=="http":
+                if self.conn.protocol == "http":
                     ssh_port = 80
                 else:
                     ssh_port = 443
             else:
                 ssh_port = int(ssh_port)
             local_bind_address = ssh_hook.start_tunnel(ssh_host, ssh_port)
-            host = "{2}://{0}:{1}".format(local_bind_address[0], str(local_bind_address[1]), self.conn.protocol or "http")
+            host = "{2}://{0}:{1}".format(
+                local_bind_address[0],
+                str(local_bind_address[1]),
+                self.conn.protocol or "http",
+            )
         else:
             host = self.conn.host
             if not host.startswith("http"):
                 host = self.conn.protocol + "://" + host
-        url = self._BASE_URL.format(
-            host, self._ENDPOINTS.get(endpoint, endpoint)
-        )
+        url = self._BASE_URL.format(host, self._ENDPOINTS.get(endpoint, endpoint))
         params = {"limit": page_size, "offset": 0}
         data = []
         i = 0
