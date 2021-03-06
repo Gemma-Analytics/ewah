@@ -27,18 +27,38 @@ class EWAHAirflowHook(EWAHBaseHook):
     @staticmethod
     def get_ui_field_behaviour():
         return {
-            "hidden_fields": ["port", "schema", "extra"],
+            "hidden_fields": ["schema", "extra"],
             "relabeling": {
                 "host": "URL (without endpoint, e.g. 'http://myairflowurl.com')",
                 "login": "Basic Auth Username",
                 "password": "Baisc Auth Password",
+                "port": "Port (only if using SSH)",
             },
+        }
+
+    @staticmethod
+    def get_connection_form_widgets() -> dict:
+        """Returns connection widgets to add to connection form"""
+        from flask_appbuilder.fieldwidgets import BS3TextFieldWidget
+        from wtforms import StringField
+
+        return {
+            f"extra__ewah_airflow__ssh_conn_id": StringField(
+                "SSH Connection ID to Airflow Server (optional)",
+                widget=BS3TextFieldWidget(),
+            ),
         }
 
     def get_data_in_batches(self, endpoint, page_size=100, batch_size=10000):
         auth = requests.auth.HTTPBasicAuth(self.conn.login, self.conn.password)
+        if self.conn.ssh_conn_id:
+            ssh_hook = EWAHBaseHook.get_hook_from_conn_id(conn_id=self.conn.ssh_conn_id)
+            local_bind_address = ssh_hook.start_tunnel("localhost", int(self.conn.port or 8080))
+            host = "http://{0}:{1}".format(local_bind_address[0], str(local_bind_address[1]))
+        else:
+            host = self.conn.host
         url = self._BASE_URL.format(
-            self.conn.host, self._ENDPOINTS.get(endpoint, endpoint)
+            host, self._ENDPOINTS.get(endpoint, endpoint)
         )
         params = {"limit": page_size, "offset": 0}
         data = []
@@ -71,3 +91,7 @@ class EWAHAirflowHook(EWAHBaseHook):
                 yield [response]
                 break
             params["offset"] = params["offset"] + params["limit"]
+
+        if self.conn.ssh_conn_id:
+            ssh_hook.stop_tunnel()
+            del ssh_hook
