@@ -102,7 +102,7 @@ class EWAHBaseOperator(BaseOperator):
             exc_type, exc_obj, exc_tb = sys.exc_info()
             try:
                 dag_id = (dag or self.dag).dag_id
-            except Exception as e:
+            except Exception as ex:
                 dag_id = "[unknown]"
             raise Exception(
                 """
