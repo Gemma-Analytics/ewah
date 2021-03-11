@@ -168,6 +168,7 @@ class EWAHBaseOperator(BaseOperator):
         add_metadata=True,
         rename_columns: Optional[Dict[str, str]] = None,  # Rename columns
         subsequent_field=None,  # field name to use for subsequent extract strategy
+        default_timezone=None,  # specify a default time zone for tz-naive datetimes
         *args,
         **kwargs
     ):
@@ -175,6 +176,10 @@ class EWAHBaseOperator(BaseOperator):
 
         assert not (rename_columns and columns_definition)
         assert rename_columns is None or isinstance(rename_columns, dict)
+
+        if default_timezone:
+            assert dwh_engine in (EC.DWH_ENGINE_POSTGRES,)  # Only for PostgreSQL so far
+            assert not ";" in default_timezone  # Avoid SQL Injection
 
         # Check if the extract and load strategies are allowed in combination
         # Also check if required params are supplied for the strategies
@@ -328,6 +333,7 @@ class EWAHBaseOperator(BaseOperator):
         self.add_metadata = add_metadata
         self.rename_columns = rename_columns
         self.subsequent_field = subsequent_field
+        self.default_timezone = default_timezone
 
         self.uploader = get_uploader(self.dwh_engine)
 
@@ -370,6 +376,12 @@ class EWAHBaseOperator(BaseOperator):
         self._context = context
 
         self.uploader = self.uploader(EWAHBaseHook.get_connection(self.dwh_conn_id))
+
+        # If applicable: set the session's default time zone
+        if self.default_timezone:
+            self.uploader.dwh_hook.execute(
+                "SET timezone TO '{0}'".format(self.default_timezone)
+            )
 
         if self.source_conn_id:
             # resolve conn id here & delete the object to avoid usage elsewhere
