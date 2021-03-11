@@ -141,6 +141,7 @@ class EWAHdbtOperator(BaseOperator):
             self.log.info("installing dbt=={0}".format(self.dbt_version))
             cmd = []
             cmd.append("source {0}/bin/activate".format(venv_folder))
+            cmd.append("pip install --quiet --upgrade pip setuptools")
             cmd.append(
                 "pip install --quiet --upgrade dbt=={0}".format(self.dbt_version)
             )
