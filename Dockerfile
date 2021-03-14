@@ -38,7 +38,6 @@ USER airflow
 
 
 RUN pip install --user --upgrade --no-cache-dir pip setuptools
-RUN pip install --user --upgrade --no-cache-dir virtualenv
 
 # required to make Oracle work with airflow user
 RUN sudo ldconfig /opt/oracle/instantclient_19_8
