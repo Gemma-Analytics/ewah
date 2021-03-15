@@ -27,6 +27,7 @@ class EWAHSSHHook(EWAHBaseHook):
     def get_connection_form_widgets() -> Dict[str, Any]:
         """Returns connection widgets to add to connection form"""
         from wtforms import StringField
+        from flask_appbuilder.fieldwidgets import BS3TextFieldWidget
         from ewah.ewah_utils.widgets import EWAHTextAreaWidget
 
         return {
@@ -34,7 +35,12 @@ class EWAHSSHHook(EWAHBaseHook):
                 "Private SSH Key (RSA Format)",
                 widget=EWAHTextAreaWidget(rows=12),
             ),
+            "extra__ewah_ssh__ssh_proxy_server": StringField(
+                "SSH Proxy Server (optional)",
+                widget=BS3TextFieldWidget(),
+            ),
         }
+
 
     @staticmethod
     def get_ui_field_behaviour() -> Dict:
@@ -74,10 +80,23 @@ class EWAHSSHHook(EWAHBaseHook):
 
             try:
                 # Build kwargs dict for SSH Tunnel Forwarder
-                kwargs = {
-                    "ssh_address_or_host": (self.conn.host, self.conn.port or 22),
-                    "remote_bind_address": (remote_host, remote_port),
-                }
+                if self.conn.ssh_proxy_server:
+                    # Use the proxy SSH server as target
+                    self._ssh_hook = EWAHBaseHook.get_hook_from_conn_id(
+                        conn_id=self.conn.ssh_proxy_server,
+                    )
+                    kwargs = {
+                        "ssh_address_or_host": self._ssh_hook.start_tunnel(
+                            self.conn.host, self.conn.port or 22
+                        ),
+                        "remote_bind_address": (remote_host, remote_port),
+                    }
+                else:
+                    kwargs = {
+                        "ssh_address_or_host": (self.conn.host, self.conn.port or 22),
+                        "remote_bind_address": (remote_host, remote_port),
+                    }
+
                 if self.conn.username:
                     kwargs["ssh_username"] = self.conn.username
                 if self.conn.password:
@@ -107,9 +126,11 @@ class EWAHSSHHook(EWAHBaseHook):
     def stop_tunnel(self) -> None:
         """Close an open SSH tunnel, if it is indeed open."""
         if hasattr(self, "_ssh_tunnel_forwarder"):
-            self.log.info("Closing SSH tunnel!")
+            self.log.info("Closing SSH tunnel to {0}!".format(str(self._ssh_tunnel_forwarder._remote_binds)))
             self._ssh_tunnel_forwarder.stop()
             del self._ssh_tunnel_forwarder
+            if hasattr(self, "_ssh_hook"):
+                self._ssh_hook.stop_tunnel()
 
     def __del__(self) -> None:
         self.stop_tunnel()
