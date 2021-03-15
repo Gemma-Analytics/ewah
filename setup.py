@@ -41,6 +41,7 @@ setuptools.setup(
         "snowflake-connector-python>=2.3.8",  # 2.3.8 vendored urrlib3 and requests
         "sshtunnel>=0.2.2",
         "stripe",
+        "virtualenv",
         "yahoofinancials",
     ],
 )

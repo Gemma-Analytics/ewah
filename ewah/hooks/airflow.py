@@ -96,15 +96,16 @@ class EWAHAirflowHook(EWAHBaseHook):
                     data_key = keys[1]
                 else:
                     data_key = keys[0]
+                if not response[data_key]:
+                    # You know that you fetched all items if an empty list is returned
+                    # (Note: total_entries is not reliable)
+                    yield data
+                    data = []
+                    break
                 data += response[data_key]
                 if len(data) >= batch_size:
                     yield data
                     data = []
-                if params["offset"] >= response["total_entries"]:
-                    if data:
-                        yield data
-                        data = []
-                    break
             else:
                 # Rare endpoint that does not paginate (usually singletons)
                 yield [response]
