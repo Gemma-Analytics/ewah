@@ -19,13 +19,6 @@ class EWAHOracleSQLOperator(EWAHSQLBaseHook):
     conn_type = "ewah_oracle"
     hook_name = "EWAH Oracle Connection"
 
-    _LIMIT_SQL = """
-        SELECT * FROM ({sql_query}) t
-        ORDER BY {order_by_columns}
-        OFFSET {offset} ROWS
-        FETCH NEXT {limit} ROWS ONLY
-    """
-
     @staticmethod
     def get_ui_field_behaviour() -> dict:
         return {

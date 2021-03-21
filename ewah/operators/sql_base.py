@@ -36,7 +36,6 @@ class EWAHSQLBaseOperator(EWAHBaseOperator):
         where_clauses: Optional[Union[str, List[str]]] = None,
         extra_params: Optional[dict] = None,
         batch_size: int = 100000,
-        use_limits_for_batches: bool = False,
         *args,
         **kwargs
     ):
@@ -81,7 +80,6 @@ class EWAHSQLBaseOperator(EWAHBaseOperator):
         self.timestamp_column = timestamp_column
         self.where_clauses = where_clauses
         self.batch_size = batch_size
-        self.use_limits_for_batches = use_limits_for_batches
 
     def ewah_execute(self, context):
         # called, potentially with a data_from and data_until
@@ -119,7 +117,6 @@ class EWAHSQLBaseOperator(EWAHBaseOperator):
             params=params or None,  # Don't supply empty dict as params!
             return_dict=True,
             batch_size=self.batch_size,
-            use_limits=self.use_limits_for_batches,
             order_by_columns=self.update_on_columns,
         ):
             self.upload_data(batch)
