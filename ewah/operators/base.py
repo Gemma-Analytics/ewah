@@ -9,12 +9,14 @@ from ewah.hooks.base import EWAHBaseHook
 from ewah.uploaders import get_uploader
 
 from datetime import datetime, timedelta
-from typing import Optional, List, Dict
+from tempfile import TemporaryFile
+from typing import Optional, List, Dict, Union
 
 import copy
 import hashlib
-import time
+import pickle
 import sys
+import time
 
 
 class EWAHBaseOperator(BaseOperator):
@@ -169,6 +171,8 @@ class EWAHBaseOperator(BaseOperator):
         rename_columns: Optional[Dict[str, str]] = None,  # Rename columns
         subsequent_field=None,  # field name to use for subsequent extract strategy
         default_timezone=None,  # specify a default time zone for tz-naive datetimes
+        use_temp_pickling=True,  # use new upload method if True - use it by default
+        pickling_upload_chunk_size=100000,  # default chunk size for pickle upload
         *args,
         **kwargs
     ):
@@ -334,6 +338,8 @@ class EWAHBaseOperator(BaseOperator):
         self.rename_columns = rename_columns
         self.subsequent_field = subsequent_field
         self.default_timezone = default_timezone
+        self.use_temp_pickling = use_temp_pickling
+        self.pickling_upload_chunk_size = pickling_upload_chunk_size
 
         self.uploader = get_uploader(self.dwh_engine)
 
@@ -443,6 +449,11 @@ class EWAHBaseOperator(BaseOperator):
         del self.load_data_from_relative
         del self.load_data_until_relative
 
+        # Prepare file used for temporary data pickling, if applicable
+        if self.use_temp_pickling:
+            self.temp_pickle_file = TemporaryFile()
+            self.temp_pickle_file.seek(0)
+
         # Have an option to wait until a short period (e.g. 2 minutes) past
         # the incremental loading range timeframe to ensure that all data is
         # loaded, useful e.g. if APIs lag or if server timestamps are not
@@ -479,6 +490,25 @@ class EWAHBaseOperator(BaseOperator):
                 self.data_from += self.load_data_chunking_timedelta
         else:
             self.ewah_execute(context)
+
+        if self.use_temp_pickling:
+            # then upload data now
+            self.temp_pickle_file.seek(0)
+            keep_unpickling = True
+            while keep_unpickling:
+                raw_data = []
+                for _ in range(self.pickling_upload_chunk_size):
+                    try:
+                        raw_data.append(pickle.load(self.temp_pickle_file))
+                    except EOFError:
+                        # all done
+                        keep_unpickling = False
+                        break
+                self._upload_data(raw_data)
+
+            # always clean up after yourself
+            self.temp_pickle_file.close()
+            del self.temp_pickle_file
 
         # if PostgreSQL and arg given: create indices
         for column in self.index_columns:
@@ -595,7 +625,31 @@ class EWAHBaseOperator(BaseOperator):
                         )
         return result
 
+    def _upload_via_pickling(self, data: Union[dict, List[dict]]):
+        """Call this function to earmark a dictionary for later upload."""
+        assert self.use_temp_pickling, "Can only call function if using temp pickling!"
+        if isinstance(data, dict):
+            pickle.dump(data, self.temp_pickle_file)
+        elif isinstance(data, list):
+            self.log.info(
+                "Pickling {0} rows of data for later upload...".format(len(data))
+            )
+            for row in data:
+                self._upload_via_pickling(row)
+        else:
+            raise Exception(
+                "Invalid data format for function! Must be dict or list of dicts!"
+            )
+
     def upload_data(self, data=None, columns_definition=None):
+        if self.use_temp_pickling:
+            # earmark for later upload
+            self._upload_via_pickling(data=data)
+        else:
+            # upload straightaway
+            self._upload_data(data, columns_definition)
+
+    def _upload_data(self, data=None, columns_definition=None):
         """Upload data, no matter the source. Call this functions in the child
         operator whenever data is available for upload, as often as needed.
         """

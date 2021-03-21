@@ -69,7 +69,7 @@ class EWAHSQLBaseHook(EWAHBaseHook):
         sql: str,
         params: Optional[dict] = None,
         return_dict: bool = True,
-        batch_size: int = 100000,
+        batch_size: int = 10000,
         order_by_columns: Optional[Union[str, List[str]]] = None,
     ):
         cur = self.dictcursor if return_dict else self.cursor
