@@ -250,18 +250,6 @@ el_dags:
   EL_MongoDB_4: !yml_from_file secret_dag_mongodb_4.yml
   EL_MongoDB_5: !yml_from_file secret_dag_mongodb_5.yml
 
-  EL_MySQL_Shopware:
-    dag_strategy: fr
-    el_operator: mysql
-    target_schema_name: raw_shopware
-    dwh_conn_id: ssh_dwh
-    operator_config:
-      general_config:
-        source_conn_id: shopware
-        source_schema_name: shopware_production
-      tables:
-        s_articles: {}
-
   EL_MySQL_Atomic: !yml_from_file secret_dag_mysql_atomic.yml
   EL_MySQL_Symfony: !yml_from_file secret_dag_mysql.yml
 
