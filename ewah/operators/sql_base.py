@@ -117,6 +117,5 @@ class EWAHSQLBaseOperator(EWAHBaseOperator):
             params=params or None,  # Don't supply empty dict as params!
             return_dict=True,
             batch_size=self.batch_size,
-            order_by_columns=self.update_on_columns,
         ):
             self.upload_data(batch)

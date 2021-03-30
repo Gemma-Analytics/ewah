@@ -89,19 +89,3 @@ class EWAHPostgresHook(EWAHSQLBaseHook):
         cur = self.dictcursor if return_dict else self.cursor
         self.execute(sql, params=params, cursor=cur, commit=False)
         return cur.fetchall()
-
-    def get_data_in_batches(
-        self,
-        sql: str,
-        params: Optional[dict] = None,
-        return_dict: bool = True,
-        batch_size: int = 100000,
-    ):
-        cur = self.dictcursor if return_dict else self.cursor
-        self.execute(sql, params=params, cursor=cur, commit=False)
-        while True:
-            data = cur.fetchmany(batch_size)
-            if data:
-                yield data
-            else:
-                break

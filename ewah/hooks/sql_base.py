@@ -70,7 +70,6 @@ class EWAHSQLBaseHook(EWAHBaseHook):
         params: Optional[dict] = None,
         return_dict: bool = True,
         batch_size: int = 10000,
-        order_by_columns: Optional[Union[str, List[str]]] = None,
     ):
         cur = self.dictcursor if return_dict else self.cursor
         self.execute(sql, params=params, cursor=cur, commit=False)
