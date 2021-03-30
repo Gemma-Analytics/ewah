@@ -86,10 +86,6 @@ class EWAHSnowflakeUploader(EWAHBaseUploader):
             self._tempdir = TemporaryDirectory(prefix="uploadtosnowflake")
         return self._tempdir.name
 
-    def detect_and_apply_schema_changes(self, *args, **kwargs):
-        # Overwrite parent's function: delay execution until the commit command!
-        return (["(Execution delayed)"], ["(Execution delayed)"])
-
     def _create_or_update_table(
         self,
         data,
