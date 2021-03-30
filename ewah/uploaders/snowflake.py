@@ -72,33 +72,6 @@ class EWAHSnowflakeUploader(EWAHBaseUploader):
         super().__init__(EC.DWH_ENGINE_SNOWFLAKE, *args, **kwargs)
 
     def commit(self):
-        # Execute delayed upload
-        if hasattr(self, "_tempdir"):
-            # Upload data from pickled files in the correct order
-            for filename in [
-                str(i + 1)
-                for i in range(max([int(x) for x in os.listdir(self.tempdir)]))
-            ]:
-                self.log.info("Unpickling and uploading data from {0}".format(filename))
-                with open(self.tempdir + os.sep + filename, "rb") as pickle_file:
-                    kwargs = pickle.load(pickle_file)
-                    if (kwargs["upload_call_count"] > 1) or (
-                        not (kwargs["load_strategy"] == EC.LS_INSERT_REPLACE)
-                    ):
-                        super().detect_and_apply_schema_changes(
-                            new_schema_name=(
-                                kwargs["schema_name"] + kwargs["schema_suffix"]
-                            ),
-                            new_table_name=kwargs["table_name"],
-                            new_columns_dictionary=kwargs["columns_definition"],
-                            database=kwargs.get("database_name", None),
-                            drop_missing_columns=False,
-                            commit=False,
-                        )
-                    self._create_or_update_table_from_pickle(**kwargs)
-
-            self._tempdir.cleanup()
-            del self._tempdir
         self.dwh_hook.commit()
 
     def rollback(self):
@@ -117,18 +90,7 @@ class EWAHSnowflakeUploader(EWAHBaseUploader):
         # Overwrite parent's function: delay execution until the commit command!
         return (["(Execution delayed)"], ["(Execution delayed)"])
 
-    def _create_or_update_table(self, **kwargs):
-        """Instead of loading the data straight away, store the data as pickle and
-        load it into the DWH when
-        """
-        upload_call_count = kwargs["upload_call_count"]
-        self.log.info(
-            "Pickling data as {0} to load at the end...".format(str(upload_call_count))
-        )
-        with open(self.tempdir + os.sep + str(upload_call_count), "wb") as f:
-            pickle.dump(kwargs, f)
-
-    def _create_or_update_table_from_pickle(
+    def _create_or_update_table(
         self,
         data,
         table_name,

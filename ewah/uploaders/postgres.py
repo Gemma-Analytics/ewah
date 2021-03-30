@@ -30,11 +30,9 @@ class EWAHPostgresUploader(EWAHBaseUploader):
     _COPY_TABLE = """
         -- Drop a previous version of the table if it exists
         DROP TABLE IF EXISTS "{new_schema}"."{new_table}";
-        CREATE TABLE "{new_schema}"."{new_table}"
-            (LIKE "{old_schema}"."{old_table}"
-            INCLUDING CONSTRAINTS INCLUDING INDEXES INCLUDING DEFAULTS);
-        INSERT INTO "{new_schema}"."{new_table}"
-            SELECT * FROM "{old_schema}"."{old_table}";
+        CREATE TABLE "{new_schema}"."{new_table}" AS (
+            SELECT * FROM "{old_schema}"."{old_table}"
+        );
     """
 
     def __init__(self, *args, **kwargs) -> None:

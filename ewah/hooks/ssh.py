@@ -41,7 +41,6 @@ class EWAHSSHHook(EWAHBaseHook):
             ),
         }
 
-
     @staticmethod
     def get_ui_field_behaviour() -> Dict:
         return {
@@ -126,7 +125,11 @@ class EWAHSSHHook(EWAHBaseHook):
     def stop_tunnel(self) -> None:
         """Close an open SSH tunnel, if it is indeed open."""
         if hasattr(self, "_ssh_tunnel_forwarder"):
-            self.log.info("Closing SSH tunnel to {0}!".format(str(self._ssh_tunnel_forwarder._remote_binds)))
+            self.log.info(
+                "Closing SSH tunnel to {0}!".format(
+                    str(self._ssh_tunnel_forwarder._remote_binds)
+                )
+            )
             self._ssh_tunnel_forwarder.stop()
             del self._ssh_tunnel_forwarder
             if hasattr(self, "_ssh_hook"):

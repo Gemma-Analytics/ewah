@@ -69,44 +69,17 @@ class EWAHSQLBaseHook(EWAHBaseHook):
         sql: str,
         params: Optional[dict] = None,
         return_dict: bool = True,
-        batch_size: int = 100000,
-        use_limits: bool = False,
-        order_by_columns: Optional[Union[str, List[str]]] = None,
+        batch_size: int = 10000,
     ):
-        if use_limits:
-            i = 0
-            assert order_by_columns
-            if not isinstance(order_by_columns, str):
-                order_by_columns = " ASC,".join(order_by_columns)
-            order_by_columns += " ASC"
-
-            while True:
-                self.log.info("Fetching next batch...")
-                data = self.execute_and_return_result(
-                    sql=self._LIMIT_SQL.format(
-                        sql_query=sql,
-                        order_by_columns=order_by_columns,
-                        limit=batch_size,
-                        offset=i,
-                    ),
-                    params=params,
-                    return_dict=return_dict,
-                )
-                i += batch_size
-                if data:
-                    yield data
-                else:
-                    break
-        else:
-            cur = self.dictcursor if return_dict else self.cursor
-            self.execute(sql, params=params, cursor=cur, commit=False)
-            while True:
-                self.log.info("Fetching next batch...")
-                data = cur.fetchmany(batch_size)
-                if data:
-                    yield data
-                else:
-                    break
+        cur = self.dictcursor if return_dict else self.cursor
+        self.execute(sql, params=params, cursor=cur, commit=False)
+        while True:
+            self.log.info("Fetching next batch...")
+            data = cur.fetchmany(batch_size)
+            if data:
+                yield data
+            else:
+                break
 
     def commit(self):
         self.log.info("Committing changes!")
