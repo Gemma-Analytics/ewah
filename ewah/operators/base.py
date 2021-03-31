@@ -9,11 +9,15 @@ from ewah.hooks.base import EWAHBaseHook
 from ewah.uploaders import get_uploader
 
 from datetime import datetime, timedelta
-from tempfile import TemporaryFile
+from tempfile import TemporaryFile, TemporaryDirectory
 from typing import Optional, List, Dict, Union
 
+import bz2
 import copy
+import gzip
 import hashlib
+import lzma
+import os
 import pickle
 import sys
 import time
@@ -173,10 +177,17 @@ class EWAHBaseOperator(BaseOperator):
         default_timezone=None,  # specify a default time zone for tz-naive datetimes
         use_temp_pickling=True,  # use new upload method if True - use it by default
         pickling_upload_chunk_size=100000,  # default chunk size for pickle upload
+        pickle_compression=None,  # data compression algorithm to use for pickles
         *args,
         **kwargs
     ):
         super().__init__(*args, **kwargs)
+
+        assert pickle_compression is None or pickle_compression in (
+            "gzip",
+            "bz2",
+            "lzma",
+        )
 
         assert not (rename_columns and columns_definition)
         assert rename_columns is None or isinstance(rename_columns, dict)
@@ -340,6 +351,7 @@ class EWAHBaseOperator(BaseOperator):
         self.default_timezone = default_timezone
         self.use_temp_pickling = use_temp_pickling
         self.pickling_upload_chunk_size = pickling_upload_chunk_size
+        self.pickle_compression = pickle_compression
 
         self.uploader = get_uploader(self.dwh_engine)
 
@@ -347,6 +359,19 @@ class EWAHBaseOperator(BaseOperator):
             extract_strategy,
         )
         # assert self.uploader._ACCEPTED_EXTRACT_STRATEGIES.get(extract_strategy), _msg
+
+    @staticmethod
+    def _pickle_file_open(name, mode, compression_mode):
+        if compression_mode is None:
+            return open(name, mode)
+        elif compression_mode == "gzip":
+            return gzip.open(name, mode)
+        elif compression_mode == "lzma":
+            return lzma.open(name, mode)
+        elif compression_mode == "bz2":
+            return bz2.open(name, mode)
+        else:
+            raise Exception("Compression Mode not implemented!")
 
     def ewah_execute(self, context):
         raise Exception("You need to overwrite me!")
@@ -451,8 +476,11 @@ class EWAHBaseOperator(BaseOperator):
 
         # Prepare file used for temporary data pickling, if applicable
         if self.use_temp_pickling:
-            self.temp_pickle_file = TemporaryFile()
-            self.temp_pickle_file.seek(0)
+            temp_pickle_folder = TemporaryDirectory()
+            temp_file_name = temp_pickle_folder.name + os.sep + "temp_pickle_file"
+            self.temp_pickle_file = self._pickle_file_open(
+                temp_file_name, "wb", self.pickle_compression
+            )
 
         # Have an option to wait until a short period (e.g. 2 minutes) past
         # the incremental loading range timeframe to ensure that all data is
@@ -493,7 +521,10 @@ class EWAHBaseOperator(BaseOperator):
 
         if self.use_temp_pickling:
             # then upload data now
-            self.temp_pickle_file.seek(0)
+            self.temp_pickle_file.close()
+            self.temp_pickle_file = self._pickle_file_open(
+                temp_file_name, "rb", self.pickle_compression
+            )
             keep_unpickling = True
             while keep_unpickling:
                 raw_data = []
@@ -509,6 +540,7 @@ class EWAHBaseOperator(BaseOperator):
             # always clean up after yourself
             self.temp_pickle_file.close()
             del self.temp_pickle_file
+            del temp_pickle_folder
 
         # if PostgreSQL and arg given: create indices
         for column in self.index_columns:

@@ -256,6 +256,7 @@ el_dags:
   EL_Oracle: !yml_from_file secret_dag_oracle_to_snowflake.yml
   EL_Oracle_2: !yml_from_file secret_dag_oracle_fullcremental.yml
   EL_Oracle_FR: !yml_from_file secret_dag_oracle_fr.yml
+  EL_Oracle_FR_compress: !yml_from_file secret_dag_oracle_fr_compress.yml
 
   EL_Pipedrive:
     dag_strategy: fr
