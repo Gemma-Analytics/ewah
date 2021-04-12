@@ -301,6 +301,7 @@ def dbt_dag_factory_new(
         "start_date": start_date,
         "end_date": end_date,
         "default_args": default_args,
+        "max_active_runs": 1,
     }
     dag_1 = DAG(dag_base_name, schedule_interval=schedule_interval, **dag_kwargs)
     dag_2 = DAG(dag_base_name + "_full_refresh", schedule_interval=None, **dag_kwargs)
