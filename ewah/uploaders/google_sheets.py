@@ -86,7 +86,7 @@ class EWAHGSheetsUploader(EWAHBaseUploader):
                 string = chr(65 + remainder) + string
             return string
 
-        if not drop_and_replace:
+        if not load_strategy == EC.LS_INSERT_REPLACE:
             raise Exception("Google Sheets DWHs can only be drop_and_replace!")
         self._upload_call_count += 1
         if not self._upload_call_count == 1:
