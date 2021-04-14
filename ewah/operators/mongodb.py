@@ -9,6 +9,7 @@ class EWAHMongoDBOperator(EWAHBaseOperator):
     _ACCEPTED_EXTRACT_STRATEGIES = {
         EC.ES_FULL_REFRESH: True,
         EC.ES_INCREMENTAL: True,
+        EC.ES_SUBSEQUENT: True,
     }
 
     _REQUIRES_COLUMNS_DEFINITION = False
@@ -50,6 +51,12 @@ class EWAHMongoDBOperator(EWAHBaseOperator):
                 )
         self.single_column_mode = single_column_mode
 
+        if kwargs.get("extract_strategy") == EC.ES_SUBSEQUENT:
+            kwargs["subsequent_field"] = kwargs.get(
+                "subsequent_field",
+                timestamp_field or kwargs.get("primary_key_column_name", None),
+            )
+
         super().__init__(*args, **kwargs)
 
         if (
@@ -82,6 +89,14 @@ class EWAHMongoDBOperator(EWAHBaseOperator):
                 base_filters += [{self.timestamp_field: {"$gte": self.data_from}}]
             if self.data_until:
                 base_filters += [{self.timestamp_field: {"$lt": self.data_until}}]
+        if self.subsequent_field and self.test_if_target_table_exists():
+            base_filters += [
+                {
+                    self.subsequent_field: {
+                        "$gte": self.get_max_value_of_column(self.subsequent_field)
+                    }
+                }
+            ]
         if base_filters:
             filter_expressions = {"$and": base_filters}
         else:
