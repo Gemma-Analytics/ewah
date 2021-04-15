@@ -71,7 +71,9 @@ class EWAHS3Operator(EWAHBaseOperator):
         self.csv_encoding = csv_encoding
         self.decompress = decompress
 
-    def _iterate_through_bucket(self, s3hook, bucket, prefix):
+    def _iterate_through_bucket(
+        self, s3hook, bucket, prefix, modified_from=None, modified_until=None
+    ):
         """The bucket.objects.filter() method only returns a max of 1000
         objects. If more objects are in an S3 bucket, pagniation is
         required. See also: https://stackoverflow.com/questions/44238525/how-to-iterate-over-files-in-an-s3-bucket
@@ -80,10 +82,17 @@ class EWAHS3Operator(EWAHBaseOperator):
         paginator = cli.get_paginator("list_objects_v2")
         page_iterator = paginator.paginate(Bucket=bucket, Prefix=prefix)
 
-        for page in page_iterator:
-            if page["KeyCount"] > 0:
-                for item in page["Contents"]:
-                    yield item
+        all_objects = [
+            o
+            for o in page_iterator.build_full_result()["Contents"]
+            if (not modified_from or o["LastModified"] >= modified_from)
+            and (not modified_until or o["LastModified"] < modified_until)
+        ]
+
+        self.log.info("Iterating through {0} objects..".format(len(all_objects)))
+
+        for item in all_objects:
+            yield item
 
     def ewah_execute(self, context):
         if self.file_format == "JSON":
@@ -147,19 +156,18 @@ class EWAHS3Operator(EWAHBaseOperator):
                 s3hook=hook,
                 bucket=self.bucket_name,
                 prefix=self.prefix,
+                modified_from=self.data_from,
+                modified_until=self.data_until,
             )
             for obj_iter in objects:
                 # skip all files outside of loading scope
-                obj = hook.get_key(obj_iter["Key"], self.bucket_name)
-                if self.data_from and (obj.last_modified < self.data_from):
-                    continue
-                if self.data_until and (obj.last_modified >= self.data_until):
-                    continue
-                if suffix and not suffix == obj.key[-len(suffix) :]:
+                if suffix and not suffix == obj_iter["Key"][-len(suffix) :]:
                     continue
 
-                self.log.info("Loading data from file {0}".format(obj.key))
-                raw_data = obj.get()["Body"].read()
+                self.log.info("Loading data from file {0}".format(obj_iter["Key"]))
+                raw_data = (
+                    hook.get_key(obj_iter["Key"], self.bucket_name).get()["Body"].read()
+                )
                 if self.decompress:
                     raw_data = gzip.decompress(raw_data)
                 # remove BOM if it exists
@@ -181,8 +189,8 @@ class EWAHS3Operator(EWAHBaseOperator):
                 self._metadata.update(
                     {
                         "bucket_name": self.bucket_name,
-                        "file_name": obj.key,
-                        "file_last_modified": str(obj.last_modified),
+                        "file_name": obj_iter["Key"],
+                        "file_last_modified": str(obj_iter["LastModified"]),
                     }
                 )
                 chunk_upload(reader)
@@ -204,31 +212,28 @@ class EWAHS3Operator(EWAHBaseOperator):
                 s3hook=hook,
                 bucket=self.bucket_name,
                 prefix=self.prefix,
+                modified_from=self.data_from,
+                modified_until=self.data_until,
             )
             for obj_iter in objects:
-                obj = hook.get_key(obj_iter["Key"], self.bucket_name)
-                if self.data_from and obj.last_modified < self.data_from:
-                    continue
-                if self.data_until and obj.last_modified >= self.data_until:
-                    continue
-                if suffix and not suffix == obj.key[-len(suffix) :]:
+                if suffix and not suffix == obj_iter["Key"][-len(suffix) :]:
                     continue
 
                 self.log.info(
                     "Loading data from file {0}".format(
-                        obj.key,
+                        obj_iter["Key"],
                     )
                 )
                 self._metadata.update(
                     {
                         "bucket_name": self.bucket_name,
-                        "file_name": obj.key,
-                        "file_last_modified": str(obj.last_modified),
+                        "file_name": obj_iter["Key"],
+                        "file_last_modified": str(obj_iter["LastModified"]),
                     }
                 )
                 data = f_get_data(
                     hook=hook,
-                    key=obj.key,
+                    key=obj_iter["Key"],
                     bucket=self.bucket_name,
                 )
                 self.upload_data(data=data)
