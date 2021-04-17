@@ -250,9 +250,12 @@ class EWAHBaseUploader(LoggingMixin):
         clean_data_before_upload=True,
         hash_columns=None,
         hashlib_func_name=None,
+        default_values=None,
     ):
         # check this again with Snowflake!!
         database_name = database_name or getattr(self, "database", None)
+
+        default_values = default_values or {}
 
         mapped_types = tuple(
             [
@@ -285,7 +288,7 @@ class EWAHBaseUploader(LoggingMixin):
 
         hash_columns = hash_columns or []
         for column_name in columns_definition.keys():
-            raw_row[column_name] = None
+            raw_row[column_name] = default_values.get(column_name)
             definition = columns_definition[column_name]
             if not isinstance(definition, dict):
                 raise Exception(
@@ -330,9 +333,16 @@ class EWAHBaseUploader(LoggingMixin):
                 for column_name, value in datum.items():
                     if column_name in cols_list:
                         if column_name in hash_columns:
-                            # hash column!
-                            pre_digest = hash_func(str(value).encode())
-                            row[column_name] = pre_digest.hexdigest()
+                            # hash column, and respect default values!
+                            if value is None:
+                                pre_digest = default_values.get(column_name)
+                            else:
+                                pre_digest = value
+                            if pre_digest is None:
+                                row[column_name] = None
+                            else:
+                                pre_digest = hash_func(str(pre_digest).encode())
+                                row[column_name] = pre_digest.hexdigest()
                         elif not value is None:
                             # avoid edge case of data where all instances of a
                             #   field are None, thus having data for a field
