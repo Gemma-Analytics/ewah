@@ -88,8 +88,10 @@ class EWAHJSONEncoder(json.JSONEncoder):
             _one_shot,
         )(o, 0)
 
+
 class EWAHJSONEncoderBSON(EWAHJSONEncoder):
     """Further extension: cast bson object IDs to text"""
+
     def default(self, obj):
         if isinstance(obj, bson.objectid.ObjectId):
             # MongoDB Object IDs - return just the ID itself as string
