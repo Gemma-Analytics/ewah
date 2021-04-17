@@ -9,6 +9,7 @@ import json
 import csv
 import gzip
 
+
 class ExtendedS3Hook(S3Hook):
     """Extends and improves the provider package's S3Hook's capability"""
 
@@ -17,8 +18,11 @@ class ExtendedS3Hook(S3Hook):
     def _get_credentials(self, region_name):
         "Avoid creation of a new session each time an S3 file is downloaded."
         if not region_name in self.credentials_by_region:
-            self.credentials_by_region[region_name] = super()._get_credentials(region_name=region_name)
+            self.credentials_by_region[region_name] = super()._get_credentials(
+                region_name=region_name
+            )
         return self.credentials_by_region[region_name]
+
 
 class EWAHS3Operator(EWAHBaseOperator):
     """Only implemented for JSON and CSV files from S3 right now!"""

@@ -791,7 +791,7 @@ class EWAHBaseOperator(BaseOperator):
             hash_columns=self.hash_columns,
             hashlib_func_name=self.hashlib_func_name,
             default_values=self.default_values,
-            bson_to_string=self.cast_bson_objects_to_string.
+            bson_to_string=self.cast_bson_objects_to_string,
         )
         """ Note on committing changes:
             The hook used for data uploading is created at the beginning of the
