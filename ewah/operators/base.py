@@ -178,10 +178,15 @@ class EWAHBaseOperator(BaseOperator):
         use_temp_pickling=True,  # use new upload method if True - use it by default
         pickling_upload_chunk_size=100000,  # default chunk size for pickle upload
         pickle_compression=None,  # data compression algorithm to use for pickles
+        default_values=None,  # dict with default values for columns (to avoid nulls)
         *args,
         **kwargs
     ):
         super().__init__(*args, **kwargs)
+
+        if default_values:
+            assert clean_data_before_upload
+            assert isinstance(default_values, dict)
 
         assert pickle_compression is None or pickle_compression in (
             "gzip",
@@ -352,6 +357,7 @@ class EWAHBaseOperator(BaseOperator):
         self.use_temp_pickling = use_temp_pickling
         self.pickling_upload_chunk_size = pickling_upload_chunk_size
         self.pickle_compression = pickle_compression
+        self.default_values = default_values
 
         self.uploader = get_uploader(self.dwh_engine)
 
@@ -782,6 +788,7 @@ class EWAHBaseOperator(BaseOperator):
             clean_data_before_upload=self.clean_data_before_upload,
             hash_columns=self.hash_columns,
             hashlib_func_name=self.hashlib_func_name,
+            default_values=self.default_values,
         )
         """ Note on committing changes:
             The hook used for data uploading is created at the beginning of the
