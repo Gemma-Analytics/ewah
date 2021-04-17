@@ -31,9 +31,7 @@ class EWAHJSONEncoder(json.JSONEncoder):
             - Decimal -> float
             - bson.objectid.ObjectId -> string
         """
-        if isinstance(obj, bson.objectid.ObjectId):
-            # MongoDB Object IDs - return just the ID itself as string
-            return str(obj)
+
         if isinstance(obj, Decimal):
             return float(obj)
         # Let the base class default method raise the TypeError
@@ -89,6 +87,14 @@ class EWAHJSONEncoder(json.JSONEncoder):
             self.skipkeys,
             _one_shot,
         )(o, 0)
+
+class EWAHJSONEncoderBSON(EWAHJSONEncoder):
+    """Further extension: cast bson object IDs to text"""
+    def default(self, obj):
+        if isinstance(obj, bson.objectid.ObjectId):
+            # MongoDB Object IDs - return just the ID itself as string
+            return str(obj)
+        return super().default(obj)
 
 
 class EWAHBaseUploader(LoggingMixin):
@@ -251,11 +257,17 @@ class EWAHBaseUploader(LoggingMixin):
         hash_columns=None,
         hashlib_func_name=None,
         default_values=None,
+        bson_to_string=True,
     ):
         # check this again with Snowflake!!
         database_name = database_name or getattr(self, "database", None)
 
         default_values = default_values or {}
+
+        if bson_to_string:
+            json_encoder_class = EWAHJSONEncoderBSON
+        else:
+            json_encoder_class = EWAHJSONEncoder
 
         mapped_types = tuple(
             [
@@ -354,7 +366,7 @@ class EWAHBaseUploader(LoggingMixin):
                             ):
                                 try:
                                     row[column_name] = json.dumps(
-                                        value, cls=EWAHJSONEncoder
+                                        value, cls=json_encoder_class
                                     )
                                 except TypeError:
                                     # try dumping with bson utility function
