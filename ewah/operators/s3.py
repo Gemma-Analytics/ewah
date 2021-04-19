@@ -4,6 +4,7 @@ from ewah.constants import EWAHConstants as EC
 from airflow.providers.amazon.aws.hooks.s3 import S3Hook
 
 from datetime import datetime, timedelta
+from multiprocessing.dummy import Pool as ThreadPool
 
 import json
 import csv
@@ -52,6 +53,8 @@ class EWAHS3Operator(EWAHBaseOperator):
         csv_format_options={},
         csv_encoding="utf-8",
         decompress=False,
+        file_load_parallelism=1000,
+        thread_pool_size=20,
         *args,
         **kwargs
     ):
@@ -84,14 +87,28 @@ class EWAHS3Operator(EWAHBaseOperator):
         self.csv_format_options = csv_format_options
         self.csv_encoding = csv_encoding
         self.decompress = decompress
+        self.file_load_parallelism = file_load_parallelism
+        self.thread_pool_size = thread_pool_size
 
     def _iterate_through_bucket(
-        self, s3hook, bucket, prefix, modified_from=None, modified_until=None
+        self,
+        s3hook,
+        bucket,
+        prefix,
+        modified_from=None,
+        modified_until=None,
+        suffix=None,
+        file_load_parallelism=1000,
+        thread_pool_size=20,
     ):
         """The bucket.objects.filter() method only returns a max of 1000
         objects. If more objects are in an S3 bucket, pagniation is
         required. See also: https://stackoverflow.com/questions/44238525/how-to-iterate-over-files-in-an-s3-bucket
         """
+
+        def read_key(key_name):
+            return s3hook.read_key(key_name, bucket)
+
         cli = s3hook.get_client_type("s3")
         paginator = cli.get_paginator("list_objects_v2")
         page_iterator = paginator.paginate(Bucket=bucket, Prefix=prefix)
@@ -101,26 +118,41 @@ class EWAHS3Operator(EWAHBaseOperator):
             for o in page_iterator.build_full_result()["Contents"]
             if (not modified_from or o["LastModified"] >= modified_from)
             and (not modified_until or o["LastModified"] < modified_until)
+            and (not suffix or suffix == o["Key"][-len(suffix) :])
         ]
 
+        self._temp_object_data = {}
+
+        list_of_keys = [o["Key"] for o in all_objects]
         self.log.info("Iterating through {0} objects..".format(len(all_objects)))
 
         for item in all_objects:
+            if not item["Key"] in self._temp_object_data:
+                # use multithreading to efficiently load s3 files
+                self.log.info(
+                    "Getting next {0} files...".format(str(file_load_parallelism))
+                )
+                _next_keys = list_of_keys[:file_load_parallelism]
+                del list_of_keys[:file_load_parallelism]
+                pool = ThreadPool(thread_pool_size)
+                results = pool.map(read_key, _next_keys)
+                pool.close()
+                pool.join()
+                self._temp_object_data.update(dict(zip(_next_keys, results)))
+            item["_body"] = self._temp_object_data.pop(item["Key"])
             yield item
 
     def ewah_execute(self, context):
         if self.file_format == "JSON":
             return self.execute_json(
                 context=context,
-                f_get_data=lambda hook, key, bucket: json.loads(
-                    hook.read_key(key, bucket)
-                ),
+                f_get_data=lambda file_content: json.loads(file_content),
             )
         elif self.file_format == "AWS_FIREHOSE_JSON":
             return self.execute_json(
                 context=context,
-                f_get_data=lambda hook, key, bucket: json.loads(
-                    "[" + hook.read_key(key, bucket).replace("}{", "},{") + "]"
+                f_get_data=lambda file_content: json.loads(
+                    "[" + file_content.replace("}{", "},{") + "]"
                 ),
             )
         elif self.file_format == "CSV":
@@ -145,7 +177,6 @@ class EWAHS3Operator(EWAHBaseOperator):
                 self.upload_data(data=data)
 
         hook = ExtendedS3Hook(self.source_conn.conn_id)
-        suffix = self.suffix
         if self.key_name:
             obj = hook.get_key(self.key_name, self.bucket_name)
             raw_data = obj.get()["Body"].read()
@@ -166,22 +197,19 @@ class EWAHS3Operator(EWAHBaseOperator):
             chunk_upload(reader)
 
         else:
-            objects = self._iterate_through_bucket(
+            for obj_iter in self._iterate_through_bucket(
                 s3hook=hook,
                 bucket=self.bucket_name,
                 prefix=self.prefix,
                 modified_from=self.data_from,
                 modified_until=self.data_until,
-            )
-            for obj_iter in objects:
-                # skip all files outside of loading scope
-                if suffix and not suffix == obj_iter["Key"][-len(suffix) :]:
-                    continue
+                suffix=self.suffix,
+                file_load_parallelism=self.file_load_parallelism,
+                thread_pool_size=self.thread_pool_size,
+            ):
 
                 self.log.info("Loading data from file {0}".format(obj_iter["Key"]))
-                raw_data = (
-                    hook.get_key(obj_iter["Key"], self.bucket_name).get()["Body"].read()
-                )
+                raw_data = obj_iter["_body"]
                 if self.decompress:
                     raw_data = gzip.decompress(raw_data)
                 # remove BOM if it exists
@@ -211,13 +239,10 @@ class EWAHS3Operator(EWAHBaseOperator):
 
     def execute_json(self, context, f_get_data):
         hook = ExtendedS3Hook(self.source_conn.conn_id)
-        suffix = self.suffix
 
         if self.key_name:
             data = f_get_data(
-                hook=hook,
-                key=self.key_name,
-                bucket=self.bucket_name,
+                file_content=hook.read_key(key=self.key_name, bucket=self.bucket_name)
             )
             self.upload_data(data=data)
         else:
@@ -228,11 +253,11 @@ class EWAHS3Operator(EWAHBaseOperator):
                 prefix=self.prefix,
                 modified_from=self.data_from,
                 modified_until=self.data_until,
+                suffix=self.suffix,
+                file_load_parallelism=self.file_load_parallelism,
+                thread_pool_size=self.thread_pool_size,
             )
             for obj_iter in objects:
-                if suffix and not suffix == obj_iter["Key"][-len(suffix) :]:
-                    continue
-
                 self.log.info(
                     "Loading data from file {0}".format(
                         obj_iter["Key"],
@@ -245,9 +270,5 @@ class EWAHS3Operator(EWAHBaseOperator):
                         "file_last_modified": str(obj_iter["LastModified"]),
                     }
                 )
-                data = f_get_data(
-                    hook=hook,
-                    key=obj_iter["Key"],
-                    bucket=self.bucket_name,
-                )
+                data = f_get_data(file_content=obj_iter["_body"])
                 self.upload_data(data=data)
