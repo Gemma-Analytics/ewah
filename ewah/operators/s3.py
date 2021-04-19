@@ -3,6 +3,7 @@ from ewah.constants import EWAHConstants as EC
 
 from airflow.providers.amazon.aws.hooks.s3 import S3Hook
 
+from botocore.exceptions import ClientError
 from datetime import datetime, timedelta
 from multiprocessing.dummy import Pool as ThreadPool
 
@@ -15,13 +16,19 @@ class ExtendedS3Hook(S3Hook):
     """Extends and improves the provider package's S3Hook's capability"""
 
     credentials_by_region = {}
+    force_refresh = False
 
-    def _get_credentials(self, region_name):
+    def _get_credentials(self, region_name, force_refresh=False):
         "Avoid creation of a new session each time an S3 file is downloaded."
-        if not region_name in self.credentials_by_region:
+        if (
+            force_refresh
+            or self.force_refresh
+            or (not region_name in self.credentials_by_region)
+        ):
             self.credentials_by_region[region_name] = super()._get_credentials(
                 region_name=region_name
             )
+            self.force_refresh = False
         return self.credentials_by_region[region_name]
 
 
@@ -135,7 +142,13 @@ class EWAHS3Operator(EWAHBaseOperator):
                 _next_keys = list_of_keys[:file_load_parallelism]
                 del list_of_keys[:file_load_parallelism]
                 pool = ThreadPool(thread_pool_size)
-                results = pool.map(read_key, _next_keys)
+                try:
+                    results = pool.map(read_key, _next_keys)
+                except ClientError:
+                    # This error can occur when the aws token expires - try refreshing
+                    # the connection and see if the error persists
+                    s3hook.force_refresh = True
+                    results = pool.map(read_key, _next_keys)
                 pool.close()
                 pool.join()
                 self._temp_object_data.update(dict(zip(_next_keys, results)))
