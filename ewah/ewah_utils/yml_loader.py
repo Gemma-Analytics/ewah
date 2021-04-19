@@ -20,7 +20,7 @@ class Loader(base_loader):
     def __init__(self, stream):
         self._root = os.path.split(stream.name)[0]
         # Enable Jinja2 in the yaml files
-        yaml_stream = StringIO(Template(stream.read()).render())
+        yaml_stream = StringIO(Template(stream.read()).render(env=os.environ))
         yaml_stream.name = stream.name
         super().__init__(yaml_stream)
 
