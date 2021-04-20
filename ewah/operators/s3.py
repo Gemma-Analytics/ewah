@@ -10,6 +10,7 @@ from multiprocessing.dummy import Pool as ThreadPool
 import json
 import csv
 import gzip
+import time
 
 
 class ExtendedS3Hook(S3Hook):
@@ -17,18 +18,25 @@ class ExtendedS3Hook(S3Hook):
 
     credentials_by_region = {}
     force_refresh = False
+    is_refreshing = {}
 
     def _get_credentials(self, region_name, force_refresh=False):
         "Avoid creation of a new session each time an S3 file is downloaded."
-        if (
+        if (not self.is_refreshing.get(region_name)) and (
             force_refresh
             or self.force_refresh
             or (not region_name in self.credentials_by_region)
         ):
+            # Avoid all threads renewing credentials at the same time
+            self.is_refreshing[region_name] = True
+            self.force_refresh = False
             self.credentials_by_region[region_name] = super()._get_credentials(
                 region_name=region_name
             )
-            self.force_refresh = False
+            self.is_refreshing[region_name] = False
+        while self.is_refreshing.get(region_name):
+            # Wait until the appropriate thread is finished refreshing credentials
+            time.sleep(0.1)
         return self.credentials_by_region[region_name]
 
 
