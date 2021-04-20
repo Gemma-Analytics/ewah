@@ -8,8 +8,8 @@ on:
       - VERSION
 
 jobs:
-  build:
-    name: Full Release Workflow
+  release:
+    name: Release to PyPi
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -40,8 +40,13 @@ jobs:
         run: |
           python setup.py sdist bdist_wheel
           twine upload dist/*
-      - name: Wait for 30s to make sure package is available via pip
-        run: sleep 30
+  build:
+    name: Build and publish Docker images
+    runs-on: ubuntu-latest
+    needs: release
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
       - name: Build and publish Docker images
         env:
           DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
