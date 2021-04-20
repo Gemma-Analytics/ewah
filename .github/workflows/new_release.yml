@@ -45,6 +45,8 @@ jobs:
     runs-on: ubuntu-latest
     needs: release
     steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
       - name: Build and publish Docker images
         env:
           DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
