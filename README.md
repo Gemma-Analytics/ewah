@@ -31,6 +31,7 @@ EWAH currently supports the following operators:
 - OracleSQL
 - Pipedrive
 - PostgreSQL / Redshift
+- Recurly
 - S3 (for CSV or JSON files stored in an S3 bucket, e.g. from Kinesis Firehose)
 - Salesforce
 - Shopify

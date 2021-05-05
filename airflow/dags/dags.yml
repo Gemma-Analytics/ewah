@@ -300,6 +300,30 @@ el_dags:
         product_prices:
           sql_select_statement: !text_from_file secret_sql_query.sql
 
+  EL_Recurly_inc:
+    dag_strategy: incremental
+    el_operator: recurly
+    target_schema_name: raw_recurly_incr
+    start_date: 2021-04-01 00:00:00+00:00
+    operator_config:
+      general_config:
+        source_conn_id: recurly
+      tables:
+        coupons: {}
+        items: {}
+
+  EL_Recurly_fr:
+    dag_strategy: atomic
+    el_operator: recurly
+    target_schema_name: raw_recurly_fr
+    start_date: 2021-04-01 00:00:00+00:00
+    operator_config:
+      general_config:
+        source_conn_id: recurly
+      tables:
+        coupons: {}
+        items: {}
+
   EL_S3: !yml_from_file secret_dag_s3.yml
   EL_S3_2: !yml_from_file secret_dag_s3_2.yml
   EL_S3_3: !yml_from_file secret_dag_s3_3.yml

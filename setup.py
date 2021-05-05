@@ -37,6 +37,7 @@ setuptools.setup(
         "pymysql",
         "pytz",
         "pyyaml",
+        "recurly",
         "simple-salesforce",
         "snowflake-connector-python>=2.3.8",  # 2.3.8 vendored urrlib3 and requests
         "sshtunnel>=0.2.2",
