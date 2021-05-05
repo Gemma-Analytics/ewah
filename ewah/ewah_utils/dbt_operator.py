@@ -245,9 +245,3 @@ class EWAHdbtOperator(BaseOperator):
                 [cmd.append("dbt {0}".format(dc)) for dc in self.dbt_commands]
                 cmd.append("deactivate")
                 assert run_cmd(cmd, env, self.log.info) == 0
-
-            # if applicable: close SSH tunnel
-            if hasattr(self, "ssh_tunnel_forwarder"):
-                self.log.info("Stopping!")
-                self.ssh_tunnel_forwarder.stop()
-                del self.ssh_tunnel_forwarder
