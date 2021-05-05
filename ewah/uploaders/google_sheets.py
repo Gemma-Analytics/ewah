@@ -72,8 +72,10 @@ class EWAHGSheetsUploader(EWAHBaseUploader):
         pk_columns=None,  # must accept arg, but it must also always be []
     ):
         # Google Sheets only works with drop & replace in one go
-        assert load_strategy == EC.LS_INSERT_REPLACE
-        assert upload_call_count == 1
+        assert (
+            load_strategy == EC.LS_INSERT_REPLACE
+        ), "Google Sheets DWHs can only be drop_and_replace!"
+        assert upload_call_count == 1, "Chunking is not possible for Google Sheets DWH!"
 
         if pk_columns:
             raise Exception("Arg pk_columns invalidly supplied!")
@@ -86,11 +88,6 @@ class EWAHGSheetsUploader(EWAHBaseUploader):
                 string = chr(65 + remainder) + string
             return string
 
-        if not load_strategy == EC.LS_INSERT_REPLACE:
-            raise Exception("Google Sheets DWHs can only be drop_and_replace!")
-        self._upload_call_count += 1
-        if not self._upload_call_count == 1:
-            raise Exception("Chunking is not possible for Google Sheets DWH!")
         self.log.info("Replacing data in Google Sheets!")
 
         if not data:
