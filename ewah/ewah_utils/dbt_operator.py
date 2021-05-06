@@ -117,6 +117,7 @@ class EWAHdbtOperator(BaseOperator):
 
         # env to be used in processes later
         env = os.environ.copy()
+        env["PIP_USER"] = "no"
 
         # create a new temp folder, all action happens in here
         with TemporaryDirectory(prefix="__ewah_dbt_operator_") as tmp_dir:
