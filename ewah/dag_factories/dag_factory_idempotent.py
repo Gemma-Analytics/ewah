@@ -83,6 +83,7 @@ def dag_factory_idempotent(
     additional_dag_args: Optional[dict] = None,
     additional_task_args: Optional[dict] = None,
     logging_func: Optional[Callable] = None,
+    dagrun_timeout_factor: Optional[float] = 0.8,
     **kwargs,
 ) -> Tuple[DAG, DAG, DAG]:
     """Returns a tuple of three DAGs associated with incremental data loading.
@@ -135,6 +136,8 @@ def dag_factory_idempotent(
     :param additional_task_args: kwargs applied to the tasks. Can be any Task
         kwarg, although some may be overwritten by the function.
     :param logging_func: Pass a callable for logging output. Defaults to print.
+    :param dag_timeout_factor: Set a timeout factor for dag runs so they fail if
+        they exceed a percentage of their schedule_interval (default: 0.8).
     """
 
     def raise_exception(msg: str) -> None:
@@ -199,6 +202,18 @@ def dag_factory_idempotent(
     else:
         backfill_end_date = switch_absolute_date
 
+    if dagrun_timeout_factor:
+        _msg = "dagrun_timeout_factor must be a number between 0 and 1!"
+        assert isinstance(dagrun_timeout_factor, (int, float)) and (
+            0 < dagrun_timeout_factor <= 1
+        ), _msg
+        dagrun_timeout = dagrun_timeout_factor * schedule_interval_future
+        additional_task_args["execution_timeout"] = additional_task_args.get(
+            "execution_timeout", dagrun_timeout
+        )
+    else:  # In case of 0 set to None
+        dagrun_timeout = None
+
     dags = (
         DAG(  # Current DAG
             dag_name + "_Idempotent",
@@ -208,6 +223,7 @@ def dag_factory_idempotent(
             catchup=True,
             max_active_runs=1,
             default_args=default_args,
+            dagrun_timeout=dagrun_timeout,
             **additional_dag_args,
         ),
         DAG(  # Backfill DAG
@@ -218,6 +234,7 @@ def dag_factory_idempotent(
             catchup=True,
             max_active_runs=1,
             default_args=default_args,
+            dagrun_timeout=dagrun_timeout,
             **additional_dag_args,
         ),
         DAG(  # Reset DAG

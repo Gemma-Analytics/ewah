@@ -8,22 +8,6 @@ import yaml
 import json
 
 
-# [START] DELETE after 2.0.2 release
-# The datatype of extra in the airflow metadata databse is constrained to 500
-# characters by default. Remove this constraint.
-import sqlalchemy
-from airflow.configuration import conf
-
-print("\n\n")
-print("Altering metadata db: allowing arbitrary length extras in connections.")
-print("\n\n")
-sql_conn_string = conf.get("core", "sql_alchemy_conn")
-engine = sqlalchemy.create_engine(sql_conn_string, echo=False)
-with engine.begin() as conn:
-    conn.execute("ALTER TABLE connection ALTER COLUMN extra TYPE TEXT")
-# [END] DELETE after 2.0.2 release
-
-
 def commit_conns(filepath: str) -> None:
     # read a yaml with connections and commit that to airflow's metadata db
     conns = yaml.load(open(filepath, "r"), Loader=Loader)  # read YAML
