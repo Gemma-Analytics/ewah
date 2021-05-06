@@ -277,6 +277,7 @@ def dbt_dag_factory_new(
     run_flags=None,  # e.g. --model tag:base
     project=None,  # BigQuery alias
     dataset=None,  # BigQuery alias
+    dagrun_timeout_factor=0.8,
 ):
     run_flags = run_flags or ""  # use empty string instead of None
 
@@ -303,6 +304,17 @@ def dbt_dag_factory_new(
         "default_args": default_args,
         "max_active_runs": 1,
     }
+
+    if dagrun_timeout_factor:
+        _msg = "dagrun_timeout_factor must be a number between 0 and 1!"
+        assert isinstance(dagrun_timeout_factor, (int, float)) and (
+            0 < dagrun_timeout_factor <= 1
+        ), _msg
+        dag_kwargs["dagrun_timeout"] = dagrun_timeout_factor * schedule_interval
+        dag_kwargs["default_args"]["execution_timeout"] = dag_kwargs[
+            "default_args"
+        ].get("execution_timeout", dag_kwargs["dagrun_timeout"])
+
     dag_1 = DAG(dag_base_name, schedule_interval=schedule_interval, **dag_kwargs)
     dag_2 = DAG(dag_base_name + "_full_refresh", schedule_interval=None, **dag_kwargs)
 
@@ -409,9 +421,23 @@ def dbt_snapshot_dag(
     schedule_interval=timedelta(hours=1),
     start_date=None,
     default_args=None,
+    dagrun_timeout_factor=0.8,
 ):
     # only PostgreSQL & Snowflake implemented as of now!
     assert dwh_engine in (EC.DWH_ENGINE_POSTGRES, EC.DWH_ENGINE_SNOWFLAKE)
+
+    if dagrun_timeout_factor:
+        _msg = "dagrun_timeout_factor must be a number between 0 and 1!"
+        assert isinstance(dagrun_timeout_factor, (int, float)) and (
+            0 < dagrun_timeout_factor <= 1
+        ), _msg
+        dagrun_timeout = dagrun_timeout_factor * schedule_interval
+        default_args = default_args or {}
+        default_args["execution_timeout"] = default_args.get(
+            "execution_timeout", dagrun_timeout
+        )
+    else:  # In case of 0 set to None
+        dagrun_timeout = None
 
     dag = DAG(
         dag_name,
@@ -420,6 +446,7 @@ def dbt_snapshot_dag(
         max_active_runs=1,
         start_date=start_date,
         default_args=default_args,
+        dagrun_timeout=dagrun_timeout,
     )
 
     task = EWAHdbtOperator(

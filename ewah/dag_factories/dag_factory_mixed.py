@@ -53,6 +53,7 @@ def dag_factory_mixed(
     additional_dag_args: Optional[dict] = None,
     additional_task_args: Optional[dict] = None,
     logging_func: Optional[Callable] = None,
+    dagrun_timeout_factor: Optional[float] = 0.8,
     **kwargs,
 ) -> Tuple[DAG, DAG]:
     def raise_exception(msg: str) -> None:
@@ -123,6 +124,27 @@ def dag_factory_mixed(
         # start_date_fr = start_date + _td * schedule_interval_full_refresh
         # start_date_inc = start_date_fr + schedule_interval_full_refresh
 
+    default_args = default_args or {}
+    default_args_fr = deepcopy(default_args)
+    default_args_inc = deepcopy(default_args)
+
+    if dagrun_timeout_factor:
+        _msg = "dagrun_timeout_factor must be a number between 0 and 1!"
+        assert isinstance(dagrun_timeout_factor, (int, float)) and (
+            0 < dagrun_timeout_factor <= 1
+        ), _msg
+        dagrun_timeout_inc = dagrun_timeout_factor * schedule_interval_incremental
+        dagrun_timeout_fr = dagrun_timeout_factor * schedule_interval_full_refresh
+        default_args_inc["execution_timeout"] = default_args_inc.get(
+            "execution_timeout", dagrun_timeout_inc
+        )
+        default_args_fr["execution_timeout"] = default_args_fr.get(
+            "execution_timeout", dagrun_timeout_fr
+        )
+    else:  # In case of 0 set to None
+        dagrun_timeout_inc = None
+        dagrun_timeout_fr = None
+
     dag_name_fr = dag_name + "_Mixed_Atomic"
     dag_name_inc = dag_name + "_Mixed_Idempotent"
     dags = (
@@ -133,7 +155,8 @@ def dag_factory_mixed(
             schedule_interval=schedule_interval_full_refresh,
             catchup=True,
             max_active_runs=1,
-            default_args=default_args,
+            default_args=default_args_fr,
+            dagrun_timeout=dagrun_timeout_fr,
             **additional_dag_args,
         ),
         DAG(
@@ -143,7 +166,8 @@ def dag_factory_mixed(
             schedule_interval=schedule_interval_incremental,
             catchup=True,
             max_active_runs=1,
-            default_args=default_args,
+            default_args=default_args_inc,
+            dagrun_timeout=dagrun_timeout_inc,
             **additional_dag_args,
         ),
         DAG(  # Reset DAG
