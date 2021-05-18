@@ -11,6 +11,8 @@ class EWAHAircallOperator(EWAHBaseOperator):
     _ACCEPTED_EXTRACT_STRATEGIES = {
         EC.ES_FULL_REFRESH: True,
         EC.ES_INCREMENTAL: True,
+        EC.ES_SUBSEQUENT: False,  # Full Refreshs would likely hit API limits and fail!
+        # If data is small enough for a full refresh, do it every time.
     }
 
     _CONN_TYPE = EWAHAircallHook.conn_type

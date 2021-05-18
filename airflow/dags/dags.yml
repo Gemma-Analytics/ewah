@@ -37,14 +37,25 @@ el_dags:
     dag_strategy: incremental
     el_operator: aircall
     target_schema_name: raw_aircall
-    start_date: 2020-10-31 00:00:00+00:00
+    start_date: 2020-11-30 00:00:00+00:00
     operator_config:
       general_config:
         source_conn_id: aircall
-        reload_data_from: 2020-10-31 00:00:00+00:00
+        # All endpoints except calls are to be fully refreshed
+        extract_strategy: full-refresh
+        load_data_from_relative: !!python/object/apply:datetime.timedelta
+          - 1  # Reload the previous 24h of data as well in case a call was created but
+          # ... not finished at the time of the first loading
+        reload_data_from: 2020-11-30 00:00:00+00:00
         wait_for_seconds: 120
       tables:
-        calls: {}
+        users: {}
+        calls:  # Only calls are to be loaded incrementally
+          extract_strategy: incremental
+        numbers: {}
+        contacts: {}
+        tags: {}
+        teams: {}
 
   EL_Aircall_FR:
     dag_strategy: fr

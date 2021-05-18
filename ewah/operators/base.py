@@ -457,13 +457,13 @@ class EWAHBaseOperator(BaseOperator):
 
             # normal incremental load
             _ed -= self.load_data_from_relative or _tdz
-            data_from = max(_ed, data_from or _ed)
+            data_from = min(_ed, data_from or _ed)
             if not self.test_if_target_table_exists():
                 # Load data from scratch!
                 data_from = ada(self.reload_data_from) or data_from
 
             _ned += self.load_data_until_relative or _tdz
-            data_until = min(_ned, data_until or _ned)
+            data_until = max(_ned, data_until or _ned)
 
         elif self.extract_strategy in (EC.ES_FULL_REFRESH, EC.ES_SUBSEQUENT):
             # Values may still be set as static values
@@ -516,12 +516,15 @@ class EWAHBaseOperator(BaseOperator):
         # execute operator
         if self.load_data_chunking_timedelta and data_from and data_until:
             # Chunking to avoid OOM
+            self.log.info(
+                "Now loading from {0} to {1}...".format(str(data_from), str(data_until))
+            )
             assert data_until > data_from
             assert self.load_data_chunking_timedelta > timedelta(days=0)
             while self.data_from < data_until:
-                self.data_until = self.data_from
-                self.data_until += self.load_data_chunking_timedelta
-                self.data_until = min(self.data_until, data_until)
+                self.data_until = min(
+                    self.data_from + self.load_data_chunking_timedelta, data_until
+                )
                 self.ewah_execute(context)
                 self.data_from += self.load_data_chunking_timedelta
         else:
