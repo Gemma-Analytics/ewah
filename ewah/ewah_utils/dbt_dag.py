@@ -382,7 +382,7 @@ def dbt_dag_factory_new(
     )
     run_2 = EWAHdbtOperator(
         task_id="dbt_run",
-        dbt_commands=["seed", f"run --full-refresh {run_flags}"],
+        dbt_commands=["seed --full-refresh", f"run --full-refresh {run_flags}"],
         dag=dag_2,
         **dbt_kwargs,
     )
