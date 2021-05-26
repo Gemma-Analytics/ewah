@@ -3,6 +3,7 @@ from ewah.hooks.postgres import EWAHPostgresHook
 from ewah.constants import EWAHConstants as EC
 from psycopg2.extras import execute_values
 
+import hashlib
 
 class EWAHPostgresUploader(EWAHBaseUploader):
 
@@ -103,7 +104,13 @@ class EWAHPostgresUploader(EWAHBaseUploader):
                 """.format(
                     schema_name=schema_name,
                     table_name=table_name,
-                    constraint="ufu_{0}_{1}".format(schema_name, table_name),
+                    # max length for constraint is 63 chars - make sure it's unique!
+                    constraint="__ewah_{0}".format(
+                        hashlib.blake2b(
+                            "ufu_{0}_{1}".format(schema_name, table_name).encode(),
+                            digest_size=28,
+                        ).hexdigest()
+                    ),
                     columns='", "'.join(update_on_columns),
                 ),
                 commit=False,
