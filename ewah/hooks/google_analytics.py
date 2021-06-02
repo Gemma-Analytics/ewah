@@ -8,6 +8,7 @@ import json
 import time
 from datetime import datetime
 
+
 class EWAHGoogleAnalyticsHook(EWAHBaseHook):
 
     _ATTR_RELABEL = {}
@@ -61,6 +62,15 @@ class EWAHGoogleAnalyticsHook(EWAHBaseHook):
                 widget=EWAHTextAreaWidget(rows=12),
             ),
         }
+
+    def get_data_in_batches(self, data_from, data_until, chunking_interval, **kwargs):
+        while data_from <= data_until:
+            yield self.get_data(
+                data_from=data_from,
+                data_until=min(data_until, data_from + chunking_interval),
+                **kwargs
+            )
+            data_from += chunking_interval
 
     def get_data(
         self,
@@ -136,10 +146,12 @@ class EWAHGoogleAnalyticsHook(EWAHBaseHook):
             "includeEmptyRows": include_empty_rows,
         }
 
-        self.log.info("Loading data from {0} to {1}...".format(
-            report_request["dateRanges"][0]["startDate"],
-            report_request["dateRanges"][0]["endDate"],
-        ))
+        self.log.info(
+            "Loading data from {0} to {1}...".format(
+                report_request["dateRanges"][0]["startDate"],
+                report_request["dateRanges"][0]["endDate"],
+            )
+        )
 
         report_response = (
             service_object.reports()
