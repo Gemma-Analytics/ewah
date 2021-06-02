@@ -479,8 +479,10 @@ class EWAHBaseOperator(BaseOperator):
         del self.load_data_from
         del self.reload_data_from
         del self.load_data_until
-        del self.load_data_from_relative
         del self.load_data_until_relative
+        if not self.extract_strategy == EC.ES_SUBSEQUENT:
+            # keep this param for subsequent loads
+            del self.load_data_from_relative
 
         # Prepare file used for temporary data pickling, if applicable
         if self.use_temp_pickling:
