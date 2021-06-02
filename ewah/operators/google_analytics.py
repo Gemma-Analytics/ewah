@@ -38,10 +38,10 @@ class EWAHGAOperator(EWAHBaseOperator):
             )
         if kwargs.get("extract_strategy") == EC.ES_SUBSEQUENT:
             kwargs["subsequent_field"] = "date"
-        if not kwargs.get("load_data_from_relative"):
-            # Set a default
-            kwargs["load_data_from_relative"] = timedelta(days=3)
 
+        # Set default to otherwise non-defaulted kwargs
+        if not kwargs.get("load_data_from_relative"):
+            kwargs["load_data_from_relative"] = timedelta(days=3)
 
         shorthand = "ga:"
         dimensions = [
@@ -98,15 +98,16 @@ class EWAHGAOperator(EWAHBaseOperator):
         else:
             data_from = self.data_from.date()
 
-        self.upload_data(
-            self.source_hook.get_data(
-                view_id=self.view_id,
-                dimensions=self.dimensions,
-                metrics=self.metrics,
-                page_size=self.page_size,
-                include_empty_rows=self.include_empty_rows,
-                sampling_level=self.sampling_level,
-                data_from=data_from,  # tbd: subsequent!
-                data_until=(self.data_until or datetime.now()).date(),
-            )
-        )
+        for batch in self.source_hook.get_data_in_batches(
+            view_id=self.view_id,
+            dimensions=self.dimensions,
+            metrics=self.metrics,
+            page_size=self.page_size,
+            include_empty_rows=self.include_empty_rows,
+            sampling_level=self.sampling_level,
+            data_from=data_from,  # tbd: subsequent!
+            data_until=(self.data_until or datetime.now()).date(),
+            chunking_interval=self.load_data_chunking_timedelta
+            or timedelta(days=7 * 13),
+        ):
+            self.upload_data(batch)
