@@ -5,6 +5,7 @@ from psycopg2.extras import execute_values
 
 import hashlib
 
+
 class EWAHPostgresUploader(EWAHBaseUploader):
 
     _QUERY_SCHEMA_CHANGES_COLUMNS = """
