@@ -6,7 +6,7 @@ from oauth2client.service_account import ServiceAccountCredentials as SAC
 
 import json
 import time
-from datetime import datetime
+from datetime import datetime, timedelta
 
 
 class EWAHGoogleAnalyticsHook(EWAHBaseHook):
@@ -70,7 +70,7 @@ class EWAHGoogleAnalyticsHook(EWAHBaseHook):
                 data_until=min(data_until, data_from + chunking_interval),
                 **kwargs
             )
-            data_from += chunking_interval
+            data_from += chunking_interval + timedelta(days=1)
 
     def get_data(
         self,
