@@ -6,7 +6,7 @@ from oauth2client.service_account import ServiceAccountCredentials as SAC
 
 import json
 import time
-
+from datetime import datetime
 
 class EWAHGoogleAnalyticsHook(EWAHBaseHook):
 
@@ -125,8 +125,8 @@ class EWAHGoogleAnalyticsHook(EWAHBaseHook):
             "viewId": view_id,
             "dateRanges": [
                 {
-                    "startDate": data_from.date().isoformat(),
-                    "endDate": data_until.date().isoformat(),
+                    "startDate": data_from.isoformat(),
+                    "endDate": data_until.isoformat(),
                 }
             ],
             "samplingLevel": sampling_level,
@@ -210,6 +210,7 @@ class EWAHGoogleAnalyticsHook(EWAHBaseHook):
                     data[header] = value
 
                 data["view_id"] = view_id
+                data["date"] = datetime.strptime(data["date"], "%Y%m%d").date()
 
                 uploadable_data += [data]
 

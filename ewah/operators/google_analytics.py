@@ -3,7 +3,7 @@ from ewah.hooks.google_analytics import EWAHGoogleAnalyticsHook
 from ewah.operators.base import EWAHBaseOperator
 
 import json
-from datetime import datetime
+from datetime import datetime, timedelta
 
 
 class EWAHGAOperator(EWAHBaseOperator):
@@ -38,6 +38,10 @@ class EWAHGAOperator(EWAHBaseOperator):
             )
         if kwargs.get("extract_strategy") == EC.ES_SUBSEQUENT:
             kwargs["subsequent_field"] = "date"
+        if not kwargs.get("load_data_from_relative"):
+            # Set a default
+            kwargs["load_data_from_relative"] = timedelta(days=3)
+
 
         shorthand = "ga:"
         dimensions = [
@@ -89,8 +93,10 @@ class EWAHGAOperator(EWAHBaseOperator):
             and self.test_if_target_table_exists()
         ):
             data_from = self.get_max_value_of_column(self.subsequent_field)
+            if self.load_data_from_relative:
+                data_from -= self.load_data_from_relative
         else:
-            data_from = self.data_from
+            data_from = self.data_from.date()
 
         self.upload_data(
             self.source_hook.get_data(
@@ -101,6 +107,6 @@ class EWAHGAOperator(EWAHBaseOperator):
                 include_empty_rows=self.include_empty_rows,
                 sampling_level=self.sampling_level,
                 data_from=data_from,  # tbd: subsequent!
-                data_until=self.data_until or datetime.now(),
+                data_until=(self.data_until or datetime.now()).date(),
             )
         )
