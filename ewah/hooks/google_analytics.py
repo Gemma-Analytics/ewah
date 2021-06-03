@@ -222,7 +222,10 @@ class EWAHGoogleAnalyticsHook(EWAHBaseHook):
                     data[header] = value
 
                 data["view_id"] = view_id
-                data["date"] = datetime.strptime(data["date"], "%Y%m%d").date()
+                if data.get("date"):
+                    data["date"] = datetime.strptime(data["date"], "%Y%m%d").date()
+                if data.get("dateHour"):
+                    data["dateHour"] = datetime.strptime(data["dateHour"], "%Y%m%d%H")
 
                 uploadable_data += [data]
 
