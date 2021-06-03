@@ -288,6 +288,26 @@ el_dags:
         activities: {}
         notes: {}
 
+  EL_PlentyMarkets:
+    dag_strategy: idempotent
+    el_operator: plentymarkets
+    start_date: 2021-05-01 00:00:00+00:00
+    load_data_chunking_timedelta: !!python/object/apply:datetime.timedelta
+      - 1
+    target_schema_name: raw_plentymarkets
+    operator_config:
+      general_config:
+        source_conn_id: plentymarkets
+      tables:
+        categories:
+          extract_strategy: full-refresh
+        orders: {}
+        tickets:
+          extract_strategy: full-refresh
+        items:
+          extract_strategy: full-refresh
+
+
   EL_Postgres:
     dag_strategy: fr
     el_operator: postgres
