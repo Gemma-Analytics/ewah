@@ -157,6 +157,7 @@ el_dags:
   EL_GAds: !yml_from_file secret_dag_gads.yml
 
   EL_GA: !yml_from_file secret_dag_google_analytics.yml
+  EL_GA_hourly: !yml_from_file secret_dag_google_analytics_hourly.yml
 
   # EL_GMaps: tbd
 
