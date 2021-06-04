@@ -99,7 +99,6 @@ el_dags:
             source_conn_id: "{{ conn_name }}"
         {% endfor %}
 
-
   EL_BigQuery:
     dag_strategy: fr
     el_operator: bq
@@ -292,11 +291,12 @@ el_dags:
     dag_strategy: idempotent
     el_operator: plentymarkets
     start_date: 2021-05-01 00:00:00+00:00
-    load_data_chunking_timedelta: !!python/object/apply:datetime.timedelta
-      - 1
     target_schema_name: raw_plentymarkets
     operator_config:
       general_config:
+        load_data_chunking_timedelta: !!python/object/apply:datetime.timedelta
+          - 0
+          - 3600
         source_conn_id: plentymarkets
       tables:
         categories:

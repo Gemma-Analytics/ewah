@@ -44,10 +44,9 @@ class EWAHPlentyMarketsHook(EWAHBaseHook):
         driver.find_element_by_xpath('//button[normalize-space()="Login"]').click()
         endpoint = driver.current_url
         if endpoint.count("/") > 2:
-            third_dash_pos = endpoint.find("/")
-            third_dash_pos = endpoint.find("/", third_dash_pos + 1)
-            third_dash_pos = endpoint.find("/", third_dash_pos + 1)
-            endpoint = endpoint[:third_dash_pos]
+            endpoint = endpoint[
+                : endpoint.find("/", endpoint.find("/", endpoint.find("/") + 1) + 1)
+            ]
         return endpoint
 
     @property
