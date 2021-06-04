@@ -62,7 +62,12 @@ class EWAHPlentyMarketsHook(EWAHBaseHook):
                 },
             )
             assert token_request.status_code == 200, token_request.text
-            request_data = token_request.json()
+            try:
+                request_data = token_request.json()
+            except:
+                assert False, "Response is not a JSON - Response Text: {0}".format(
+                    token_request.text
+                )
             self._token_expires_at = requested_at + timedelta(
                 seconds=request_data["expires_in"]
             )
@@ -98,9 +103,25 @@ class EWAHPlentyMarketsHook(EWAHBaseHook):
         while True:
             headers = {"Authorization": "Bearer {0}".format(self.token)}
             self.log.info("Requesting new page of data...")
-            print("ok")
             data_request = requests.get(url, params=params, headers=headers)
-            print("what")
+            assert data_request.status_code in (200, 401), "Status {0}: {1}".format(
+                data_request.status_code, data_request.text
+            )
+            if data_request.status_code == 401:
+                # Sometimes, the backend hash changes. If this happens during
+                # a data load, is will result in a specific 401 error. Catch
+                # the error and try again (once) with the new endpoint. The
+                # try is needed in case the data_request() does not return
+                # a JSON (will produce an error otherwise).
+                try:
+                    if data_request.json()["class"] == "UIHashExpiredException":
+                        if "rest/" in resource:
+                            url = self.endpoint + resource
+                        else:
+                            url = self.endpoint + "/rest/{0}".format(resource)
+                        data_request = requests.get(url, params=params, headers=headers)
+                except:
+                    pass  # assert below will take care of any error
             assert data_request.status_code == 200, "Status {0}: {1}".format(
                 data_request.status_code, data_request.text
             )
