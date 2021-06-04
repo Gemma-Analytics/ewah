@@ -5,7 +5,7 @@ USER root
 RUN apt-get update
 
 # required packages to install psycopg2 which is a dependency of ewah
-RUN apt-get install -y --no-install-recommends postgresql-server-dev-all gcc
+RUN apt-get install -y --no-install-recommends postgresql-server-dev-all gcc wget
 
 # create folder and give user airflow sufficient access rights
 RUN mkdir /opt/ewah && \
@@ -14,10 +14,27 @@ RUN mkdir /opt/ewah && \
 # required to use git
 RUN apt-get install -y --no-install-recommends git
 
+# required to use Chrome with Selenium
+# see also: https://stackoverflow.com/questions/45323271/how-to-run-selenium-with-chrome-in-docker
+RUN mkdir -p /opt/chrome && \
+    cd /opt/chrome && \
+    wget -q -O - https://dl-ssl.google.com/linux/linux_signing_key.pub | apt-key add - && \
+    sh -c 'echo "deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main" >> /etc/apt/sources.list.d/google-chrome.list' && \
+    apt-get -y update && \
+    apt-get install -y google-chrome-stable && \
+    apt-get install -yqq unzip && \
+    wget -O /tmp/chromedriver.zip http://chromedriver.storage.googleapis.com/`curl -sS chromedriver.storage.googleapis.com/LATEST_RELEASE`/chromedriver_linux64.zip && \
+    unzip /tmp/chromedriver.zip chromedriver -d /usr/local/bin/ && \
+    cd /opt && \
+    rm -r -f /opt/chrome
+# set display port to avoid crash
+ENV DISPLAY=:99
+
+
 # install requirements due to Oracle
 # see also: https://cx-oracle.readthedocs.io/en/latest/user_guide/installation.html#installing-cx-oracle-on-linux
 RUN mkdir -p /opt/oracle && \
-    apt-get install -y --no-install-recommends libaio1 wget unzip && \
+    apt-get install -y --no-install-recommends libaio1 unzip && \
     cd /opt/oracle && \
     wget https://download.oracle.com/otn_software/linux/instantclient/19800/instantclient-basic-linux.x64-19.8.0.0.0dbru.zip && \
     unzip instantclient-basic-linux.x64-19.8.0.0.0dbru.zip && \
