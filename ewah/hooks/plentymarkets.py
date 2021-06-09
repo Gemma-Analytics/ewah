@@ -156,12 +156,18 @@ class EWAHPlentyMarketsHook(EWAHBaseHook):
                 data_request.status_code, data_request.text
             )
             returned_data = data_request.json()
-            data += returned_data["entries"]
-            if returned_data["isLastPage"]:
+            if isinstance(returned_data, list):
+                # some endpoints return just one page with the data as list
+                data += returned_data
                 break
+            else:
+                data += returned_data["entries"]
+                params["page"] = returned_data["page"] + 1  # for next request
+                if returned_data["isLastPage"]:
+                    break
             if len(data) >= batch_size:
                 yield data
                 data = []
-            params["page"] = returned_data["page"] + 1  # for next request
+
         if data:
             yield data
