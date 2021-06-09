@@ -518,38 +518,25 @@ class EWAHBaseOperator(BaseOperator):
         # execute operator
         if self.load_data_chunking_timedelta and data_from and data_until:
             # Chunking to avoid OOM
-            self.log.info(
-                "Now loading from {0} to {1}...".format(str(data_from), str(data_until))
-            )
             assert data_until > data_from
             assert self.load_data_chunking_timedelta > timedelta(days=0)
             while self.data_from < data_until:
                 self.data_until = min(
                     self.data_from + self.load_data_chunking_timedelta, data_until
                 )
+                self.log.info(
+                    "Now loading from {0} to {1}...".format(str(self.data_from), str(self.data_until))
+                )
                 self.ewah_execute(context)
                 self.data_from += self.load_data_chunking_timedelta
+                if self.use_temp_pickling:
+                    self._upload_from_pickle(temp_file_name=temp_file_name)
         else:
             self.ewah_execute(context)
+            if self.use_temp_pickling:
+                self._upload_from_pickle(temp_file_name=temp_file_name)
 
         if self.use_temp_pickling:
-            # then upload data now
-            self.temp_pickle_file.close()
-            self.temp_pickle_file = self._pickle_file_open(
-                temp_file_name, "rb", self.pickle_compression
-            )
-            keep_unpickling = True
-            while keep_unpickling:
-                raw_data = []
-                for _ in range(self.pickling_upload_chunk_size):
-                    try:
-                        raw_data.append(pickle.load(self.temp_pickle_file))
-                    except EOFError:
-                        # all done
-                        keep_unpickling = False
-                        break
-                self._upload_data(raw_data)
-
             # always clean up after yourself
             self.temp_pickle_file.close()
             del self.temp_pickle_file
@@ -685,6 +672,33 @@ class EWAHBaseOperator(BaseOperator):
             raise Exception(
                 "Invalid data format for function! Must be dict or list of dicts!"
             )
+
+    def _upload_from_pickle(self, temp_file_name):
+        """Call this function to upload previously pickled data."""
+        assert self.use_temp_pickling
+        assert hasattr(self, "temp_pickle_file")
+        self.temp_pickle_file.close()
+        self.temp_pickle_file = self._pickle_file_open(
+            temp_file_name, "rb", self.pickle_compression
+        )
+        keep_unpickling = True
+        while keep_unpickling:
+            raw_data = []
+            for _ in range(self.pickling_upload_chunk_size):
+                try:
+                    raw_data.append(pickle.load(self.temp_pickle_file))
+                except EOFError:
+                    # all done
+                    keep_unpickling = False
+                    break
+            self._upload_data(raw_data)
+        # re-open a new pickle file for new data
+        self.temp_pickle_file.close()
+        self.temp_pickle_file = self._pickle_file_open(
+            temp_file_name, "wb", self.pickle_compression
+        )
+
+
 
     def upload_data(self, data=None, columns_definition=None):
         if self.use_temp_pickling:
