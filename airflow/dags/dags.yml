@@ -307,6 +307,18 @@ el_dags:
         items:
           extract_strategy: full-refresh
 
+  EL_PlentyMarkets_FR:
+    dag_strategy: atomic
+    el_operator: plentymarkets
+    target_schema_name: raw_plentymarkets_fr
+    operator_config:
+      general_config:
+        source_conn_id: plentymarkets
+      tables:
+        properties: {}
+        item_variations:
+          resource: "items/variations"
+
 
   EL_Postgres:
     dag_strategy: fr
