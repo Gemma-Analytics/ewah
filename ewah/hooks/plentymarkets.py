@@ -101,7 +101,11 @@ class EWAHPlentyMarketsHook(EWAHBaseHook):
 
         data = []
         while True:
-            headers = {"Authorization": "Bearer {0}".format(self.token)}
+            headers = {
+                "Accept": "application/json",
+                "Content-Type": "application/json",
+                "Authorization": "Bearer {0}".format(self.token),
+            }
             self.log.info("Requesting new page of data...")
             data_request = requests.get(url, params=params, headers=headers)
             assert data_request.status_code in (200, 401), "Status {0}: {1}".format(
