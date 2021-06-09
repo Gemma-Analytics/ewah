@@ -41,7 +41,10 @@ class EWAHPlentyMarketsOperator(EWAHBaseOperator):
             assert resource == "orders"
         if kwargs["extract_strategy"] == EC.ES_INCREMENTAL:
             # currently, only the orders resource works with incremental loading
-            assert resource == "orders"
+            assert (
+                EWAHPlentyMarketsHook.format_resource(resource)
+                in EWAHPlentyMarketsHook._INCREMENTAL_FIELDS.keys()
+            ), "{0} is not incrementally loadable!".format(resource)
         super().__init__(*args, **kwargs)
 
         assert isinstance(additional_api_call_params, (type(None), dict))

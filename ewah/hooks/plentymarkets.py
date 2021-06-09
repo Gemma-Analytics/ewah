@@ -17,6 +17,11 @@ class EWAHPlentyMarketsHook(EWAHBaseHook):
     conn_type = "ewah_plentymarkets"
     hook_name = "EWAH PlentyMarkets Connection"
 
+    _INCREMENTAL_FIELDS = {
+        "/rest/orders": ["updatedAtFrom", "updatedAtTo"],
+        "/rest/orders/status-history": ["createdAtFrom", "createdAtTo"],
+    }
+
     @staticmethod
     def get_ui_field_behaviour():
         return {
@@ -28,8 +33,22 @@ class EWAHPlentyMarketsHook(EWAHBaseHook):
             },
         }
 
+    @staticmethod
+    def get_connection_form_widgets() -> dict:
+        """Returns connection widgets to add to connection form"""
+        from wtforms import BooleanField
+
+        return {
+            "extra__ewah_plentymarkets__url_is_final": BooleanField(
+                "Is this the final endpoint?"
+            )
+        }
+
     @property
     def endpoint(self):
+        if self.conn.url_is_final:
+            return self.conn.url
+
         # get the current endpoint with the correct backend hash
         chrome_options = webdriver.ChromeOptions()
         chrome_options.add_argument("--headless")
@@ -74,6 +93,15 @@ class EWAHPlentyMarketsHook(EWAHBaseHook):
             self._token = request_data["access_token"]
         return self._token
 
+    @staticmethod
+    def format_resource(resource):
+        if "rest/" in resource:
+            if not resource.startswith("/"):
+                resource = "/" + resource
+        else:
+            resource = "/rest/{0}".format(resource)
+        return resource
+
     def get_data_in_batches(
         self,
         resource,
@@ -88,16 +116,14 @@ class EWAHPlentyMarketsHook(EWAHBaseHook):
         if additional_params:
             assert isinstance(additional_params, dict)
             params.update(additional_params)
+
+        resource = self.format_resource(resource)
+        url = self.endpoint + resource
+
         if data_from:
-            params["updatedAtFrom"] = data_from.isoformat()
+            params[self._INCREMENTAL_FIELDS[resource][0]] = data_from.isoformat()
         if data_until:
-            params["updatedAtTo"] = data_until.isoformat()
-        if "rest/" in resource:
-            if not resource.startswith("/"):
-                resource = "/" + resource
-            url = self.endpoint + resource
-        else:
-            url = self.endpoint + "/rest/{0}".format(resource)
+            params[self._INCREMENTAL_FIELDS[resource][1]] = data_until.isoformat()
 
         data = []
         while True:

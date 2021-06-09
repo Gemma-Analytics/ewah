@@ -299,13 +299,10 @@ el_dags:
           - 3600
         source_conn_id: plentymarkets
       tables:
-        categories:
-          extract_strategy: full-refresh
         orders: {}
-        tickets:
-          extract_strategy: full-refresh
-        items:
-          extract_strategy: full-refresh
+        order_status_histories:
+          resource: "/rest/orders/status-history"
+
 
   EL_PlentyMarkets_FR:
     dag_strategy: atomic
@@ -315,9 +312,12 @@ el_dags:
       general_config:
         source_conn_id: plentymarkets
       tables:
-        properties: {}
+        categories: {}
+        items: {}
         item_variations:
           resource: "items/variations"
+        tickets: {}
+        properties: {}
 
 
   EL_Postgres:
