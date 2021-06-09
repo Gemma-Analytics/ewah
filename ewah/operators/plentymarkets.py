@@ -33,7 +33,7 @@ class EWAHPlentyMarketsOperator(EWAHBaseOperator):
     _REQUIRES_COLUMNS_DEFINITION = False
 
     def __init__(self, resource=None, additional_api_call_params=None, *args, **kwargs):
-        kwargs["primary_key_column_name"] = "id"
+        kwargs["primary_key_column_name"] = kwargs.get("primary_key_column_name", "id")
         resource = resource or kwargs.get("target_table_name")
         if kwargs["extract_strategy"] == EC.ES_SUBSEQUENT:
             kwargs["subsequent_field"] = kwargs.get("subsequent_field", "updatedAt")
@@ -41,7 +41,10 @@ class EWAHPlentyMarketsOperator(EWAHBaseOperator):
             assert resource == "orders"
         if kwargs["extract_strategy"] == EC.ES_INCREMENTAL:
             # currently, only the orders resource works with incremental loading
-            assert resource == "orders"
+            assert (
+                EWAHPlentyMarketsHook.format_resource(resource)
+                in EWAHPlentyMarketsHook._INCREMENTAL_FIELDS.keys()
+            ), "{0} is not incrementally loadable!".format(resource)
         super().__init__(*args, **kwargs)
 
         assert isinstance(additional_api_call_params, (type(None), dict))
