@@ -299,7 +299,12 @@ el_dags:
           - 3600
         source_conn_id: plentymarkets
       tables:
-        orders: {}
+        orders:
+          additional_api_call_params:
+            with[]:
+              - addresses
+              - location
+              - payments
         order_status_histories:
           resource: "/rest/orders/status-history"
 
