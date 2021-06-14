@@ -525,7 +525,9 @@ class EWAHBaseOperator(BaseOperator):
                     self.data_from + self.load_data_chunking_timedelta, data_until
                 )
                 self.log.info(
-                    "Now loading from {0} to {1}...".format(str(self.data_from), str(self.data_until))
+                    "Now loading from {0} to {1}...".format(
+                        str(self.data_from), str(self.data_until)
+                    )
                 )
                 self.ewah_execute(context)
                 self.data_from += self.load_data_chunking_timedelta
@@ -697,8 +699,6 @@ class EWAHBaseOperator(BaseOperator):
         self.temp_pickle_file = self._pickle_file_open(
             temp_file_name, "wb", self.pickle_compression
         )
-
-
 
     def upload_data(self, data=None, columns_definition=None):
         if self.use_temp_pickling:
