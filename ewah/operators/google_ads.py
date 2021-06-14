@@ -29,10 +29,6 @@ class EWAHGoogleAdsOperator(EWAHBaseOperator):
         *args,
         **kwargs
     ):
-        """
-        recommendation: leave data_until=None and use a timedelta for
-        data_from.
-        """
 
         if kwargs.get("columns_definition"):
             raise Exception("columns_definition is not accepted for this operator!")
@@ -67,6 +63,10 @@ class EWAHGoogleAdsOperator(EWAHBaseOperator):
             assert "date" in fields.get(
                 "segments", []
             ), "If using non-full-refresh loading, must include segments.date!"
+            if self.extract_strategy == EC.ES_SUBSEQUENT:
+                assert (
+                    self.load_data_from or self.reload_data_from
+                ), "If using subsequent loading, must supply either 'load_data_from' or 'reload_data_from'!"
 
     def get_select_statement(self, dict_format, prefix=None):
         # create the list of fields for the SELECT statement
