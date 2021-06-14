@@ -154,6 +154,7 @@ el_dags:
         {% endfor %}
 
   EL_GAds: !yml_from_file secret_dag_gads.yml
+  EL_GAds_subs: !yml_from_file secret_dag_gads_subsequent.yml
 
   EL_GA: !yml_from_file secret_dag_google_analytics.yml
   EL_GA_hourly: !yml_from_file secret_dag_google_analytics_hourly.yml
