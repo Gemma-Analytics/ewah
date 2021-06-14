@@ -29,7 +29,8 @@ def dag_factory_atomic(
     additional_dag_args: Optional[dict] = None,
     additional_task_args: Optional[dict] = None,
     logging_func: Optional[Callable] = None,
-    dagrun_timeout_factor: Optional[float] = 0.8,
+    dagrun_timeout_factor: Optional[float] = None,
+    task_timeout_factor: Optional[float] = 0.8,
     **kwargs
 ) -> Tuple[DAG]:
     def raise_exception(msg: str) -> None:
@@ -76,12 +77,14 @@ def dag_factory_atomic(
         assert isinstance(dagrun_timeout_factor, (int, float)) and (
             0 < dagrun_timeout_factor <= 1
         ), _msg
-        dagrun_timeout = dagrun_timeout_factor * schedule_interval
-        additional_task_args["execution_timeout"] = additional_task_args.get(
-            "execution_timeout", dagrun_timeout
+        additional_dag_args["dagrun_timeout"] = additional_dag_args.get(
+            "dagrun_timeout", dagrun_timeout_factor * schedule_interval
         )
-    else:  # In case of 0 set to None
-        dagrun_timeout = None
+
+    if task_timeout_factor:
+        additional_task_args["execution_timeout"] = additional_task_args.get(
+            "execution_timeout", task_timeout_factor * schedule_interval
+        )
 
     dag = DAG(
         dag_name,
@@ -91,7 +94,6 @@ def dag_factory_atomic(
         schedule_interval=schedule_interval,
         start_date=start_date,
         end_date=end_date,
-        dagrun_timeout=dagrun_timeout,
         **additional_dag_args,
     )
 

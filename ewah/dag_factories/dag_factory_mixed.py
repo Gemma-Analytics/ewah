@@ -53,7 +53,8 @@ def dag_factory_mixed(
     additional_dag_args: Optional[dict] = None,
     additional_task_args: Optional[dict] = None,
     logging_func: Optional[Callable] = None,
-    dagrun_timeout_factor: Optional[float] = 0.8,
+    dagrun_timeout_factor: Optional[float] = None,
+    task_timeout_factor: Optional[float] = 0.8,
     **kwargs,
 ) -> Tuple[DAG, DAG]:
     def raise_exception(msg: str) -> None:
@@ -135,15 +136,20 @@ def dag_factory_mixed(
         ), _msg
         dagrun_timeout_inc = dagrun_timeout_factor * schedule_interval_incremental
         dagrun_timeout_fr = dagrun_timeout_factor * schedule_interval_full_refresh
-        default_args_inc["execution_timeout"] = default_args_inc.get(
-            "execution_timeout", dagrun_timeout_inc
-        )
-        default_args_fr["execution_timeout"] = default_args_fr.get(
-            "execution_timeout", dagrun_timeout_fr
-        )
     else:  # In case of 0 set to None
         dagrun_timeout_inc = None
         dagrun_timeout_fr = None
+
+    if task_timeout_factor:
+        _msg = "task_timeout_factor must be a number between 0 and 1!"
+        assert isinstance(task_timeout_factor, (int, float)) and (
+            0 < task_timeout_factor <= 1
+        ), _msg
+        execution_timeout_fr = task_timeout_factor * schedule_interval_full_refresh
+        execution_timeout_inc = task_timeout_factor * schedule_interval_incremental
+    else:
+        execution_timeout_fr = None
+        execution_timeout_inc = None
 
     dag_name_fr = dag_name + "_Mixed_Atomic"
     dag_name_inc = dag_name + "_Mixed_Idempotent"
@@ -232,6 +238,7 @@ def dag_factory_mixed(
         target_schema_suffix=target_schema_suffix,
         target_database_name=target_database_name,
         read_right_users=read_right_users,
+        execution_timeout=execution_timeout_fr,
         **additional_task_args,
     )
 
@@ -243,6 +250,7 @@ def dag_factory_mixed(
         target_schema_suffix=target_schema_suffix,
         target_database_name=target_database_name,
         read_right_users=read_right_users,
+        execution_timeout=execution_timeout_inc,
         **additional_task_args,
     )
 
@@ -320,6 +328,9 @@ def dag_factory_mixed(
         arg_dict_fr = deepcopy(arg_dict_inc)
         arg_dict_fr["extract_strategy"] = EC.ES_FULL_REFRESH
         arg_dict_fr["load_strategy"] = EC.LS_INSERT_REPLACE
+
+        arg_dict_fr["execution_timeout"] = execution_timeout_fr
+        arg_dict_inc["execution_timeout"] = execution_timeout_inc
 
         task_fr = el_operator(dag=dags[0], **arg_dict_fr)
         task_inc = el_operator(dag=dags[1], **arg_dict_inc)

@@ -83,7 +83,8 @@ def dag_factory_idempotent(
     additional_dag_args: Optional[dict] = None,
     additional_task_args: Optional[dict] = None,
     logging_func: Optional[Callable] = None,
-    dagrun_timeout_factor: Optional[float] = 0.8,
+    dagrun_timeout_factor: Optional[float] = None,
+    task_timeout_factor: Optional[float] = 0.8,
     **kwargs,
 ) -> Tuple[DAG, DAG, DAG]:
     """Returns a tuple of three DAGs associated with incremental data loading.
@@ -207,12 +208,14 @@ def dag_factory_idempotent(
         assert isinstance(dagrun_timeout_factor, (int, float)) and (
             0 < dagrun_timeout_factor <= 1
         ), _msg
-        dagrun_timeout = dagrun_timeout_factor * schedule_interval_future
-        additional_task_args["execution_timeout"] = additional_task_args.get(
-            "execution_timeout", dagrun_timeout
+        additional_dag_args["dagrun_timeout"] = additional_dag_args.get(
+            "dagrun_timeout", dagrun_timeout_factor * schedule_interval_future
         )
-    else:  # In case of 0 set to None
-        dagrun_timeout = None
+
+    if task_timeout_factor:
+        additional_task_args["execution_timeout"] = additional_task_args.get(
+            "execution_timeout", task_timeout_factor * schedule_interval_future
+        )
 
     dags = (
         DAG(  # Current DAG
@@ -223,7 +226,6 @@ def dag_factory_idempotent(
             catchup=True,
             max_active_runs=1,
             default_args=default_args,
-            dagrun_timeout=dagrun_timeout,
             **additional_dag_args,
         ),
         DAG(  # Backfill DAG
@@ -234,7 +236,6 @@ def dag_factory_idempotent(
             catchup=True,
             max_active_runs=1,
             default_args=default_args,
-            dagrun_timeout=dagrun_timeout,
             **additional_dag_args,
         ),
         DAG(  # Reset DAG
@@ -317,37 +318,6 @@ def dag_factory_idempotent(
         **additional_task_args,
     )
 
-    # Make sure incremental loading stops if there is an error!
-    ets = (
-        ExtendedETS(
-            task_id="sense_previous_instance",
-            allowed_states=["success", "skipped"],
-            external_dag_id=dags[0]._dag_id,
-            external_task_id=final.task_id,
-            execution_delta=schedule_interval_future,
-            backfill_dag_id=dags[1]._dag_id,
-            backfill_external_task_id=final_backfill.task_id,
-            backfill_execution_delta=schedule_interval_backfill,
-            dag=dags[0],
-            poke_interval=5 * 60,
-            mode="reschedule",  # don't block a worker and pool slot
-            **additional_task_args,
-        ),
-        ExtendedETS(
-            task_id="sense_previous_instance",
-            allowed_states=["success", "skipped"],
-            external_dag_id=dags[1]._dag_id,
-            external_task_id=final_backfill.task_id,
-            execution_delta=schedule_interval_backfill,
-            dag=dags[1],
-            poke_interval=5 * 60,
-            mode="reschedule",  # don't block a worker and pool slot
-            **additional_task_args,
-        ),
-    )
-    ets[0] >> kickoff
-    ets[1] >> kickoff_backfill
-
     # add table creation tasks
     arg_dict = deepcopy(additional_task_args)
     arg_dict.update(operator_config.get("general_config", {}))
@@ -392,4 +362,39 @@ def dag_factory_idempotent(
 
     # For the unlikely case that there is no incremental task
     kickoff_backfill >> final_backfill
+
+    # Make sure incremental loading stops if there is an error!
+    if additional_task_args.get("task_timeout_factor"):
+        # sensors shall have no timeouts!
+        del additional_task_args["task_timeout_factor"]
+    ets = (
+        ExtendedETS(
+            task_id="sense_previous_instance",
+            allowed_states=["success", "skipped"],
+            external_dag_id=dags[0]._dag_id,
+            external_task_id=final.task_id,
+            execution_delta=schedule_interval_future,
+            backfill_dag_id=dags[1]._dag_id,
+            backfill_external_task_id=final_backfill.task_id,
+            backfill_execution_delta=schedule_interval_backfill,
+            dag=dags[0],
+            poke_interval=5 * 60,
+            mode="reschedule",  # don't block a worker and pool slot
+            **additional_task_args,
+        ),
+        ExtendedETS(
+            task_id="sense_previous_instance",
+            allowed_states=["success", "skipped"],
+            external_dag_id=dags[1]._dag_id,
+            external_task_id=final_backfill.task_id,
+            execution_delta=schedule_interval_backfill,
+            dag=dags[1],
+            poke_interval=5 * 60,
+            mode="reschedule",  # don't block a worker and pool slot
+            **additional_task_args,
+        ),
+    )
+    ets[0] >> kickoff
+    ets[1] >> kickoff_backfill
+
     return dags
