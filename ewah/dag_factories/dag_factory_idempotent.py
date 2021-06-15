@@ -208,14 +208,26 @@ def dag_factory_idempotent(
         assert isinstance(dagrun_timeout_factor, (int, float)) and (
             0 < dagrun_timeout_factor <= 1
         ), _msg
-        additional_dag_args["dagrun_timeout"] = additional_dag_args.get(
+        dagrun_timeout = additional_dag_args.get(
             "dagrun_timeout", dagrun_timeout_factor * schedule_interval_future
         )
+        dagrun_timeout_backfill = additional_dag_args.pop(
+            "dagrun_timeout", dagrun_timeout_factor * schedule_interval_future
+        )
+    else:
+        dagrun_timeout = additional_dag_args.get("dagrun_timeout")
+        dagrun_timeout_backfill = additional_dag_args.pop("dagrun_timeout", None)
 
     if task_timeout_factor:
-        additional_task_args["execution_timeout"] = additional_task_args.get(
+        execution_timeout = additional_task_args.get(
             "execution_timeout", task_timeout_factor * schedule_interval_future
         )
+        execution_timeout_backfill = additional_task_args.pop(
+            "execution_timeout", task_timeout_factor * schedule_interval_backfill
+        )
+    else:
+        execution_timeout = additional_task_args.get("execution_timeout")
+        execution_timeout_backfill = additional_task_args.pop(execution_timeout, None)
 
     dags = (
         DAG(  # Current DAG
@@ -226,6 +238,7 @@ def dag_factory_idempotent(
             catchup=True,
             max_active_runs=1,
             default_args=default_args,
+            dagrun_timeout=dagrun_timeout,
             **additional_dag_args,
         ),
         DAG(  # Backfill DAG
@@ -236,6 +249,7 @@ def dag_factory_idempotent(
             catchup=True,
             max_active_runs=1,
             default_args=default_args,
+            dagrun_timeout=dagrun_timeout_backfill,
             **additional_dag_args,
         ),
         DAG(  # Reset DAG
@@ -303,6 +317,7 @@ def dag_factory_idempotent(
         target_database_name=target_database_name,
         dwh_conn_id=dwh_conn_id,
         read_right_users=read_right_users,
+        execution_timeout=execution_timeout,
         **additional_task_args,
     )
 
@@ -315,6 +330,7 @@ def dag_factory_idempotent(
         target_database_name=target_database_name,
         dwh_conn_id=dwh_conn_id,
         read_right_users=read_right_users,
+        execution_timeout=execution_timeout_backfill,
         **additional_task_args,
     )
 
@@ -354,10 +370,12 @@ def dag_factory_idempotent(
 
         if kwargs["extract_strategy"] == EC.ES_INCREMENTAL:
             # Backfill ignores non-incremental extract strategy types
-            task_backfill = el_operator(dag=dags[1], **kwargs)
+            task_backfill = el_operator(
+                dag=dags[1], execution_timeout=execution_timeout_backfill, **kwargs
+            )
             kickoff_backfill >> task_backfill >> final_backfill
 
-        task = el_operator(dag=dags[0], **kwargs)
+        task = el_operator(dag=dags[0], execution_timeout=execution_timeout, **kwargs)
         kickoff >> task >> final
 
     # For the unlikely case that there is no incremental task
