@@ -1,8 +1,13 @@
+from airflow.models import Variable
+from airflow.configuration import conf
+
 from ewah.hooks.base import EWAHBaseHook
 
 import requests
+import json
 from datetime import datetime, timedelta
 from selenium import webdriver
+from cryptography.fernet import Fernet
 
 
 class EWAHPlentyMarketsHook(EWAHBaseHook):
@@ -71,26 +76,70 @@ class EWAHPlentyMarketsHook(EWAHBaseHook):
     @property
     def token(self):
         if not hasattr(self, "_token") or datetime.now() > self._token_expires_at:
-            requested_at = datetime.now()
-            token_request = requests.post(
-                self.endpoint + "/rest/login",
-                params={"username": self.conn.username, "password": self.conn.password},
-                headers={
-                    "Accept": "application/json",
-                    "Content-Type": "application/json",
-                },
-            )
-            assert token_request.status_code == 200, token_request.text
+            # attempt to get the token from the Variable (if stored there)
+            # Variable is encrypted with airflow instance's own fernet key
+            # In the rare event of a key change, just load a new token
+            # If currently rotating keys, use the first one
+            fernet = Fernet(conf.get("core", "fernet_key").split(".")[0])
+            ewah_plenty_token_variable_key = "__ewah_plenty_token"
             try:
-                request_data = token_request.json()
-            except:
-                assert False, "Response is not a JSON - Response Text: {0}".format(
-                    token_request.text
+                variable_decrypted = json.loads(
+                    fernet.decrypt(
+                        Variable.get(
+                            key=ewah_plenty_token_variable_key, default_var=None
+                        ).encode()
+                    ).decode()
                 )
-            self._token_expires_at = requested_at + timedelta(
-                seconds=request_data["expires_in"]
-            )
-            self._token = request_data["access_token"]
+            except:
+                variable_decrypted = None
+
+            if (
+                variable_decrypted
+                and variable_decrypted.get("expires_at")
+                and datetime.fromisoformat(variable_decrypted["expires_at"])
+                > datetime.utcnow()
+            ):
+                self.log.info("Using token stored as airflow variable")
+                self._token = variable_decrypted["access_token"]
+                self._token_expires_at = datetime.fromisoformat(
+                    variable_decrypted["expires_at"]
+                )
+            else:
+                self.log.info("Requesting new token")
+                requested_at = datetime.now()
+                token_request = requests.post(
+                    self.endpoint + "/rest/login",
+                    params={
+                        "username": self.conn.username,
+                        "password": self.conn.password,
+                    },
+                    headers={
+                        "Accept": "application/json",
+                        "Content-Type": "application/json",
+                    },
+                )
+                assert token_request.status_code == 200, token_request.text
+                try:
+                    request_data = token_request.json()
+                except:
+                    assert False, "Response is not a JSON - Response Text: {0}".format(
+                        token_request.text
+                    )
+                self._token_expires_at = requested_at + timedelta(
+                    seconds=request_data["expires_in"]
+                )
+                self._token = request_data["access_token"]
+                Variable.set(
+                    key=ewah_plenty_token_variable_key,
+                    value=fernet.encrypt(
+                        json.dumps(
+                            {
+                                "expires_at": self._token_expires_at.isoformat(),
+                                "access_token": self._token,
+                            }
+                        ).encode()
+                    ).decode(),
+                )
         return self._token
 
     @staticmethod
