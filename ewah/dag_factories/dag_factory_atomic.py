@@ -30,7 +30,7 @@ def dag_factory_atomic(
     additional_task_args: Optional[dict] = None,
     logging_func: Optional[Callable] = None,
     dagrun_timeout_factor: Optional[float] = None,
-    task_timeout_factor: Optional[float] = 0.8,
+    task_timeout_factor: Optional[float] = None,
     **kwargs
 ) -> Tuple[DAG]:
     def raise_exception(msg: str) -> None:
