@@ -12,6 +12,7 @@ class EWAHGoogleAdsHook(EWAHBaseHook):
     _ATTR_RELABEL: {
         "client_id": "login",
         "client_secret": "password",
+        "login_customer_id": "schema",
     }
 
     conn_name_attr = "ewah_google_ads_conn_id"
@@ -22,10 +23,11 @@ class EWAHGoogleAdsHook(EWAHBaseHook):
     @staticmethod
     def get_ui_field_behaviour() -> dict:
         return {
-            "hidden_fields": ["extra", "schema", "host", "port"],
+            "hidden_fields": ["extra", "host", "port"],
             "relabeling": {
-                "login": "client_id",
-                "password": "client_secret",
+                "schema": "Login Customer ID (optional)",
+                "login": "Client ID",
+                "password": "Client Secret",
             },
         }
 
@@ -44,14 +46,18 @@ class EWAHGoogleAdsHook(EWAHBaseHook):
     @property
     def service(self):
         if not hasattr(self, "_service"):
+            config_dict = {
+                "developer_token": self.conn.developer_token,
+                "client_id": self.conn.login,
+                "client_secret": self.conn.password,
+                "refresh_token": self.conn.refresh_token,
+            }
+            if self.conn.schema:
+                config_dict["login_customer_id"] = self.conn.schema.replace("-", "")
             self._service = GoogleAdsClient.load_from_dict(
-                {
-                    "developer_token": self.conn.developer_token,
-                    "client_id": self.conn.login,
-                    "client_secret": self.conn.password,
-                    "refresh_token": self.conn.refresh_token,
-                }
+                config_dict=config_dict
             ).get_service("GoogleAdsService")
+
         return self._service
 
     @staticmethod
