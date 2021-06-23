@@ -25,6 +25,7 @@ class EWAHPlentyMarketsHook(EWAHBaseHook):
     _INCREMENTAL_FIELDS = {
         "/rest/orders": ["updatedAtFrom", "updatedAtTo"],
         "/rest/orders/status-history": ["createdAtFrom", "createdAtTo"],
+        "/rest/accounts/contacts": ["updatedAtAfter", "updatedAtBefore"],
     }
 
     @staticmethod
@@ -172,6 +173,9 @@ class EWAHPlentyMarketsHook(EWAHBaseHook):
         if data_from:
             params[self._INCREMENTAL_FIELDS[resource][0]] = data_from.isoformat()
         if data_until:
+            if resource == "/rest/accounts/contacts":
+                # inconsistent API implementation - ignores data for last day otherwise
+                data_until += timedelta(days=1)
             params[self._INCREMENTAL_FIELDS[resource][1]] = data_until.isoformat()
 
         data = []
