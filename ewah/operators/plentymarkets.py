@@ -37,8 +37,8 @@ class EWAHPlentyMarketsOperator(EWAHBaseOperator):
         resource = resource or kwargs.get("target_table_name")
         if kwargs["extract_strategy"] == EC.ES_SUBSEQUENT:
             kwargs["subsequent_field"] = kwargs.get("subsequent_field", "updatedAt")
-            # currently, only the orders resource works with subsequent loading
-            assert resource == "orders"
+            # currently, only the orders and accounts/contacts resource works with subsequent loading
+            assert any(["orders" in resource, "accounts/contacts" in resource])
         if kwargs["extract_strategy"] == EC.ES_INCREMENTAL:
             # currently, only the orders resource works with incremental loading
             assert (

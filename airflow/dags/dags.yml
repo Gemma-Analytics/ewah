@@ -300,6 +300,8 @@ el_dags:
           - 3600
         source_conn_id: plentymarkets
       tables:
+        account_contacts:
+          resource: "/rest/accounts/contacts"
         orders:
           additional_api_call_params:
             with[]:
@@ -328,6 +330,19 @@ el_dags:
           resource: "/rest/orders/statuses/all"
           primary_key_column_name: "statusId"
 
+  EL_PlentyMarkets_Subs:
+    dag_strategy: atomic
+    el_operator: plentymarkets
+    target_schema_name: raw_plentymarkets_subs
+    operator_config:
+      general_config:
+        source_conn_id: plentymarkets
+        extract_strategy: subsequent
+        load_data_chunking_timedelta: !!python/object/apply:datetime.timedelta
+          - 1
+      tables:
+        account_contacts:
+          resource: "/rest/accounts/contacts"
 
   EL_Postgres:
     dag_strategy: fr

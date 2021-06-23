@@ -25,6 +25,7 @@ class EWAHPlentyMarketsHook(EWAHBaseHook):
     _INCREMENTAL_FIELDS = {
         "/rest/orders": ["updatedAtFrom", "updatedAtTo"],
         "/rest/orders/status-history": ["createdAtFrom", "createdAtTo"],
+        "/rest/accounts/contacts": ["updatedAtAfter", "updatedAtBefore"],
     }
 
     @staticmethod
