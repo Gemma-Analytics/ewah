@@ -156,7 +156,10 @@ class EWAHdbtOperator(BaseOperator):
                     self.subfolder = os.path.sep + self.subfolder
                 dbt_dir += self.subfolder
 
-            dwh_conn = EWAHBaseHook.get_connection(self.dwh_conn_id)
+            dwh_hook = EWAHBaseHook.get_hook_from_conn_id(self.dwh_conn_id)
+            # in case of SSH: execute a query to create the connection and tunnel
+            dwh_hook.execute("SELECT 1 AS a -- Testing the connection")
+            dwh_conn = dwh_hook.conn
 
             # read profile name & create temporary profiles.yml
             project_yml_file = dbt_dir
@@ -178,8 +181,8 @@ class EWAHdbtOperator(BaseOperator):
                     "outputs": {
                         "prod": {  # for postgres
                             "type": "postgres",
-                            "host": dwh_conn.host,
-                            "port": dwh_conn.port or "5432",
+                            "host": dwh_hook.local_bind_address[0],
+                            "port": dwh_hook.local_bind_address[1],
                             "user": dwh_conn.login,
                             "pass": dwh_conn.password,
                             "dbname": dwh_conn.schema,
