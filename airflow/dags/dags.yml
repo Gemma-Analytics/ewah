@@ -327,6 +327,8 @@ el_dags:
           resource: "items/variations"
         tickets: {}
         properties: {}
+        contact_classes:
+          resource: /rest/accounts/contacts/classes
         order_status_all:
           resource: "/rest/orders/statuses/all"
           primary_key_column_name: "statusId"
