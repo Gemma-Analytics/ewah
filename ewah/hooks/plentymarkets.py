@@ -214,7 +214,13 @@ class EWAHPlentyMarketsHook(EWAHBaseHook):
                 data += returned_data
                 break
             else:
-                data += returned_data["entries"]
+                if "entries" in returned_data.keys():
+                    data += returned_data["entries"]
+                else:
+                    # Special case where just a dict with key-value pairs is returned
+                    # Example: /rest/accounts/contacts/classes
+                    data += [{"id": k, "value": v} for k, v in returned_data.items()]
+                    break
                 params["page"] = returned_data["page"] + 1  # for next request
                 if returned_data["isLastPage"]:
                     break
