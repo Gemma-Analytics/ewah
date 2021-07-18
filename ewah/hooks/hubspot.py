@@ -15,8 +15,8 @@ class EWAHHubspotHook(EWAHBaseHook):
         "api_key": "password",
     }
 
-    conn_name_attr = "hubspot_conn_id"
-    default_conn_name = "hubspot_default"
+    conn_name_attr = "ewah_hubspot_conn_id"
+    default_conn_name = "ewah_hubspot_default"
     conn_type = "ewah_hubspot"
     hook_name = "EWAH Hubspot Connection"
 
