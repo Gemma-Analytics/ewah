@@ -11,8 +11,8 @@ class EWAHAirflowHook(EWAHBaseHook):
         "user": "login",
     }
 
-    conn_name_attr = "airflow_conn_id"
-    default_conn_name = "airflow_default"
+    conn_name_attr = "ewah_airflow_conn_id"
+    default_conn_name = "ewah_airflow_default"
     conn_type = "ewah_airflow"
     hook_name = "EWAH Airflow Connection"
 

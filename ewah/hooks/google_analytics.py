@@ -132,7 +132,7 @@ class EWAHGoogleAnalyticsHook(EWAHBaseHook):
         )
 
         report_request = {
-            "viewId": view_id,
+            "viewId": str(view_id),
             "dateRanges": [
                 {
                     "startDate": data_from.isoformat(),

@@ -11,8 +11,8 @@ class EWAHAircallHook(EWAHBaseHook):
         "api_token": "password",
     }
 
-    conn_name_attr = "aircall_conn_id"
-    default_conn_name = "aircall_default"
+    conn_name_attr = "ewah_aircall_conn_id"
+    default_conn_name = "ewah_aircall_default"
     conn_type = "ewah_aircall"
     hook_name = "EWAH Aircall Connection"
 

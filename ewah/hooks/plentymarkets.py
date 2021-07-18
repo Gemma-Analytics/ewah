@@ -17,8 +17,8 @@ class EWAHPlentyMarketsHook(EWAHBaseHook):
         "url": "host",
     }
 
-    conn_name_attr = "plentymarkets_conn_id"
-    default_conn_name = "plentymarkets_default"
+    conn_name_attr = "ewah_plentymarkets_conn_id"
+    default_conn_name = "ewah_plentymarkets_default"
     conn_type = "ewah_plentymarkets"
     hook_name = "EWAH PlentyMarkets Connection"
 

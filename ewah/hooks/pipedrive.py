@@ -14,8 +14,8 @@ class EWAHPipedriveHook(EWAHBaseHook):
         "api_token": "password",
     }
 
-    conn_name_attr: str = "pipedrive_conn_id"
-    default_conn_name: str = "pipedrive_default"
+    conn_name_attr: str = "ewah_pipedrive_conn_id"
+    default_conn_name: str = "ewah_pipedrive_default"
     conn_type: str = "ewah_pipedrive"
     hook_name: str = "EWAH Pipedrive Connection"
 

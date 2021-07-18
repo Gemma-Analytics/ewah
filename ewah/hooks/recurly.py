@@ -8,8 +8,8 @@ class EWAHRecurlyHook(EWAHBaseHook):
         "api_token": "password",
     }
 
-    conn_name_attr = "recurly_conn_id"
-    default_conn_name = "recurly_default"
+    conn_name_attr = "ewah_recurly_conn_id"
+    default_conn_name = "ewah_recurly_default"
     conn_type = "ewah_recurly"
     hook_name = "EWAH Recurly Connection"
 
