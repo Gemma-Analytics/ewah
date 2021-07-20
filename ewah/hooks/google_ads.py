@@ -1,11 +1,13 @@
 from ewah.constants import EWAHConstants as EC
 from ewah.hooks.base import EWAHBaseHook
 
-from google.ads.google_ads.client import GoogleAdsClient
+from google.ads.googleads.client import GoogleAdsClient
 from google.protobuf.json_format import MessageToDict
 
 from datetime import datetime
+from typing import Optional
 
+import json
 
 class EWAHGoogleAdsHook(EWAHBaseHook):
 
@@ -55,7 +57,8 @@ class EWAHGoogleAdsHook(EWAHBaseHook):
             if self.conn.schema:
                 config_dict["login_customer_id"] = self.conn.schema.replace("-", "")
             self._service = GoogleAdsClient.load_from_dict(
-                config_dict=config_dict
+                config_dict=config_dict,
+                version="v8",
             ).get_service("GoogleAdsService")
 
         return self._service
@@ -87,26 +90,26 @@ class EWAHGoogleAdsHook(EWAHBaseHook):
     def transform_raw_data_to_relational_format(self, raw_row, _prefix=None):
         """Each row of the returned data is a protobuf message that can have many
         layers. Unpack it into a 1-layer dictionary."""
-        final_dict = {}
-        if _prefix:
-            prefix = _prefix + "__"
-        else:
-            prefix = ""
-            raw_row = MessageToDict(raw_row, preserving_proto_field_name=True)
-        for key, value in raw_row.items():
-            if isinstance(value, dict):
-                final_dict.update(
-                    self.transform_raw_data_to_relational_format(
-                        value, _prefix=prefix + key
-                    )
-                )
-            else:
-                final_dict[prefix + key] = value
-        if not _prefix and final_dict.get("segments__date"):
-            final_dict["segments__date"] = datetime.strptime(
-                final_dict["segments__date"], "%Y-%m-%d"
-            ).date()
-        return final_dict
+
+        def unnest_dict(nested_dict: dict, prefix: Optional[str] = None):
+            unnested_dict = {}
+            for (k, v) in nested_dict.items():
+                if isinstance(v, dict):
+                    if prefix:
+                        next_prefix = prefix + '__' + k
+                    else:
+                        next_prefix = k
+                    unnested_dict.update(unnest_dict(v, next_prefix))
+                else:
+                    if prefix:
+                        if prefix == "segments" and k == "date":
+                            v = datetime.strptime(v, "%Y-%m-%d").date()
+                        unnested_dict[prefix + "__" + k] = v
+                    else:
+                        unnested_dict[k] = v
+            return unnested_dict
+
+        return unnest_dict(json.loads(raw_row.__class__.to_json(raw_row, preserving_proto_field_name=True)))
 
     def get_raw_data_from_query(self, client_id, query):
         self.log.info("Running query:\n\n{0}\n\n".format(query))
