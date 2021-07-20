@@ -9,6 +9,7 @@ from typing import Optional
 
 import json
 
+
 class EWAHGoogleAdsHook(EWAHBaseHook):
 
     _ATTR_RELABEL: {
@@ -96,7 +97,7 @@ class EWAHGoogleAdsHook(EWAHBaseHook):
             for (k, v) in nested_dict.items():
                 if isinstance(v, dict):
                     if prefix:
-                        next_prefix = prefix + '__' + k
+                        next_prefix = prefix + "__" + k
                     else:
                         next_prefix = k
                     unnested_dict.update(unnest_dict(v, next_prefix))
@@ -109,7 +110,11 @@ class EWAHGoogleAdsHook(EWAHBaseHook):
                         unnested_dict[k] = v
             return unnested_dict
 
-        return unnest_dict(json.loads(raw_row.__class__.to_json(raw_row, preserving_proto_field_name=True)))
+        return unnest_dict(
+            json.loads(
+                raw_row.__class__.to_json(raw_row, preserving_proto_field_name=True)
+            )
+        )
 
     def get_raw_data_from_query(self, client_id, query):
         self.log.info("Running query:\n\n{0}\n\n".format(query))
