@@ -7,6 +7,7 @@ import time
 
 from typing import List, Optional, Dict, Any
 from collections import defaultdict
+from time import sleep
 
 
 class EWAHHubspotHook(EWAHBaseHook):
@@ -113,11 +114,27 @@ class EWAHHubspotHook(EWAHBaseHook):
             time.sleep(0.2)  # Avoid hitting API rate limits
             i += 1
             self.log.info("Getting page {0} of data...".format(str(i)))
-            request = requests.get(
-                url=url_object,
-                params=params_object,
-                headers={"accept": "application/json"},
-            )
+            request_tries = 0
+            while request_tries < 3:
+                # Every once in a while, the HubSpot API returns a 502 Bad Gateway
+                # error. This appears to be random and related to HubSpot's server
+                # infrastructure. To avoid failing DAGs due to this error, try
+                # again in case of errors, but never more than 3 times.
+                request_tries += 1
+                request = requests.get(
+                    url=url_object,
+                    params=params_object,
+                    headers={"accept": "application/json"},
+                )
+                if request.status_code == 200:
+                    break
+                self.log.info(
+                    "Error {0} - Waiting 60s and trying again. Error Text:\n\n".format(
+                        request.status_code, request.text
+                    )
+                )
+                sleep(60)
+
             if request.status_code == 414:
                 _msg = (
                     "Error: Too many properties. Please use a smaller, custom set of"
@@ -125,7 +142,9 @@ class EWAHHubspotHook(EWAHBaseHook):
                 )
                 _msg += "\n\t".join(properties) + "\n\n"
                 raise Exception(_msg)
-            assert request.status_code == 200, request.text
+            assert request.status_code == 200, "Status {0}: {1}".format(
+                request.status_code, request.text
+            )
             response = request.json()
             response_data = response["results"] or []
             # Keep going as long as a link is shipped in the response
