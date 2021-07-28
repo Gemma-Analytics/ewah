@@ -41,16 +41,17 @@ class EWAHAirflowHook(EWAHBaseHook):
     def get_connection_form_widgets() -> dict:
         """Returns connection widgets to add to connection form"""
         from flask_appbuilder.fieldwidgets import BS3TextFieldWidget
-        from wtforms import StringField, SelectField
+        from wtforms import StringField
 
         return {
             "extra__ewah_airflow__ssh_conn_id": StringField(
                 "SSH Connection ID to Airflow Server (optional)",
                 widget=BS3TextFieldWidget(),
             ),
-            "extra__ewah_airflow__protocol": SelectField(
-                "Connection protocol (if using SSH or not specified in URL)",
-                choices=[("http", "http"), ("https", "https")],
+            "extra__ewah_airflow__protocol": StringField(
+                # Note: must not use SelectField
+                "Connection protocol (if using SSH or not specified in URL; one of: http, https)",
+                default="http",
             ),
         }
 
