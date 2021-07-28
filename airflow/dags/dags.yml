@@ -172,6 +172,7 @@ el_dags:
       general_config:
         source_conn_id: hubspot
       tables:
+        engagements: {}
         companies:
           associations:
             - deals

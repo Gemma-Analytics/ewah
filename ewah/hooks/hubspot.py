@@ -37,6 +37,11 @@ class EWAHHubspotHook(EWAHBaseHook):
         "quotes",
         "properties",
         "owners",
+        # special cases - see get_data_in_batches function
+        "engagement",
+        "engagements",
+        "activity",
+        "activities",
     ]
 
     @staticmethod
@@ -59,6 +64,69 @@ class EWAHHubspotHook(EWAHBaseHook):
         assert request.status_code == 200, request.text
         return [property["name"] for property in request.json()["results"]]
 
+    def retry_request(
+        self,
+        url: str,
+        params: dict,
+        headers: Optional[dict] = None,
+        expected_status_code: int = 200,
+        retries: int = 3,
+        wait_for_seconds: int = 60,
+    ):
+        # Every once in a while, the HubSpot API returns a 502 Bad Gateway
+        # error. This appears to be random and related to HubSpot's server
+        # infrastructure. To avoid failing DAGs due to this error, try
+        # again in case of errors, but never more than 3 times.
+        try_number = 0
+        while try_number < retries:
+            try_number += 1
+            request = requests.get(url, params=params, headers=headers)
+            if request.status_code == expected_status_code:
+                break
+            self.log.info(
+                "Status {0} - Waiting {2}s and trying again. Response:\n\n{1}".format(
+                    request.status_code, request.text, wait_for_seconds
+                )
+            )
+            sleep(60)
+        return request
+
+    def get_engagements_in_batches(self, batch_size: int):
+        url = "https://api.hubapi.com/engagements/v1/engagements/paged"
+        limit = 250
+        params = {
+            "hapikey": self.conn.api_key,
+            "limit": limit,
+        }
+        data = []
+        i = 0
+        while True:
+            # paginate
+            i += 1
+            self.log.info("Getting page {0} of data...".format(str(i)))
+            request = self.retry_request(
+                url=url, params=params, expected_status_code=200, retries=3
+            )
+            assert request.status_code == 200, "\nStatus: {0}\nResponse: {1}".format(
+                request.status_code, request.text
+            )
+            response = request.json()
+            result = response.pop("results")
+            while result:
+                # column id is expected as primary key!
+                datum = result.pop(0)
+                datum["id"] = datum["engagement"]["id"]
+                data.append(datum)
+            if response.get("hasMore"):
+                params["offset"] = response["offset"]
+                if len(data) >= batch_size:
+                    yield data
+                    data = []
+            else:
+                break
+        if data:
+            yield data
+
     def get_data_in_batches(
         self,
         object: str,
@@ -76,14 +144,29 @@ class EWAHHubspotHook(EWAHBaseHook):
             # Special case: not a normal object
             assert not associations
             assert not properties
-            object_list = [
-                o for o in self.ACCEPTED_OBJECTS if not o in ("properties", "owners")
+            assert not exclude_properties
+            object_list = [  # engagements is OK! but only get them once
+                o
+                for o in self.ACCEPTED_OBJECTS
+                if not o
+                in ("properties", "owners", "engagement", "activity", "activities")
             ]
             params_object["objectType"] = object_list.pop(0)
             url_object = self.PROPERTIES_URL.format(params_object["objectType"])
+        elif object in ("engagement", "engagements", "activity", "activities"):
+            # As of 2021-07-28, engagements are not part of the v3 of the API.
+            # Thus, they need special treatment.
+            # Also a special case and not a normal object.
+            assert not associations
+            assert not properties
+            assert not exclude_properties
+            for batch in self.get_engagements_in_batches(batch_size):
+                yield batch
+            return
         elif object == "owners":
             assert not associations
             assert not properties
+            assert not exclude_properties
             url_object = self.OWNERS_URL
         else:
             url_object = self.BASE_URL.format(object)
@@ -114,27 +197,13 @@ class EWAHHubspotHook(EWAHBaseHook):
             time.sleep(0.2)  # Avoid hitting API rate limits
             i += 1
             self.log.info("Getting page {0} of data...".format(str(i)))
-            request_tries = 0
-            while request_tries < 3:
-                # Every once in a while, the HubSpot API returns a 502 Bad Gateway
-                # error. This appears to be random and related to HubSpot's server
-                # infrastructure. To avoid failing DAGs due to this error, try
-                # again in case of errors, but never more than 3 times.
-                request_tries += 1
-                request = requests.get(
-                    url=url_object,
-                    params=params_object,
-                    headers={"accept": "application/json"},
-                )
-                if request.status_code == 200:
-                    break
-                self.log.info(
-                    "Error {0} - Waiting 60s and trying again. Error Text:\n\n".format(
-                        request.status_code, request.text
-                    )
-                )
-                sleep(60)
-
+            request = self.retry_request(
+                url=url_object,
+                params=params_object,
+                headers={"accept": "application/json"},
+                expected_status_code=200,
+                retries=3,
+            )
             if request.status_code == 414:
                 _msg = (
                     "Error: Too many properties. Please use a smaller, custom set of"
