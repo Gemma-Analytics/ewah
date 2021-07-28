@@ -38,13 +38,13 @@ class EWAHMongoDBHook(EWAHBaseHook):
     def get_connection_form_widgets() -> dict:
         """Returns connection widgets to add to connection form"""
         from flask_appbuilder.fieldwidgets import BS3TextFieldWidget
-        from wtforms import StringField, SelectField, BooleanField, PasswordField
+        from wtforms import StringField, BooleanField, PasswordField
         from ewah.ewah_utils.widgets import EWAHTextAreaWidget
 
         return {
-            "extra__ewah_mongodb__conn_style": SelectField(
-                "Connection Style",
-                choices=[("uri", "URI"), ("credentials", "Credentials")],
+            "extra__ewah_mongodb__conn_style": StringField(
+                "Connection Style (one of: uri, credentials)",
+                default="uri",
             ),
             "extra__ewah_mongodb__tls": BooleanField("SSL / TLS?"),
             "extra__ewah_mongodb__tls_insecure": BooleanField(
