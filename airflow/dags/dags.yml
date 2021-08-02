@@ -195,6 +195,7 @@ el_dags:
             - ignoreme
         feedback_submissions: {}
         line_items: {}
+        pipelines: {}
         products: {}
         tickets: {}
         quotes_table:
