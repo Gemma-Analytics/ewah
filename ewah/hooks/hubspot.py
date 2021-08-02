@@ -23,6 +23,7 @@ class EWAHHubspotHook(EWAHBaseHook):
 
     BASE_URL = "https://api.hubapi.com/crm/v3/objects/{0}"
     PROPERTIES_URL = "https://api.hubapi.com/crm/v3/properties/{0}"
+    PIPELINES_URL = "https://api.hubapi.com/crm/v3/pipelines/{0}"
     ASSOC_URL = "https://api.hubapi.com/crm/v3/associations/{fromObjectType}/{toObjectType}/batch/read"
     OWNERS_URL = "https://api.hubapi.com/crm/v3/owners/"
 
@@ -37,6 +38,7 @@ class EWAHHubspotHook(EWAHBaseHook):
         "quotes",
         "properties",
         "owners",
+        "pipelines",
         # special cases - see get_data_in_batches function
         "engagement",
         "engagements",
@@ -140,19 +142,33 @@ class EWAHHubspotHook(EWAHBaseHook):
         params_auth = {"hapikey": self.conn.api_key}
         params_object = {"hapikey": self.conn.api_key, "limit": 100}
 
-        if object == "properties":
+        if object in ("properties", "pipelines"):
             # Special case: not a normal object
             assert not associations
             assert not properties
             assert not exclude_properties
-            object_list = [  # engagements is OK! but only get them once
-                o
-                for o in self.ACCEPTED_OBJECTS
-                if not o
-                in ("properties", "owners", "engagement", "activity", "activities")
-            ]
+
+            if object == "properties":
+                url_object_raw = self.PROPERTIES_URL
+                object_list = [  # engagements is OK! but only get them once
+                    o
+                    for o in self.ACCEPTED_OBJECTS
+                    if not o
+                    in (
+                        "properties",
+                        "owners",
+                        "engagement",
+                        "activity",
+                        "activities",
+                        "pipelines",
+                    )
+                ]
+            elif object == "pipelines":
+                url_object_raw = self.PIPELINES_URL
+                object_list = ["tickets", "deals"]
+
             params_object["objectType"] = object_list.pop(0)
-            url_object = self.PROPERTIES_URL.format(params_object["objectType"])
+            url_object = url_object_raw.format(params_object["objectType"])
         elif object in ("engagement", "engagements", "activity", "activities"):
             # As of 2021-07-28, engagements are not part of the v3 of the API.
             # Thus, they need special treatment.
@@ -251,24 +267,25 @@ class EWAHHubspotHook(EWAHBaseHook):
             # Clean up data:
             # 1) expand the properties field into individual fields
             # 2) add any available associations
-            # 3) if getting properties: add object metadata
+            # 3) if getting properties or pipelines: add object metadata
             for datum in response_data:
                 datum.update(datum.pop("properties", {}))  # 1)
                 for association in associations or []:  # 2)
                     datum[
                         "ewah_associations_to_{0}".format(association)
                     ] = associations_data[association].get(datum["id"])
-                if object == "properties":  # 3)
+                if object in ("properties", "pipelines"):  # 3)
                     datum["object_type"] = params_object["objectType"]
 
             # batch_data saves all data until it is yielded
             batch_data += response_data
 
-            if not keepgoing and object == "properties":
+            if not keepgoing and object in ("properties", "pipelines"):
                 # Iterate through list of all objects
                 if object_list:
                     params_object["objectType"] = object_list.pop(0)
-                    url_object = self.PROPERTIES_URL.format(params_object["objectType"])
+                    # tbd
+                    url_object = url_object_raw.format(params_object["objectType"])
                     keepgoing = True
 
             # Yield data when appropriate
