@@ -4,22 +4,6 @@ from ewah.operators.base import EWAHBaseOperator
 
 from datetime import datetime, date
 
-"""temporary notes
-
-- use selenium with phantomjs (https://phantomjs.org/download.html)
-
-- find button via normalize space: https://stackoverflow.com/questions/49906237/how-to-find-button-with-selenium-by-its-text-inside-python
-
-d = webdriver.PhantomJS("c:/phantomjs-2.1.1-windows/bin/phantomjs.exe")
-d.set_window_size(1120, 550)
-d.get("https://plentymarkets-cloud-07.com/50366")
-d.find_element_by_id("username").send_keys("ga_bijan.soltani")
-d.find_element_by_id("password").send_keys("jeak6KOSH6pird!waff")
-d.find_element_by_xpath('//button[normalize-space()="Login"]').click()
-d.current_url
-"""
-
-
 class EWAHPlentyMarketsOperator(EWAHBaseOperator):
 
     _NAMES = ["plentymarkets"]
