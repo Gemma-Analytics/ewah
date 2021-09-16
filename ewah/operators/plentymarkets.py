@@ -4,6 +4,7 @@ from ewah.operators.base import EWAHBaseOperator
 
 from datetime import datetime, date
 
+
 class EWAHPlentyMarketsOperator(EWAHBaseOperator):
 
     _NAMES = ["plentymarkets"]

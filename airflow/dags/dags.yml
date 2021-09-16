@@ -417,6 +417,18 @@ el_dags:
         Lead: {}
         LeadHistory: {}
 
+  EL_Salesforce_Subs:
+    dag_strategy: atomic
+    el_operator: sf
+    target_schema_name: raw_sf_subs
+    operator_config:
+      general_config:
+        source_conn_id: salesforce
+        extract_strategy: subsequent
+      tables:
+        User: {}
+        Lead: {}
+
   # EL_Shopify: tbd
 
   EL_Stripe:
