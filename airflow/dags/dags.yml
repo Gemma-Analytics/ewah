@@ -423,7 +423,7 @@ el_dags:
     target_schema_name: raw_sf_subs
     operator_config:
       general_config:
-        source_conn_id: salesforce
+        source_conn_id: salesforce_2
         extract_strategy: subsequent
       tables:
         User: {}

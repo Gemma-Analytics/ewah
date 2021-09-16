@@ -2,6 +2,7 @@ from ewah.operators.base import EWAHBaseOperator
 from ewah.constants import EWAHConstants as EC
 from ewah.hooks.salesforce import EWAHSalesforceHook
 
+from datetime import datetime
 from typing import Optional
 
 
@@ -33,13 +34,14 @@ class EWAHSalesforceOperator(EWAHBaseOperator):
 
     def ewah_execute(self, context: dict) -> None:
         self.log.info(f"Fetching Salesforce data for {self.salesforce_object}...")
-        if (
-            self.extract_strategy == EC.ES_SUBSEQUENT
-            and self.subsequent_field == self._SUBSEQUENT_PLACEHOLDER
-        ):
-            self.subsequent_field = self.source_hook.get_incrementer(
-                salesforce_object=self.salesforce_object
-            )
+        is_subsequent = self.extract_strategy == EC.ES_SUBSEQUENT
+        if is_subsequent:
+            if self.subsequent_field == self._SUBSEQUENT_PLACEHOLDER:
+                self.subsequent_field = self.source_hook.get_incrementer(
+                    salesforce_object=self.salesforce_object
+                )
+            if self.test_if_target_table_exists():
+                self.data_from = self.get_max_value_of_column(self.subsequent_field)
 
         for batch in self.source_hook.get_data_in_batches(
             salesforce_object=self.salesforce_object,
@@ -47,4 +49,9 @@ class EWAHSalesforceOperator(EWAHBaseOperator):
             data_from=self.data_from,
             data_until=self.data_until,
         ):
+            if is_subsequent:
+                for item in batch:
+                    item[self.subsequent_field] = datetime.strptime(
+                        item[self.subsequent_field], "%Y-%m-%dT%H:%M:%S.%f%z"
+                    )
             self.upload_data(batch)

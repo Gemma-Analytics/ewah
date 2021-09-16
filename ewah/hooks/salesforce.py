@@ -56,8 +56,8 @@ class EWAHSalesforceHook(EWAHBaseHook):
                     username=self.conn.username,
                     password=self.conn.password,
                     security_token=self.conn.security_token,
-                    domain=self.domain or None,
-                    client_id=self.client_id or None,
+                    domain=self.conn.domain or None,
+                    client_id=self.conn.client_id or None,
                     version=self.version,
                 )
         return self._sf_conn
