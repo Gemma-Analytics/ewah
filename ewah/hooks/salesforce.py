@@ -62,6 +62,14 @@ class EWAHSalesforceHook(EWAHBaseHook):
                 )
         return self._sf_conn
 
+    def get_incrementer(self, salesforce_object):
+        # Figure out what field to use for date comparison
+        fields = self.get_fields_of_object(salesforce_object)
+        options = ["SystemModstamp", "LastModifiedDate", "CreatedDate"]
+        for option in options:
+            if option in fields:
+                return option
+
     def get_data_in_batches(
         self,
         salesforce_object: str,
@@ -72,15 +80,9 @@ class EWAHSalesforceHook(EWAHBaseHook):
     ) -> List[Dict[str, Any]]:
         """Generator to return all data of a salesforce object"""
 
-        # Figure out what field to use for date comparison
+        # Figure out what field(s) to use for date comparison & data loading
         fields = self.get_fields_of_object(salesforce_object)
-        incrementer = None
-        if "SystemModstamp" in fields:
-            incrementer = "SystemModstamp"
-        elif "LastModifiedDate" in fields:
-            incrementer = "LastModifiedDate"
-        elif "CreatedDate" in fields:
-            incrementer = "CreatedDate"
+        incrementer = self.get_incrementer(salesforce_object=salesforce_object)
 
         # Create SOQL query
         query = "SELECT\n\t{0}\nFROM {1}".format(
