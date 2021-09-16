@@ -54,6 +54,9 @@ class EWAHGoogleAdsHook(EWAHBaseHook):
                 "client_id": self.conn.login,
                 "client_secret": self.conn.password,
                 "refresh_token": self.conn.refresh_token,
+                # TODO: Refactor with use_proto_plus=False - for now, the code will work
+                # See here for details : https://github.com/googleads/google-ads-python/issues/486
+                "use_proto_plus": True,
             }
             if self.conn.schema:
                 config_dict["login_customer_id"] = self.conn.schema.replace("-", "")
