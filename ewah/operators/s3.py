@@ -48,6 +48,7 @@ class EWAHS3Operator(EWAHBaseOperator):
     _ACCEPTED_EXTRACT_STRATEGIES = {
         EC.ES_FULL_REFRESH: True,
         EC.ES_INCREMENTAL: True,
+        EC.ES_SUBSEQUENT: True,
     }
 
     _IMPLEMENTED_FORMATS = [
@@ -164,6 +165,11 @@ class EWAHS3Operator(EWAHBaseOperator):
             yield item
 
     def ewah_execute(self, context):
+        if (
+            self.extract_strategy == EC.ES_SUBSEQUENT
+            and self.test_if_target_table_exists()
+        ):
+            self.data_from = self.get_max_value_of_column(self.subsequent_field)
         if self.file_format == "JSON":
             return self.execute_json(
                 context=context,
@@ -173,7 +179,13 @@ class EWAHS3Operator(EWAHBaseOperator):
             return self.execute_json(
                 context=context,
                 f_get_data=lambda file_content: json.loads(
-                    "[" + file_content.replace("\x00", "").replace("}{", "},{") + "]"
+                    "["  # hotfix for a weird encoding issue
+                    + file_content.replace("\x00", "")
+                    .replace("\u0000", "")
+                    .replace("\\u0000", "")
+                    .replace("\\x00", "")
+                    .replace("}{", "},{")
+                    + "]"
                 ),
             )
         elif self.file_format == "CSV":
@@ -249,6 +261,12 @@ class EWAHS3Operator(EWAHBaseOperator):
                         raise
                     raw_data = raw_data.decode(self.csv_encoding).splitlines()
                 reader = csv.DictReader(raw_data, **self.csv_format_options)
+                if self.subsequent_field:
+                    # TODO: Abstract this logic
+                    for datum in reader:
+                        datum[self.subsequent_field] = datetime.strptime(
+                            datum[self.subsequent_field], "%Y-%m-%dT%H:%M:%S.%f%z"
+                        )
                 self._metadata.update(
                     {
                         "bucket_name": self.bucket_name,
@@ -292,4 +310,10 @@ class EWAHS3Operator(EWAHBaseOperator):
                     }
                 )
                 data = f_get_data(file_content=obj_iter["_body"])
+                if self.subsequent_field:
+                    # TODO: Abstract this logic
+                    for datum in data:
+                        datum[self.subsequent_field] = datetime.strptime(
+                            datum[self.subsequent_field], "%Y-%m-%dT%H:%M:%S.%f%z"
+                        )
                 self.upload_data(data=data)
