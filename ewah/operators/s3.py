@@ -173,7 +173,7 @@ class EWAHS3Operator(EWAHBaseOperator):
             return self.execute_json(
                 context=context,
                 f_get_data=lambda file_content: json.loads(
-                    "[" + file_content.replace("}{", "},{") + "]"
+                    "[" + file_content.replace("\x00", "").replace("}{", "},{") + "]"
                 ),
             )
         elif self.file_format == "CSV":
