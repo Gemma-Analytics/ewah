@@ -21,8 +21,6 @@ Accessed 2020-07-28
 with create_session() as session:
     af_val = {var.val for var in session.query(Variable)}
 
-print(af_val)
-
 class Loader(base_loader):
     def __init__(self, stream):
         currencies = af_val
@@ -45,4 +43,3 @@ class Loader(base_loader):
 
 Loader.add_constructor("!text_from_file", Loader.scalar_from_file)
 Loader.add_constructor("!yml_from_file", Loader.include_other_yml)
-print(af_val)
