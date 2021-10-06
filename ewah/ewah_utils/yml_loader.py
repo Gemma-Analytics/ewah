@@ -18,15 +18,17 @@ Adapted from https://stackoverflow.com/questions/528281/how-can-i-include-a-yaml
 Accessed 2020-07-28
 """
 
-with create_session() as session:
-    af_val = {var.val for var in session.query(Variable)}
+
 
 class Loader(base_loader):
     def __init__(self, stream):
-        currencies = af_val
+        with create_session() as session
+            variable_keys = [var.key for var in session.query(Variable)]
+            variable_values = [var.val for var in session.query(Variable)]
+        variables = dict(zip(variable_keys, variable_values))
         self._root = os.path.split(stream.name)[0]
         # Enable Jinja2 in the yaml files
-        yaml_stream = StringIO(Template(stream.read()).render(env=os.environ, currencies=currencies))
+        yaml_stream = StringIO(Template(stream.read()).render(env=os.environ, variables=variables))
         yaml_stream.name = stream.name
         super().__init__(yaml_stream)
 
