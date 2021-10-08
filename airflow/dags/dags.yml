@@ -146,7 +146,7 @@ el_dags:
         frequency: daily
         load_data_from: 2016-12-01 00:00:00+00:00 # tbd airflow 2.0 issue
       tables:
-        {% for currency in variables['currencies'].split(",") %}
+        {% for currency in airflow_variables['currencies'].split(",") %}
           daily_fx_rates_usd_{{ currency|lower() }}:
             currency_pair:
               - USD
