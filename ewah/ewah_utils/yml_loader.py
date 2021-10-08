@@ -4,6 +4,9 @@ import yaml
 from jinja2 import Template
 from io import StringIO
 
+from airflow.utils.db import create_session
+from airflow.models import Variable
+
 try:
     from yaml import CLoader as base_loader, CDumper as Dumper
 except ImportError:
@@ -16,11 +19,14 @@ Accessed 2020-07-28
 """
 
 
+
 class Loader(base_loader):
     def __init__(self, stream):
+        with create_session() as session:
+            airflow_variables = {var.key: var.val for var in session.query(Variable)}
         self._root = os.path.split(stream.name)[0]
         # Enable Jinja2 in the yaml files
-        yaml_stream = StringIO(Template(stream.read()).render(env=os.environ))
+        yaml_stream = StringIO(Template(stream.read()).render(env=os.environ, airflow_variables=airflow_variables))
         yaml_stream.name = stream.name
         super().__init__(yaml_stream)
 
