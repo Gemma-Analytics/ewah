@@ -314,7 +314,6 @@ el_dags:
         order_status_histories:
           resource: "/rest/orders/status-history"
 
-
   EL_PlentyMarkets_FR:
     dag_strategy: atomic
     el_operator: plentymarkets
@@ -428,6 +427,18 @@ el_dags:
       tables:
         User: {}
         Lead: {}
+
+  EL_Sharepoint:
+    dag_strategy: atomic
+    el_operator: sharepoint
+    target_schema_name: raw_sp
+    operator_config:
+      general_config:
+        source_conn_id: sharepoint
+        file_relative_path: "/sites/BusinessAnalytics/Shared Documents/D_Accounts.xlsx"
+      tables:
+        accounts:
+          sheet_name: "SKR03 Accounts"
 
   # EL_Shopify: tbd
 
