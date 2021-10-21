@@ -137,7 +137,7 @@ def dags_from_yml_file(file_path: str) -> EWAHDAGGenerator:
     :param file_path: Complete path to the YAML file containing the DAGs
         definition.
     """
-    
+
     return EWAHDAGGenerator(
         dag_definition_dict=yaml.load(open(file_path, "r"), Loader=Loader)
     )
