@@ -1,5 +1,8 @@
 import os
 import yaml
+import re
+import datetime
+import pytz
 
 from jinja2 import Template
 from io import StringIO
@@ -19,14 +22,23 @@ Accessed 2020-07-28
 """
 
 
-
 class Loader(base_loader):
     def __init__(self, stream):
         with create_session() as session:
             airflow_variables = {var.key: var.val for var in session.query(Variable)}
         self._root = os.path.split(stream.name)[0]
+        ctx = {
+            "env": os.environ,
+            "airflow_variables": airflow_variables,
+            "pytz": {name: getattr(pytz, name) for name in pytz.__all__},
+            "datetime": {
+                name: getattr(datetime, name)
+                for name in ["date", "datetime", "time", "timedelta", "tzinfo"]
+            },
+            "re": {name: getattr(re, name) for name in re.__all__},
+        }
         # Enable Jinja2 in the yaml files
-        yaml_stream = StringIO(Template(stream.read()).render(env=os.environ, airflow_variables=airflow_variables))
+        yaml_stream = StringIO(Template(stream.read()).render(ctx))
         yaml_stream.name = stream.name
         super().__init__(yaml_stream)
 
