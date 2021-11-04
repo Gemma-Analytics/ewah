@@ -1,4 +1,4 @@
-FROM apache/airflow:2.1.2-python3.8 as dev_build
+FROM apache/airflow:2.2.1-python3.8 as dev_build
 
 ### --------------------------------------------- run as root => ##
 USER root
@@ -97,7 +97,7 @@ ENV AIRFLOW_HOME=/opt/airflow
 # Useful, often changed configurations
 ENV AIRFLOW__CORE__EXECUTOR=LocalExecutor
 ENV AIRFLOW__CORE__PARALLELISM=8
-ENV AIRFLOW__CORE__DAG_CONCURRENCY=16
+ENV AIRFLOW__CORE__MAX_ACTIVE_TASKS_PER_DAG=16
 ENV AIRFLOW__WEBSERVER__BASE_URL="http://localhost:8080"
 
 # Email related

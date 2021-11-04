@@ -342,18 +342,18 @@ def dbt_dag_factory_new(
           AND not (run_id = '{2}')
           AND (( -- Avoid deadlocks and prioritize scheduled over manual triggers
               run_type = 'scheduled'
-              AND execution_date < '{3}' -- execution_date
+              AND data_interval_start < '{3}' -- data_interval_start
             ) OR (
               run_type = 'manual'
-              AND execution_date < '{4}' -- next_execution_date
+              AND data_interval_start < '{4}' -- data_interval_end
           ))
-          -- Note: next_execution_date = execution_date if run_type = 'manual'
+          -- Note: data_interval_end = data_interval_start if run_type = 'manual'
     """.format(
         dag_1._dag_id,
         dag_2._dag_id,
         "{{ run_id }}",
-        "{{ execution_date }}",
-        "{{ next_execution_date }}",
+        "{{ data_interval_start }}",
+        "{{ data_interval_end }}",
     )
 
     snsr_1 = EWAHSqlSensor(

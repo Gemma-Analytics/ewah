@@ -13,6 +13,7 @@ relevant_files = [
 ]
 
 hook_class_names = []
+connection_types = []
 name_template = "ewah.hooks.{0}.{1}"
 
 for py_file in relevant_files:
@@ -25,3 +26,4 @@ for py_file in relevant_files:
             and not cls == EWAHSQLBaseHook
         ):
             hook_class_names.append(name_template.format(py_file, cls.__name__))
+            connection_types.append(cls.conn_type)

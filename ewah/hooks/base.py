@@ -27,7 +27,7 @@ class EWAHConnection(Connection):
         )
 
         # add hook_cls attribute
-        hook_class_name, _, _, _ = ProvidersManager().hooks.get(
+        hook_class_name, _, _, _, _ = ProvidersManager().hooks.get(
             conn.conn_type, (None, None, None, None)
         )
         if hook_class_name:

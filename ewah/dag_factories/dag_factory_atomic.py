@@ -65,7 +65,7 @@ def dag_factory_atomic(
         # end_date to have one last run available (that should have run before end_date)
         start_date -= schedule_interval
     else:
-        # Airflow executes at the END of the execution_date - start_date has to be
+        # Airflow executes after data_interval_end - start_date has to be
         # between exactly 1 and below 2 time schedule_interval before end_date!
         # end_date - 2*schedule_interval < start_date <= end_date - schedule_interval
         start_date -= schedule_interval
