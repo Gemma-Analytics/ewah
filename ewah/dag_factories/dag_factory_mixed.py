@@ -261,14 +261,14 @@ def dag_factory_mixed(
         FROM public.dag_run
         WHERE state = 'running'
           AND (
-                (dag_id = '{0}' AND execution_date < '{1}')
-            OR  (dag_id = '{2}' AND execution_date < '{3}')
+                (dag_id = '{0}' AND data_interval_start < '{1}')
+            OR  (dag_id = '{2}' AND data_interval_start < '{3}')
           )
     """.format(
         dags[0]._dag_id,  # fr
-        "{{ execution_date }}",  # no previous full refresh, please!
+        "{{ data_interval_start }}",  # no previous full refresh, please!
         dags[1]._dag_id,  # inc
-        "{{ next_execution_date }}",  # no old incremental running, please!
+        "{{ data_interval_end }}",  # no old incremental running, please!
     )
 
     # Sense if a previous instance runs OR if any incremental loads run

@@ -40,7 +40,7 @@ class ExtendedETS(ExternalTaskSensor):
 
     def execute(self, context: dict) -> None:
 
-        if context["dag"].start_date == context["execution_date"]:
+        if context["dag"].start_date == context["data_interval_start"]:
             # First execution of the DAG.
             if self.backfill_dag_id:
                 # Check if the latest backfill ran! --> then run normally
@@ -177,7 +177,7 @@ def dag_factory_idempotent(
         raise_exception("start_date must be timezone aware!")
 
     # Make switch halfway between latest normal DAG run and the
-    #   next_execution_date of the next-to-run backfill DAG
+    #   data_interval_end of the next-to-run backfill DAG
     #   --> no interruption of the system, airflow has time to register
     #   the change, the backfill DAG can run once unimpeded and the
     #   normal DAG can then resume as per normal. Note: in that case,

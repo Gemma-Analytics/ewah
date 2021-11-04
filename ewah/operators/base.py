@@ -169,7 +169,7 @@ class EWAHBaseOperator(BaseOperator):
         # an expression, must be quoted in list if quoting is required.
         hash_columns=None,  # str or list of str - columns to hash pre-upload
         hashlib_func_name="sha256",  # specify hashlib hashing function
-        wait_for_seconds=120,  # seconds past next_execution_date to wait until
+        wait_for_seconds=120,  # seconds past data_interval_end to wait until
         # wait_for_seconds only applies for incremental loads
         add_metadata=True,
         rename_columns: Optional[Dict[str, str]] = None,  # Rename columns
@@ -452,8 +452,8 @@ class EWAHBaseOperator(BaseOperator):
         data_until = ada(self.load_data_until)
         if self.extract_strategy == EC.ES_INCREMENTAL:
             _tdz = timedelta(days=0)  # aka timedelta zero
-            _ed = context["execution_date"]
-            _ned = context["next_execution_date"]
+            _ed = context["data_interval_start"]
+            _ned = context["data_interval_end"]
 
             # normal incremental load
             _ed -= self.load_data_from_relative or _tdz
@@ -502,7 +502,7 @@ class EWAHBaseOperator(BaseOperator):
         # after 12.32pm due to some internal delays. In those cases, make
         # sure the (incremental loading) DAGs don't execute too quickly.
         if self.wait_for_seconds and self.extract_strategy == EC.ES_INCREMENTAL:
-            wait_until = context.get("next_execution_date")
+            wait_until = context.get("data_interval_end")
             if wait_until:
                 wait_until += timedelta(seconds=self.wait_for_seconds)
                 self.log.info(
@@ -736,9 +736,11 @@ class EWAHBaseOperator(BaseOperator):
                         "_ewah_execution_chunk": self.upload_call_count,
                         "_ewah_dag_id": self._context["dag"].dag_id,
                         "_ewah_dag_run_id": self._context["run_id"],
-                        "_ewah_dag_run_execution_date": self._context["execution_date"],
-                        "_ewah_dag_run_next_execution_date": self._context[
-                            "next_execution_date"
+                        "_ewah_dag_run_data_interval_start": self._context[
+                            "data_interval_start"
+                        ],
+                        "_ewah_dag_run_data_interval_end": self._context[
+                            "data_interval_end"
                         ],
                     }
                 )

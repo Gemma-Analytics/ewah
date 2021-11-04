@@ -69,8 +69,8 @@ These arguments are specific to the Google Ads operator. In addition, the Google
 | resource | yes | string | n.a. | name of the report, e.g. `keyword_view` |
 | client_id | yes | string | n.a. | 10-digit number, often written with hyphens, e.g. `123-123-1234` (acceptable with or without hyphens) |
 | conditions | no | list of strings | n.a. | list of strings of condition to include in the query, all conditions will be combined using `AND` operator |
-| data_from | no | datetime, timedelta or airflow-template-string | execution_date of task instance | start date of particular airflow task instance OR timedelta -> calculate delta from data_until |
-| data_until | no | datetime or airflow-template-string | next_execution_date of task instance | get data from google_ads until this point |
+| data_from | no | datetime, timedelta or airflow-template-string | data_interval_start of task instance | start date of particular airflow task instance OR timedelta -> calculate delta from data_until |
+| data_until | no | datetime or airflow-template-string | data_interval_end of task instance | get data from google_ads until this point |
 
 #### arguments: fields and metrics
 
@@ -280,8 +280,8 @@ el_dags:
         account_ids:
           - 123
           - 987
-        data_from: '{{ execution_date }}' # Some fields allow airflow templating, depending on the operator
-        data_until: '{{ next_execution_date }}'
+        data_from: '{{ data_interval_start }}' # Some fields allow airflow templating, depending on the operator
+        data_until: '{{ data_interval_end }}'
         level: ad
       tables:
         ads_data_age_gender:
