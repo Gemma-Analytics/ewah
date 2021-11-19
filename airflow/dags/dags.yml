@@ -116,6 +116,19 @@ el_dags:
   EL_BigQuery_SQL: !yml_from_file secret_dag_bq_sql.yml
   # EL_BigQuery_events_sharded: !yml_from_file secret_dag_bq_sharded.yml
 
+  EL_Braze:
+    dag_strategy: atomic
+    el_operator: braze
+    target_schema_name: raw_braze
+    operator_config:
+      general_config:
+        source_conn_id: braze
+      tables:
+        campaigns: {}
+        canvas:
+          object: canvases
+        cards: {}
+
   EL_DynamoDB:
     dag_strategy: full-refresh
     el_operator: dynamodb
