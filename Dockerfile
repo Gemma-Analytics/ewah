@@ -1,4 +1,4 @@
-FROM apache/airflow:2.2.1-python3.8 as dev_build
+FROM apache/airflow:2.2.2-python3.8 as dev_build
 
 ### --------------------------------------------- run as root => ##
 USER root
