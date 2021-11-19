@@ -27,9 +27,9 @@ class EWAHConnection(Connection):
         )
 
         # add hook_cls attribute
-        hook_class_name, _, _, _, _ = ProvidersManager().hooks.get(
+        hook_class_name = ProvidersManager().hooks.get(
             conn.conn_type, (None, None, None, None)
-        )
+        )[0]
         if hook_class_name:
             conn.hook_cls = import_string(hook_class_name)
         else:
