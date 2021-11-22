@@ -149,6 +149,19 @@ el_dags:
           source_table_name: invoice-reference
 
   EL_Facebook: !yml_from_file secret_dag_facebook.yml
+  EL_DynamoDB_2:
+    dag_strategy: full-refresh
+    el_operator: dynamodb
+    target_schema_name: raw_dynamodb
+    operator_config:
+      general_config:
+        source_conn_id: dynamodb_conn_2
+        region_name: eu-central-1
+      tables:
+        admin_accounts:
+          source_table_name: prod-admin-portal-accounts-storage
+          partition_key: username
+
 
   EL_FX:
     dag_strategy: full refresh
