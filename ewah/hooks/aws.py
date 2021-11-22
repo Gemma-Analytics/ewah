@@ -12,6 +12,7 @@ class EWAHAWSHook(EWAHBaseHook):
         "access_key_id": "login",
         "secret_access_key": "password",
         "region": "schema",
+        "role_arn": "host",
     }
 
     conn_name_attr = "ewah_aws_conn_id"
@@ -24,23 +25,44 @@ class EWAHAWSHook(EWAHBaseHook):
     @staticmethod
     def get_ui_field_behaviour():
         return {
-            "hidden_fields": ["port", "extra", "host"],
+            "hidden_fields": ["extra", "port"],
             "relabeling": {
                 "login": "AWS Access Key ID",
                 "password": "AWS Secret Access Key",
                 "schema": "Region",
+                "host": "[Optional] Role ARN",
             },
         }
 
     def get_boto_resource(self, resource: str, region: Optional[str] = None):
         aws_region = region or self.region
         if not self._resources[aws_region].get(resource):
-            self._resources[aws_region][resource] = boto3.resource(
-                resource,
-                aws_access_key_id=self.conn.access_key_id,
-                aws_secret_access_key=self.conn.secret_access_key,
-                region_name=aws_region,
-            )
+            if self.conn.role_arn:
+                # Must use STS service to assume role before accessing service
+                sts_client = boto3.client(
+                    'sts',
+                    aws_access_key_id=self.conn.access_key_id,
+                    aws_secret_access_key=self.conn.secret_access_key,
+                    region_name=aws_region,
+                )
+                temp_credentials = sts_client.assume_role(
+                    RoleArn=self.conn.role_arn,
+                    RoleSessionName="EWAH",
+                )["Credentials"]
+                self._resources[aws_region][resource] = boto3.resource(
+                    resource,
+                    aws_access_key_id=temp_credentials["AccessKeyId"],
+                    aws_secret_access_key=temp_credentials["SecretAccessKey"],
+                    aws_session_token=temp_credentials["SessionToken"],
+                    region_name=aws_region,
+                )
+            else:
+                self._resources[aws_region][resource] = boto3.resource(
+                    resource,
+                    aws_access_key_id=self.conn.access_key_id,
+                    aws_secret_access_key=self.conn.secret_access_key,
+                    region_name=aws_region,
+                )
         return self._resources[aws_region][resource]
 
     def get_dynamodb_data_in_batches(
