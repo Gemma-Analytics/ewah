@@ -40,7 +40,7 @@ class EWAHAWSHook(EWAHBaseHook):
             if self.conn.role_arn:
                 # Must use STS service to assume role before accessing service
                 sts_client = boto3.client(
-                    'sts',
+                    "sts",
                     aws_access_key_id=self.conn.access_key_id,
                     aws_secret_access_key=self.conn.secret_access_key,
                     region_name=aws_region,
