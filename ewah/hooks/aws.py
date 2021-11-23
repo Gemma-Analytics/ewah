@@ -35,12 +35,12 @@ class EWAHAWSHook(EWAHBaseHook):
         }
 
     def get_boto_resource(self, resource: str, region: Optional[str] = None):
-        aws_region = region or self.region
+        aws_region = region or self.conn.region
         if not self._resources[aws_region].get(resource):
             if self.conn.role_arn:
                 # Must use STS service to assume role before accessing service
                 sts_client = boto3.client(
-                    'sts',
+                    "sts",
                     aws_access_key_id=self.conn.access_key_id,
                     aws_secret_access_key=self.conn.secret_access_key,
                     region_name=aws_region,

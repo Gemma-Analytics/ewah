@@ -188,6 +188,8 @@ el_dags:
 
   # EL_GMaps: tbd
 
+  EL_GCS: !yml_from_file secret_dag_gcs.yml
+
   EL_GSheets: !yml_from_file secret_dag_gsheets.yml
 
   EL_Hubspot:
