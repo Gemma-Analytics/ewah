@@ -231,6 +231,19 @@ el_dags:
         properties: {}
         owners: {}
 
+  EL_Infigo:
+    dag_strategy: atomic
+    el_operator: infigo
+    target_schema_name: raw_infigo
+    operator_config:
+      general_config:
+        source_conn_id: infigo
+      tables:
+        orders: {}
+        customers: {}
+        print_locations:
+          resource: printlocations
+
   EL_Mailchimp:
     dag_strategy: fr
     el_operator: mailchimp
