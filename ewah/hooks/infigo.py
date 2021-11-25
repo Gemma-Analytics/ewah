@@ -13,7 +13,7 @@ class EWAHInfigoHook(EWAHBaseHook):
     conn_name_attr = "ewah_infigo_conn_id"
     default_conn_name = "ewah_infigo_default"
     conn_type = "ewah_infigo"
-    hook_name = "EWAH Recurly Connection"
+    hook_name = "EWAH Infigo Connection"
 
     @staticmethod
     def get_ui_field_behaviour():
