@@ -1,27 +1,10 @@
-"""
-CAMPAIGN -- via list-details combination
-    CAMPAIGN_CONVERSION_BEHAVIOR
-    CAMPAIGN_TAG
-CANVAS -- via list-details
-    ?? CANVAS_CONVERSION_BEHAVIOR
-    CANVASSTEP
-    CANVASSTEPSEQ
-    CANVASTAG
-    CANVASVARIATION
-DEVICE
-CARD list+details https://documenter.getpostman.com/view/4689407/SVYrsdsG?version=latest#5b1401a6-f12c-4827-82c9-8dc604f1671e
-    CARDTAG from list
-    CARDEXTRA from details
-USER
-USER_ALIAS
-
-"""
-
 from ewah.hooks.base import EWAHBaseHook
 
 import requests
 
 from typing import List, Dict, Any, Optional
+
+from datetime import datetime
 
 
 class EWAHBrazeHook(EWAHBaseHook):
@@ -72,17 +55,22 @@ class EWAHBrazeHook(EWAHBaseHook):
         )
         return response.json()
 
-    def get_object_list(self, object: str) -> List[Dict[str, Any]]:
+    def get_object_list(
+        self, object: str, data_from: Optional[datetime] = None
+    ) -> List[Dict[str, Any]]:
         url = "{0}/{1}/list".format(
             self.conn.endpoint, self.OBJECTS[object]["endpoint"]
         )
         self.log.info("Loading objects from {0} ...".format(url))
         page = 0
+        params = {"page": page, "include_archived": True}
+        if data_from:
+            params["last_edit.time[gt]"] = data_from.isoformat()
+            self.log.info("Loading data from {0}...".format(data_from.isoformat()))
         while True:
             # pagination
-            response = self.make_api_call(
-                url, params={"page": page, "include_archived": True}
-            )[object]
+            params["page"] = page
+            response = self.make_api_call(url, params=params)[object]
             if response:
                 yield response
                 page += 1
@@ -90,13 +78,15 @@ class EWAHBrazeHook(EWAHBaseHook):
                 # pagination ends when a page is empty
                 break
 
-    def get_object_data(self, object: str) -> List[Dict[str, Any]]:
+    def get_object_data(
+        self, object: str, data_from: Optional[datetime] = None
+    ) -> List[Dict[str, Any]]:
         url = "{0}/{1}/details".format(
             self.conn.endpoint, self.OBJECTS[object]["endpoint"]
         )
 
         # for all items, get details
-        for chunk in self.get_object_list(object):
+        for chunk in self.get_object_list(object=object, data_from=data_from):
             data = []
             while chunk:
                 datum = chunk.pop(0)
@@ -105,5 +95,10 @@ class EWAHBrazeHook(EWAHBaseHook):
                         url, params={self.OBJECTS[object]["pk"]: datum["id"]}
                     )
                 )
+                updated_at = datum.pop("updated_at", None)
+                if updated_at:
+                    datum["updated_at"] = datetime.strptime(
+                        updated_at, "%Y-%m-%dT%H:%M:%S%z"
+                    )
                 data.append(datum)
             yield data
