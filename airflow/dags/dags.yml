@@ -123,6 +123,7 @@ el_dags:
     operator_config:
       general_config:
         source_conn_id: braze
+        extract_strategy: subsequent
       tables:
         campaigns: {}
         canvas:
