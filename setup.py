@@ -36,7 +36,6 @@ setuptools.setup(
         "oauth2client",
         "Office365-REST-Python-Client",
         "openpyxl",
-        "pandas",
         "psycopg2",
         "pymongo",
         "pymysql",

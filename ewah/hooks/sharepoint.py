@@ -3,7 +3,8 @@ from ewah.hooks.base import EWAHBaseHook
 from office365.runtime.auth.user_credential import UserCredential
 from office365.sharepoint.client_context import ClientContext
 from office365.sharepoint.files.file import File
-from pandas import read_excel, notnull
+
+from openpyxl import load_workbook
 
 import io
 
@@ -42,6 +43,14 @@ class EWAHSharepointHook(EWAHBaseHook):
         bytes_file_obj = io.BytesIO()
         bytes_file_obj.write(response.content)
         bytes_file_obj.seek(0)
-        df = read_excel(bytes_file_obj, sheet_name=worksheet_name, header=0)
-        df = df.where(notnull(df), None)
-        return df.to_dict("records")
+        ws = load_workbook(bytes_file_obj)[worksheet_name]
+        headers = {
+            ws.cell(row=1, column=col).value: col
+            for col in range(1, ws.max_column + 1)
+            if ws.cell(row=1, column=col)
+        }
+        data = [
+            {k: ws.cell(row=row, column=v).value for k, v in headers.items()}
+            for row in range(2, ws.max_row + 1)
+        ]
+        return data
