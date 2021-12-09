@@ -150,6 +150,7 @@ el_dags:
           source_table_name: invoice-reference
 
   EL_Facebook: !yml_from_file secret_dag_facebook.yml
+
   EL_DynamoDB_2:
     dag_strategy: full-refresh
     el_operator: dynamodb
