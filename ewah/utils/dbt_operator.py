@@ -3,7 +3,7 @@ from airflow.utils.file import TemporaryDirectory
 
 from ewah.hooks.base import EWAHBaseHook
 from ewah.constants import EWAHConstants as EC
-from ewah.ewah_utils.run_commands import run_cmd
+from ewah.utils.run_commands import run_cmd
 
 try:
     from yaml import CLoader as Loader

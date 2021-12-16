@@ -1,7 +1,7 @@
 from airflow import DAG
 
 from ewah.constants import EWAHConstants as EC
-from ewah.ewah_utils.airflow_utils import etl_schema_tasks, datetime_utcnow_with_tz
+from ewah.utils.airflow_utils import etl_schema_tasks, datetime_utcnow_with_tz
 from ewah.operators.base import EWAHBaseOperator
 
 from collections.abc import Iterable

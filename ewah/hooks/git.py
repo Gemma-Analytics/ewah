@@ -1,5 +1,5 @@
 from ewah.hooks.base import EWAHBaseHook
-from ewah.ewah_utils.run_commands import run_cmd
+from ewah.utils.run_commands import run_cmd
 from airflow.utils.file import TemporaryDirectory
 from tempfile import NamedTemporaryFile
 from typing import Optional, Dict, Any
@@ -24,7 +24,7 @@ class EWAHRemoteGitHook(EWAHBaseHook):
     def get_connection_form_widgets() -> Dict[str, Any]:
         """Returns connection widgets to add to connection form"""
         from wtforms import StringField
-        from ewah.ewah_utils.widgets import EWAHTextAreaWidget
+        from ewah.utils.widgets import EWAHTextAreaWidget
 
         return {
             "extra__ewah_git__private_key": StringField(

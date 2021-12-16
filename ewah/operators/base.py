@@ -1,7 +1,7 @@
 from airflow.models import BaseOperator
 
 from ewah.constants import EWAHConstants as EC
-from ewah.ewah_utils.airflow_utils import (
+from ewah.utils.airflow_utils import (
     datetime_utcnow_with_tz,
     airflow_datetime_adjustments as ada,
 )

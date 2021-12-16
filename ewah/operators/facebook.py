@@ -1,6 +1,6 @@
 from ewah.operators.base import EWAHBaseOperator
 from ewah.constants import EWAHConstants as EC
-from ewah.ewah_utils.airflow_utils import datetime_utcnow_with_tz
+from ewah.utils.airflow_utils import datetime_utcnow_with_tz
 
 from ewah.hooks.base import EWAHBaseHook as BaseHook
 

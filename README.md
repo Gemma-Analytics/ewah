@@ -166,7 +166,7 @@ The former must be a child object of `ewah.operators.base.EWAHBaseOperator`. Ide
 
 A `filename.py` file in your airflow/dags folder may look something like this:
 ```python
-from ewah.ewah_utils.dag_factory_full_refresh import dag_factory_drop_and_replace
+from ewah.utils.dag_factory_full_refresh import dag_factory_drop_and_replace
 from ewah.constants import EWAHConstants as EC
 from ewah.operators.postgres import EWAHPostgresOperator
 

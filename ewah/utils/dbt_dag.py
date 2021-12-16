@@ -5,8 +5,8 @@ from airflow.operators.bash import BashOperator
 from airflow.providers.postgres.operators.postgres import PostgresOperator
 
 from ewah.constants import EWAHConstants as EC
-from ewah.ewah_utils.airflow_utils import EWAHSqlSensor, datetime_utcnow_with_tz
-from ewah.ewah_utils.dbt_operator import EWAHdbtOperator
+from ewah.utils.airflow_utils import EWAHSqlSensor, datetime_utcnow_with_tz
+from ewah.utils.dbt_operator import EWAHdbtOperator
 from ewah.hooks.base import EWAHBaseHook as BaseHook
 
 from datetime import datetime, timedelta

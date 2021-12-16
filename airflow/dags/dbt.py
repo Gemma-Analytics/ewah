@@ -1,6 +1,6 @@
 from airflow import DAG
 
-from ewah.ewah_utils.dbt_dag import dbt_dags_factory, dbt_snapshot_dag
+from ewah.utils.dbt_dag import dbt_dags_factory, dbt_snapshot_dag
 from ewah.constants import EWAHConstants as EC
 
 from datetime import datetime, timedelta
