@@ -14,28 +14,6 @@ services:
     ports:
       - 5432:5432
 
-  ## Optional: use "all" command to run webserver and scheduler in the same container
-  # all:
-  #   build:
-  #     context: .
-  #     target: dev_build
-  #   command: all
-  #   restart: always
-  #   depends_on:
-  #     - database
-  #   env_file:
-  #     - ./docker/.dev_env
-  #   volumes:
-  #     # running airflow with docker
-  #     - ./airflow:/opt/airflow
-  #     # running ewah
-  #     - ./ewah:/opt/ewah/ewah
-  #     - ./README.md:/opt/ewah/README.md # yes, this is required for dev install
-  #     - ./setup.cfg:/opt/ewah/setup.cfg
-  #     - ./setup.py:/opt/ewah/setup.py
-  #   ports:
-  #     - 8086:8080
-
   webserver:
     build:
       context: .
