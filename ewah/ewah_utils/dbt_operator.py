@@ -143,9 +143,20 @@ class EWAHdbtOperator(BaseOperator):
             cmd = []
             cmd.append("source {0}/bin/activate".format(venv_folder))
             cmd.append("pip install --quiet --upgrade pip setuptools")
-            cmd.append(
-                "pip install --quiet --upgrade dbt=={0}".format(self.dbt_version)
-            )
+            if self.dbt_version.startswith("1"):
+                # Different pip behavior since dbt 1.0.0
+                cmd.append("pip install --quiet --upgrade dbt-{0}=={1}".format(
+                    {
+                        EC.DWH_ENGINE_POSTGRES: "postgres",
+                        EC.DWH_ENGINE_SNOWFLAKE: "snowflake",
+                        EC.DWH_ENGINE_BIGQUERY: "bigquery",
+                    }[self.dwh_engine],
+                    self.dbt_version,
+                ))
+            else:
+                cmd.append(
+                    "pip install --quiet --upgrade dbt=={0}".format(self.dbt_version)
+                )
             cmd.append("dbt --version")
             cmd.append("deactivate")
             assert run_cmd(cmd, env, self.log.info) == 0
