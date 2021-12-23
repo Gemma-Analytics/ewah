@@ -265,6 +265,7 @@ def dbt_dag_factory_new(
     dwh_conn_id,
     database_name=None,
     git_conn_id=None,  # if provided, expecting private SSH key in conn extra
+    local_path=None,
     dbt_version="0.18.1",
     subfolder=None,  # optional: supply if dbt project is in a subfolder
     threads=4,  # see https://docs.getdbt.com/dbt-cli/configure-your-profile/#understanding-threads
@@ -377,6 +378,7 @@ def dbt_dag_factory_new(
         "repo_type": repo_type,
         "dwh_conn_id": dwh_conn_id,
         "git_conn_id": git_conn_id,
+        "local_path": local_path,
         "dbt_version": dbt_version,
         "subfolder": subfolder,
         "threads": threads,
@@ -429,8 +431,10 @@ def dbt_dags_factory(*args, **kwargs):
 def dbt_snapshot_dag(
     dwh_engine,
     dwh_conn_id,
-    git_conn_id,
+    repo_type="git",
     database_name=None,
+    git_conn_id=None,
+    local_path=None,
     dbt_version="0.18.1",
     subfolder=None,
     threads=4,
@@ -478,10 +482,11 @@ def dbt_snapshot_dag(
         dag=dag,
         task_id="dbt_snapshot",
         dbt_commands=["snapshot"],
-        repo_type="git",
+        repo_type=repo_type,
         dwh_engine=dwh_engine,
         dwh_conn_id=dwh_conn_id,
         git_conn_id=git_conn_id,
+        local_path=local_path,
         database_name=database_name,
         dbt_version=dbt_version,
         subfolder=subfolder,
