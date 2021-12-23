@@ -3,6 +3,7 @@ airflow/*
 !airflow/dags
 !airflow/airflow_connections.yml
 !airflow/kubernetes_dags_folder
+!airflow/test_dbt_project
 secret_dag_*.yml
 secret_sql_*.sql
 

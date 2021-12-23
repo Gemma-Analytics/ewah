@@ -16,6 +16,7 @@ import venv
 import yaml
 import json
 from tempfile import NamedTemporaryFile
+from distutils.dir_util import copy_tree
 
 
 class EWAHdbtOperator(BaseOperator):
@@ -40,6 +41,7 @@ class EWAHdbtOperator(BaseOperator):
         dwh_engine,
         dwh_conn_id,
         git_conn_id=None,
+        local_path=None,
         dbt_commands=["run"],  # string or list of strings - dbt commands
         dbt_version="0.18.1",
         subfolder=None,  # optional: supply if dbt project is in a subfolder
@@ -55,11 +57,17 @@ class EWAHdbtOperator(BaseOperator):
         schema_name = dataset or schema_name
         database_name = project or database_name
 
-        assert repo_type in ("git")
+        assert repo_type in ("git", "local")
         assert dbt_commands
         assert dbt_version
         assert threads
         assert schema_name
+
+        if repo_type == "local":
+            assert git_conn_id is None
+            assert local_path
+        else:
+            assert local_path is None
 
         assert dwh_engine in (
             EC.DWH_ENGINE_POSTGRES,
@@ -103,6 +111,7 @@ class EWAHdbtOperator(BaseOperator):
 
         self.repo_type = repo_type
         self.git_conn_id = git_conn_id
+        self.local_path = local_path
         self.dwh_engine = dwh_engine
         self.dwh_conn_id = dwh_conn_id
         self.dbt_commands = dbt_commands
@@ -124,8 +133,12 @@ class EWAHdbtOperator(BaseOperator):
             # clone repo into temp directory
             repo_dir = tmp_dir + os.path.sep + "repo"
             if self.repo_type == "git":
+                # Clone repo into temp folder
                 git_hook = EWAHBaseHook.get_hook_from_conn_id(conn_id=self.git_conn_id)
                 git_hook.clone_repo(repo_dir, env)
+            if self.repo_type == "local":
+                # Copy local version of the repository into temp folder
+                copy_tree(self.local_path, repo_dir)
             else:
                 raise Exception("Not Implemented!")
 
