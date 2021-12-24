@@ -12,8 +12,6 @@ class EWAHMongoDBOperator(EWAHBaseOperator):
         EC.ES_SUBSEQUENT: True,
     }
 
-    _REQUIRES_COLUMNS_DEFINITION = False
-
     def __init__(
         self,
         source_collection_name=None,  # defaults to target_table_name
@@ -31,10 +29,6 @@ class EWAHMongoDBOperator(EWAHBaseOperator):
         self.source_database_name = source_database_name
 
         if single_column_mode:
-            if kwargs.get("columns_definition"):
-                raise Exception(
-                    "single_column_mode is not compatible with " + "columns_definition!"
-                )
             if not kwargs.get("extract_strategy") == EC.ES_FULL_REFRESH:
                 raise Exception(
                     "single_column_mode is only compatible with "

@@ -13,8 +13,6 @@ class EWAHHubspotOperator(EWAHBaseOperator):
         EC.ES_INCREMENTAL: False,
     }
 
-    _REQUIRES_COLUMNS_DEFINITION = False
-
     _CONN_TYPE = EWAHHubspotHook.conn_type
 
     def __init__(

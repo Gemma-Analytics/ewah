@@ -15,8 +15,6 @@ class EWAHDynamoDBOperator(EWAHBaseOperator):
         EC.ES_INCREMENTAL: False,
     }
 
-    _REQUIRES_COLUMNS_DEFINITION = False
-
     def __init__(
         self,
         partition_key,

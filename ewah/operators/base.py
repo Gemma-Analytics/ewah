@@ -43,22 +43,6 @@ class EWAHBaseOperator(BaseOperator):
     None, or a fieldname can be missing in a particular dictionary, in which
     case the value is assumed to be None.
 
-    columns_definition may be supplied at the self.update() function call,
-    at initialization, or not at all, depending on the usecase. The use order is
-    - If available, take the columns_definition from the self.update() call
-    - If None, check if columns_definition was supplied to the operator at init
-    - If neither, create a columns_definition on the fly using (all) the data
-
-    columns_definition is a dictionary with fieldname:properties. Properties
-    is None or a dictionary of option:value where option can be one of the
-    following:
-    - EC.QBC_FIELD_TYPE -> String: Field type (default text)
-    - EC.QBC_FIELD_PK -> Boolean: Is this field the primary key? (default False)
-
-    Note that the value of EC.QBC_FIELD_TYPE is DWH-engine specific!
-
-    columns_definition is case sensitive.
-
     Implemented DWH engines:
     - PostgreSQL
     - Snowflake
@@ -85,8 +69,6 @@ class EWAHBaseOperator(BaseOperator):
         EC.ES_INCREMENTAL: False,
         EC.ES_SUBSEQUENT: False,
     }
-
-    _REQUIRES_COLUMNS_DEFINITION = False  # raise error if true and None supplied
 
     _CONN_TYPE = None  # overwrite me with the required connection type, if applicable
 
@@ -160,12 +142,10 @@ class EWAHBaseOperator(BaseOperator):
         load_data_until=None,  # set a maximum date
         load_data_until_relative=None,  # optional timedelta for incremental
         load_data_chunking_timedelta=None,  # optional timedelta to chunk by
-        columns_definition=None,
         update_on_columns=None,
         primary_key_column_name=None,
         clean_data_before_upload=True,
-        exclude_columns=None,  # list of columns to exclude, if no
-        # columns_definition was supplied (e.g. for select * with sql)
+        exclude_columns=None,  # list of columns to exclude
         index_columns=[],  # list of columns to create an index on. can be
         # an expression, must be quoted in list if quoting is required.
         hash_columns=None,  # str or list of str - columns to hash pre-upload
@@ -196,8 +176,7 @@ class EWAHBaseOperator(BaseOperator):
             "lzma",
         )
 
-        assert not (rename_columns and columns_definition)
-        assert rename_columns is None or isinstance(rename_columns, dict)
+        assert isinstance(rename_columns, (type(None), dict))
 
         if default_timezone:
             assert dwh_engine in (EC.DWH_ENGINE_POSTGRES,)  # Only for PostgreSQL so far
@@ -226,28 +205,12 @@ class EWAHBaseOperator(BaseOperator):
 
         if load_strategy == EC.LS_UPSERT:
             # upserts require a (composite) primary key of some sort
-            if not (
-                update_on_columns
-                or primary_key_column_name
-                or (
-                    columns_definition
-                    and (
-                        0
-                        < sum(
-                            [
-                                bool(columns_definition[col].get(EC.QBC_FIELD_PK))
-                                for col in list(columns_definition.keys())
-                            ]
-                        )
-                    )
-                )
-            ):
+            if not (update_on_columns or primary_key_column_name):
                 raise Exception(
                     "If the load strategy is upsert, "
                     "one of the following is required:"
                     "\n- List of columns to update on (update_on_columns)"
                     "\n- Name of the primary key (primary_key_column_name)"
-                    "\n- Columns definition (columns_definition) that includes"
                     " the primary key(s)"
                 )
         elif load_strategy in (EC.LS_INSERT_ADD, EC.LS_INSERT_REPLACE):
@@ -273,13 +236,8 @@ class EWAHBaseOperator(BaseOperator):
         elif isinstance(hash_columns, str):
             hash_columns = [hash_columns]
 
-        if columns_definition and exclude_columns:
-            raise Exception(
-                "Must not supply both columns_definition and " + "exclude_columns!"
-            )
-        elif exclude_columns:
-            if isinstance(exclude_columns, str):
-                exclude_columns = [exclude_columns]
+        if exclude_columns and isinstance(exclude_columns, str):
+            exclude_columns = [exclude_columns]
 
         if not dwh_engine or not dwh_engine in EC.DWH_ENGINES:
             _msg = "Invalid DWH Engine: {0}\n\nAccepted Engines:\n\t{1}".format(
@@ -293,12 +251,6 @@ class EWAHBaseOperator(BaseOperator):
 
         if (not dwh_engine == EC.DWH_ENGINE_SNOWFLAKE) and target_database_name:
             raise Exception('Received argument for "target_database_name"!')
-
-        if self._REQUIRES_COLUMNS_DEFINITION:
-            if not columns_definition:
-                raise Exception(
-                    "This operator requires the argument " + "columns_definition!"
-                )
 
         if primary_key_column_name and update_on_columns:
             raise Exception(
@@ -336,7 +288,6 @@ class EWAHBaseOperator(BaseOperator):
         self.load_data_until = load_data_until
         self.load_data_until_relative = load_data_until_relative
         self.load_data_chunking_timedelta = load_data_chunking_timedelta
-        self.columns_definition = columns_definition
         if (not update_on_columns) and primary_key_column_name:
             if type(primary_key_column_name) == str:
                 update_on_columns = [primary_key_column_name]
@@ -617,55 +568,6 @@ class EWAHBaseOperator(BaseOperator):
         # Thus, fail until explicitly added
         raise Exception("Function not implemented!")
 
-    def _create_columns_definition(self, data):
-        "Create a columns_definition from data (list of dicts)."
-        inconsistent_data_type = EC.QBC_TYPE_MAPPING[self.dwh_engine].get(
-            EC.QBC_TYPE_MAPPING_INCONSISTENT
-        )
-
-        def get_field_type(value):
-            return (
-                EC.QBC_TYPE_MAPPING[self.dwh_engine].get(type(value))
-                or inconsistent_data_type
-            )
-
-        result = {}
-        for datum in data:
-            for field in datum.keys():
-                if field in (self.hash_columns or []) and not result.get(field):
-                    # Type is appropriate string type & QBC_FIELD_HASH is true
-                    result.update(
-                        {
-                            field: {
-                                EC.QBC_FIELD_TYPE: get_field_type("str"),
-                            }
-                        }
-                    )
-                elif not (
-                    result.get(field, {}).get(EC.QBC_FIELD_TYPE)
-                    == inconsistent_data_type
-                ) and (not datum[field] is None):
-                    if result.get(field):
-                        # column has been added in a previous iteration.
-                        # If not default column: check if new and old column
-                        #   type identification agree.
-                        if not (
-                            result[field][EC.QBC_FIELD_TYPE]
-                            == get_field_type(datum[field])
-                        ):
-                            self.log.info(
-                                "WARNING! Data types are inconsistent."
-                                + " Affected column: {0}".format(field)
-                            )
-                            result[field][EC.QBC_FIELD_TYPE] = inconsistent_data_type
-
-                    else:
-                        # First iteration with this column. Add to result.
-                        result.update(
-                            {field: {EC.QBC_FIELD_TYPE: get_field_type(datum[field])}}
-                        )
-        return result
-
     def _upload_via_pickling(self, data: Union[dict, List[dict]]):
         """Call this function to earmark a dictionary for later upload."""
         assert self.use_temp_pickling, "Can only call function if using temp pickling!"
@@ -707,15 +609,15 @@ class EWAHBaseOperator(BaseOperator):
             temp_file_name, "wb", self.pickle_compression
         )
 
-    def upload_data(self, data=None, columns_definition=None):
+    def upload_data(self, data=None):
         if self.use_temp_pickling:
             # earmark for later upload
             self._upload_via_pickling(data=data)
         else:
             # upload straightaway
-            self._upload_data(data, columns_definition)
+            self._upload_data(data)
 
-    def _upload_data(self, data=None, columns_definition=None):
+    def _upload_data(self, data=None):
         """Upload data, no matter the source. Call this functions in the child
         operator whenever data is available for upload, as often as needed.
         """
@@ -732,6 +634,14 @@ class EWAHBaseOperator(BaseOperator):
 
         if self.add_metadata:
             metadata = copy.deepcopy(self._metadata)  # from individual operator
+            interval_start = self._context["data_interval_start"]
+            interval_start = datetime.fromtimestamp(
+                interval_start.timestamp(), interval_start.tz
+            )
+            interval_end = self._context["data_interval_end"]
+            interval_end = datetime.fromtimestamp(
+                interval_end.timestamp(), interval_end.tz
+            )
             metadata.update(
                 {
                     "_ewah_extract_strategy": self.extract_strategy,
@@ -740,12 +650,8 @@ class EWAHBaseOperator(BaseOperator):
                     "_ewah_execution_chunk": self.upload_call_count,
                     "_ewah_dag_id": self._context["dag"].dag_id,
                     "_ewah_dag_run_id": self._context["run_id"],
-                    "_ewah_dag_run_data_interval_start": self._context[
-                        "data_interval_start"
-                    ],
-                    "_ewah_dag_run_data_interval_end": self._context[
-                        "data_interval_end"
-                    ],
+                    "_ewah_dag_run_data_interval_start": interval_start,
+                    "_ewah_dag_run_data_interval_end": interval_end,
                 }
             )
         else:
@@ -753,10 +659,9 @@ class EWAHBaseOperator(BaseOperator):
 
         data = self.cleaner.clean_rows(rows=data, metadata=metadata)
 
-        columns_definition = columns_definition or self.columns_definition
-        if not columns_definition:
-            self.log.info("Creating table schema on the fly based on data.")
-            columns_definition = self._create_columns_definition(data)
+        columns_definition = self.cleaner.get_columns_definition(
+            dwh_engine=self.dwh_engine
+        )
 
         if self.update_on_columns:
             pk_list = self.update_on_columns  # is a list already

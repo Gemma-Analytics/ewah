@@ -81,16 +81,10 @@ class EWAHConstants:
         },
     }
 
-    """When a columns_definition is given, but a column does not have a field
-    type defined, use default as specified here. If no columns_definition is
-    given, and a field is of inconsistent data type or type does not exist
+    """If a field is of inconsistent data type or type does not exist
     in the mapping below, use inconsistent value specified here."""
-    QBC_TYPE_MAPPING_DEFAULT = "tm_default"
-    QBC_TYPE_MAPPING_INCONSISTENT = "tm_incon"
     QBC_TYPE_MAPPING = {
         DWH_ENGINE_POSTGRES: {
-            QBC_TYPE_MAPPING_DEFAULT: "text",
-            QBC_TYPE_MAPPING_INCONSISTENT: "text",
             str: "text",
             int: "bigint",
             float: "numeric",
@@ -105,8 +99,6 @@ class EWAHConstants:
             timedelta: "interval",
         },
         DWH_ENGINE_SNOWFLAKE: {
-            QBC_TYPE_MAPPING_DEFAULT: "VARCHAR",
-            QBC_TYPE_MAPPING_INCONSISTENT: "VARCHAR",
             str: "VARCHAR",
             int: "NUMBER",
             float: "NUMBER",
@@ -120,8 +112,6 @@ class EWAHConstants:
             date: "DATE",
         },
         DWH_ENGINE_BIGQUERY: {
-            QBC_TYPE_MAPPING_DEFAULT: "STRING",
-            QBC_TYPE_MAPPING_INCONSISTENT: "STRING",
             str: "STRING",
             int: "INT64",
             float: "NUMERIC",
@@ -138,8 +128,6 @@ class EWAHConstants:
         # DWH_ENGINE_REDSHIFT: {},
         # DWH_ENGINE_S3: {},
         DWH_ENGINE_GS: {  # must have these two values evaluate to True as bool
-            QBC_TYPE_MAPPING_DEFAULT: "x",
-            QBC_TYPE_MAPPING_INCONSISTENT: "x",
             # EWAH tries to dump all non-mapped types, thus map even if map is never used!
             str: "x",
             int: "x",

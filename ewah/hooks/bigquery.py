@@ -71,7 +71,7 @@ class EWAHBigQueryHook(EWAHSQLBaseHook):
             # only scalar implemented - array and structs are TODO!
             if params:
                 type_mapping = EC.QBC_TYPE_MAPPING.get(EC.DWH_ENGINE_BIGQUERY)
-                _default = type_mapping[EC.QBC_TYPE_MAPPING_DEFAULT]
+                _default = type_mapping[str]
                 job_config = bigquery.QueryJobConfig(
                     query_parameters=[
                         bigquery.ScalarQueryParameter(

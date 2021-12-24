@@ -17,8 +17,6 @@ class EWAHAircallOperator(EWAHBaseOperator):
 
     _CONN_TYPE = EWAHAircallHook.conn_type
 
-    _REQUIRES_COLUMNS_DEFINITION = False
-
     def __init__(self, resource=None, wait_between_pages=1, *args, **kwargs):
         kwargs["primary_key_column_name"] = "id"
         resource = resource or kwargs.get("target_table_name")

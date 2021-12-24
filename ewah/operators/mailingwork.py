@@ -17,8 +17,6 @@ class EWAHMailingworkOperator(EWAHBaseOperator):
         EC.ES_INCREMENTAL: False,
     }
 
-    _REQUIRES_COLUMNS_DEFINITION = False
-
     _BASE_URL = "https://webservice.mailingwork.de/webservice/webservice/json/"
 
     def __init__(

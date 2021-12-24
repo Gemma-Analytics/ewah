@@ -64,7 +64,7 @@ class EWAHGSheetsUploader(EWAHBaseUploader):
         table_name,
         schema_name,
         schema_suffix,  # unused but always given
-        columns_definition,  # unused but always given
+        columns_definition,
         columns_partial_query,  # unused but always given
         update_on_columns,  # unused but always given
         load_strategy,  # Must be LS_INSERT_REPLACE
@@ -123,10 +123,10 @@ class EWAHGSheetsUploader(EWAHBaseUploader):
         # insert new data - need to change the format! use columns definition
         self.log.info("Preparing data for Google Sheets upload...")
         column_header = list(columns_definition.keys())
-        upload_data = [column_header]
+        upload_data = [column_header]  # First row: headers
         while data:
             current_data = data.pop(0)
-            upload_data += [[current_data.get(col, "") for col in column_header]]
+            upload_data.append([current_data.get(col, "") for col in column_header])
         range_notation = "A1:" + colnum_string(len(column_header))
         range_notation += str(len(upload_data))
         self.log.info("Uploading data now!")

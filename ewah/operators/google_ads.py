@@ -30,9 +30,6 @@ class EWAHGoogleAdsOperator(EWAHBaseOperator):
         **kwargs
     ):
 
-        if kwargs.get("columns_definition"):
-            raise Exception("columns_definition is not accepted for this operator!")
-
         if metrics:
             fields["metrics"] = metrics
 

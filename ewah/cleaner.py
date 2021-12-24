@@ -1,5 +1,7 @@
 from airflow.utils.log.logging_mixin import LoggingMixin
 
+from ewah.constants import EWAHConstants as EC
+
 from typing import List, Dict, Optional, Any, Callable, Union
 
 from copy import deepcopy
@@ -118,6 +120,20 @@ class EWAHCleaner(LoggingMixin):
                         value = value.replace("\x00", "")
                 row[key] = value
 
+                # Set the fields_definition for the key
+                value_type = type(value)
+                current_type_set = self.fields_definition.get(key)
+                if current_type_set:
+                    if not current_type_set == value_type:
+                        # TODO: make this flexible
+                        # For now, default to text in case of conflict
+                        self.fields_definition[key] = str
+                        self.log.info(
+                            "WARNING! Data types are inconsistent. "
+                            "Affected: {0}".format(key)
+                        )
+                else:
+                    self.fields_definition[key] = value_type
 
         return row
 
@@ -125,3 +141,9 @@ class EWAHCleaner(LoggingMixin):
         for step in self.cleaning_steps:
             row = step(row)
         return row
+
+    def get_columns_definition(self, dwh_engine):
+        return {
+            field: {EC.QBC_FIELD_TYPE: EC.QBC_TYPE_MAPPING[dwh_engine].get(datatype)}
+            for field, datatype in self.fields_definition.items()
+        }

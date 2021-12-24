@@ -126,10 +126,7 @@ class EWAHBaseUploader(LoggingMixin):
         """
         return column_definition.get(
             EC.QBC_FIELD_TYPE,
-            EC.QBC_TYPE_MAPPING[self.dwh_engine].get(
-                EC.QBC_TYPE_MAPPING_DEFAULT,
-                EC.QBC_TYPE_MAPPING_INCONSISTENT,
-            ),
+            EC.QBC_TYPE_MAPPING[self.dwh_engine].get(str),
         )
 
     def close(self):

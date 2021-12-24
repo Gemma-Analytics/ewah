@@ -59,17 +59,8 @@ class EWAHSQLBaseOperator(EWAHBaseOperator):
         if not sql_select_statement:
             assert source_schema_name
             assert source_table_name
-            if self.columns_definition:
-                columns_sql = "\n\t  {0}{1}{0}".format(
-                    self._SQL_COLUMN_QUOTE,
-                    "{0}\n\t, {0}".format(self._SQL_COLUMN_QUOTE).join(
-                        self.columns_definition.keys()
-                    ),
-                )
-            else:
-                columns_sql = "*"
             sql_select_statement = self._SQL_BASE.format(
-                columns=columns_sql,
+                columns="*",
                 schema=source_schema_name,
                 table=source_table_name,
                 database=source_database_name,

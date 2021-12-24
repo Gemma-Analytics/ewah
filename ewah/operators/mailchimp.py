@@ -13,8 +13,6 @@ class EWAHMailchimpOperator(EWAHBaseOperator):
         EC.ES_INCREMENTAL: False,
     }
 
-    _REQUIRES_COLUMNS_DEFINITION = False
-
     _CONN_TYPE = EWAHMailchimpHook.conn_type
 
     def __init__(self, resource=None, *args, **kwargs):

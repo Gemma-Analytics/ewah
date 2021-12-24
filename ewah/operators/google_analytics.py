@@ -18,8 +18,6 @@ class EWAHGAOperator(EWAHBaseOperator):
 
     _CONN_TYPE = EWAHGoogleAnalyticsHook.conn_type
 
-    _REQUIRES_COLUMNS_DEFINITION = False
-
     def __init__(
         self,
         view_id,

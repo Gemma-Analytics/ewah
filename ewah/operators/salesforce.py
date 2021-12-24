@@ -45,7 +45,6 @@ class EWAHSalesforceOperator(EWAHBaseOperator):
 
         for batch in self.source_hook.get_data_in_batches(
             salesforce_object=self.salesforce_object,
-            columns=list(self.columns_definition or []) or None,
             data_from=self.data_from,
             data_until=self.data_until,
         ):
