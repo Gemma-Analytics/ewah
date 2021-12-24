@@ -515,7 +515,7 @@ class EWAHBaseOperator(BaseOperator):
         # Prepare data cleaner
         self.cleaner = self.cleaner(
             default_row=self.default_values,
-            metadata=None,
+            add_metadata=self.add_metadata,
             rename_columns=self.rename_columns,
             hash_columns=self.hash_columns,
             # additional_callables=None, TBD: Make option available in operator
@@ -728,32 +728,28 @@ class EWAHBaseOperator(BaseOperator):
             )
         )
 
-        data = self.cleaner.clean_rows(rows=data)
-
         if self.add_metadata:
-            if self.add_metadata:
-                self.log.info("Adding metadata...")
-                metadata = copy.deepcopy(self._metadata)  # from individual operator
-                # for all operators alike
-                metadata.update(
-                    {
-                        "_ewah_extract_strategy": self.extract_strategy,
-                        "_ewah_load_strategy": self.load_strategy,
-                        "_ewah_executed_at": self._execution_time,
-                        "_ewah_execution_chunk": self.upload_call_count,
-                        "_ewah_dag_id": self._context["dag"].dag_id,
-                        "_ewah_dag_run_id": self._context["run_id"],
-                        "_ewah_dag_run_data_interval_start": self._context[
-                            "data_interval_start"
-                        ],
-                        "_ewah_dag_run_data_interval_end": self._context[
-                            "data_interval_end"
-                        ],
-                    }
-                )
-            for datum in data:
-                if self.add_metadata:
-                    datum.update(metadata)
+            metadata = copy.deepcopy(self._metadata)  # from individual operator
+            metadata.update(
+                {
+                    "_ewah_extract_strategy": self.extract_strategy,
+                    "_ewah_load_strategy": self.load_strategy,
+                    "_ewah_executed_at": self._execution_time,
+                    "_ewah_execution_chunk": self.upload_call_count,
+                    "_ewah_dag_id": self._context["dag"].dag_id,
+                    "_ewah_dag_run_id": self._context["run_id"],
+                    "_ewah_dag_run_data_interval_start": self._context[
+                        "data_interval_start"
+                    ],
+                    "_ewah_dag_run_data_interval_end": self._context[
+                        "data_interval_end"
+                    ],
+                }
+            )
+        else:
+            metadata = None
+
+        data = self.cleaner.clean_rows(rows=data, metadata=metadata)
 
         columns_definition = columns_definition or self.columns_definition
         if not columns_definition:

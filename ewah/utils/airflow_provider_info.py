@@ -1,5 +1,6 @@
 from ewah.hooks import connection_types
 
+
 def get_provider_info():
     return {
         "package-name": "ewah",

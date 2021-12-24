@@ -19,7 +19,7 @@ class EWAHCleaner(LoggingMixin):
     def __init__(
         self,
         default_row: Optional[Dict[str, any]] = None,
-        metadata: Optional[Dict[str, Any]] = None,
+        add_metadata: bool = False,
         rename_columns: Optional[Dict[str, str]] = None,
         hash_columns: Optional[List[str]] = None,
         additional_callables: Optional[Union[List[Callable], Callable]] = None,
@@ -28,10 +28,6 @@ class EWAHCleaner(LoggingMixin):
 
         cleaning_steps = []
 
-        if metadata:
-            cleaning_steps.append(self._add_metadata)
-            self.metadata = metadata
-
         if rename_columns:
             cleaning_steps.append(self._rename_columns)
             self.rename_columns = rename_columns
@@ -39,6 +35,10 @@ class EWAHCleaner(LoggingMixin):
         if hash_columns:
             cleaning_steps.append(self._hash_row)
             self.hash_columns = hash_columns
+
+        if add_metadata:
+            cleaning_steps.append(self._add_metadata)
+            self.add_metadata = add_metadata
 
         if additional_callables:
             if callable(additional_callables):
@@ -70,9 +70,13 @@ class EWAHCleaner(LoggingMixin):
             return None
         return sha256(str(value).encode()).hexdigest()
 
-    def clean_rows(self, rows: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    def clean_rows(
+        self, rows: List[Dict[str, Any]], metadata: Optional[Dict[str, Any]] = None
+    ) -> List[Dict[str, Any]]:
         cleaned_rows = []
         self.log.info("Cleaning {0} rows of data!".format(str(len(rows))))
+        if self.add_metadata:
+            self.metadata = metadata or {}
         while rows:
             cleaned_rows.append(self.clean_row(rows.pop(0)))
         return cleaned_rows
