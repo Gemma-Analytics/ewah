@@ -516,7 +516,7 @@ class EWAHBaseOperator(BaseOperator):
         self.cleaner = self.cleaner(
             default_row=self.default_values,
             metadata=None,
-            rename_columns=None,
+            rename_columns=self.rename_columns,
             hash_columns=self.hash_columns,
             # additional_callables=None, TBD: Make option available in operator
         )
@@ -728,7 +728,9 @@ class EWAHBaseOperator(BaseOperator):
             )
         )
 
-        if self.add_metadata or self.rename_columns:
+        data = self.cleaner.clean_rows(rows=data)
+
+        if self.add_metadata:
             if self.add_metadata:
                 self.log.info("Adding metadata...")
                 metadata = copy.deepcopy(self._metadata)  # from individual operator
@@ -749,13 +751,9 @@ class EWAHBaseOperator(BaseOperator):
                         ],
                     }
                 )
-            rename_columns = self.rename_columns or {}
             for datum in data:
                 if self.add_metadata:
                     datum.update(metadata)
-                if rename_columns:
-                    for (old_name, new_name) in rename_columns.items():
-                        datum[new_name] = datum.pop(old_name, None)
 
         columns_definition = columns_definition or self.columns_definition
         if not columns_definition:
@@ -802,7 +800,7 @@ class EWAHBaseOperator(BaseOperator):
             )
 
         self.log.info("Uploading data now.")
-        data = self.cleaner.clean_rows(rows=data)
+
         self.uploader.create_or_update_table(
             data=data,
             load_strategy=self.load_strategy,
