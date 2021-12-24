@@ -514,7 +514,7 @@ class EWAHBaseOperator(BaseOperator):
 
         # Prepare data cleaner
         self.cleaner = self.cleaner(
-            default_row=None,
+            default_row=self.default_values,
             metadata=None,
             rename_columns=None,
             hash_columns=self.hash_columns,
@@ -815,7 +815,6 @@ class EWAHBaseOperator(BaseOperator):
             update_on_columns=self.update_on_columns,
             commit=False,  # See note below for reason
             clean_data_before_upload=self.clean_data_before_upload,
-            default_values=self.default_values,
             bson_to_string=self.cast_bson_objects_to_string,
         )
         """ Note on committing changes:

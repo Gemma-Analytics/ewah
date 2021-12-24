@@ -255,13 +255,10 @@ class EWAHBaseUploader(LoggingMixin):
         update_on_columns=None,
         commit=False,
         clean_data_before_upload=True,
-        default_values=None,
         bson_to_string=True,
     ):
         # check this again with Snowflake!!
         database_name = database_name or getattr(self, "database", None)
-
-        default_values = default_values or {}
 
         if bson_to_string:
             json_encoder_class = EWAHJSONEncoderBSON
@@ -298,7 +295,9 @@ class EWAHBaseUploader(LoggingMixin):
         pk_columns = []
 
         for column_name in columns_definition.keys():
-            raw_row[column_name] = default_values.get(column_name)
+            raw_row[column_name] = raw_row.get(column_name)
+            # Clean up the line above when able - legay logic from when this was
+            # where defaults were applied to Nones
             definition = columns_definition[column_name]
             if not isinstance(definition, dict):
                 raise Exception(
