@@ -13,7 +13,6 @@ relevant_files = [
 ]
 
 connection_types = []
-name_template = "ewah.hooks.{0}.{1}"
 
 for py_file in relevant_files:
     mod = __import__(".".join([__name__, py_file]), fromlist=[py_file])
@@ -24,4 +23,9 @@ for py_file in relevant_files:
             and not cls == EWAHBaseHook
             and not cls == EWAHSQLBaseHook
         ):
-            connection_types.append(cls.conn_type)
+            connection_types.append(
+                {
+                    "connection-type": cls.conn_type,
+                    "hook-class-name": ".".join([cls.__module__, cls.__name__]),
+                }
+            )

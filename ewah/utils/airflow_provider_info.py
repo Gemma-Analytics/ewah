@@ -1,11 +1,10 @@
 from ewah.hooks import connection_types
 
-
 def get_provider_info():
     return {
         "package-name": "ewah",
-        "name": "ewah",
-        "description": "",
-        "connection_types": connection_types,
-        "versions": ["1.0.0"],
+        "name": "EWAH",
+        "description": "ELT With Airflow Helper - EWAH. Make EL easy for the world.",
+        "connection-types": connection_types,
+        "version": "1.0.0",
     }
