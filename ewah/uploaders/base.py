@@ -353,9 +353,6 @@ class EWAHBaseUploader(LoggingMixin):
                                 except TypeError:
                                     # try dumping with bson utility function
                                     row[column_name] = dumps(value)
-                            elif isinstance(value, str):
-                                if not (value == "\0"):
-                                    row[column_name] = value.replace("\x00", "")
                             else:
                                 row[column_name] = value
                 upload_data += [row]

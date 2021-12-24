@@ -87,9 +87,14 @@ class EWAHCleaner(LoggingMixin):
         while raw_row:
             key, value = raw_row.popitem()
             if not value is None:
-                if isinstance(value, str) and not (value == "\0"):
-                    # Some database system don't handle this character well, remove it
-                    value = value.replace("\x00", "")
+                if isinstance(value, str):
+                    if value == "\0":
+                        # This is a null value -> treat as None
+                        value = row.get(key)  # Use default, if exists
+                    else:
+                        # Some database system don't handle this character well
+                        # Thus, remove it
+                        value = value.replace("\x00", "")
                 row[key] = value
 
         for step in self.cleaning_steps:
