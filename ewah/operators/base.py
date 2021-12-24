@@ -1,5 +1,6 @@
 from airflow.models import BaseOperator
 
+from ewah.cleaner import EWAHCleaner
 from ewah.constants import EWAHConstants as EC
 from ewah.utils.airflow_utils import (
     datetime_utcnow_with_tz,
@@ -168,7 +169,6 @@ class EWAHBaseOperator(BaseOperator):
         index_columns=[],  # list of columns to create an index on. can be
         # an expression, must be quoted in list if quoting is required.
         hash_columns=None,  # str or list of str - columns to hash pre-upload
-        hashlib_func_name="sha256",  # specify hashlib hashing function
         wait_for_seconds=120,  # seconds past data_interval_end to wait until
         # wait_for_seconds only applies for incremental loads
         add_metadata=True,
@@ -180,6 +180,7 @@ class EWAHBaseOperator(BaseOperator):
         pickle_compression=None,  # data compression algorithm to use for pickles
         default_values=None,  # dict with default values for columns (to avoid nulls)
         cast_bson_objects_to_string=True,  # how to serialize bson object ids
+        cleaner=EWAHCleaner,
         *args,
         **kwargs
     ):
@@ -271,10 +272,6 @@ class EWAHBaseOperator(BaseOperator):
             raise Exception(_msg)
         elif isinstance(hash_columns, str):
             hash_columns = [hash_columns]
-        if hashlib_func_name:
-            _msg = "Invalid hashing function: hashlib.{0}()"
-            _msg = _msg.format(hashlib_func_name)
-            assert hasattr(hashlib, hashlib_func_name), _msg
 
         if columns_definition and exclude_columns:
             raise Exception(
@@ -349,7 +346,6 @@ class EWAHBaseOperator(BaseOperator):
         self.exclude_columns = exclude_columns
         self.index_columns = index_columns
         self.hash_columns = hash_columns
-        self.hashlib_func_name = hashlib_func_name
         self.wait_for_seconds = wait_for_seconds
         self.add_metadata = add_metadata
         self.rename_columns = rename_columns
@@ -360,6 +356,7 @@ class EWAHBaseOperator(BaseOperator):
         self.pickle_compression = pickle_compression
         self.default_values = default_values
         self.cast_bson_objects_to_string = cast_bson_objects_to_string
+        self.cleaner = cleaner
 
         self.uploader = get_uploader(self.dwh_engine)
 
@@ -515,6 +512,15 @@ class EWAHBaseOperator(BaseOperator):
                 wait_for_timedelta = wait_until - datetime_utcnow_with_tz()
                 time.sleep(max(0, min(wait_for_timedelta.total_seconds(), 5)))
 
+        # Prepare data cleaner
+        self.cleaner = self.cleaner(
+            default_row=None,
+            metadata=None,
+            rename_columns=None,
+            hash_columns=self.hash_columns,
+            # additional_callables=None, TBD: Make option available in operator
+        )
+
         # execute operator
         if self.load_data_chunking_timedelta and data_from and data_until:
             # Chunking to avoid OOM
@@ -630,7 +636,6 @@ class EWAHBaseOperator(BaseOperator):
                         {
                             field: {
                                 EC.QBC_FIELD_TYPE: get_field_type("str"),
-                                EC.QBC_FIELD_HASH: True,
                             }
                         }
                     )
@@ -797,6 +802,7 @@ class EWAHBaseOperator(BaseOperator):
             )
 
         self.log.info("Uploading data now.")
+        data = self.cleaner.clean_rows(rows=data)
         self.uploader.create_or_update_table(
             data=data,
             load_strategy=self.load_strategy,
@@ -809,8 +815,6 @@ class EWAHBaseOperator(BaseOperator):
             update_on_columns=self.update_on_columns,
             commit=False,  # See note below for reason
             clean_data_before_upload=self.clean_data_before_upload,
-            hash_columns=self.hash_columns,
-            hashlib_func_name=self.hashlib_func_name,
             default_values=self.default_values,
             bson_to_string=self.cast_bson_objects_to_string,
         )

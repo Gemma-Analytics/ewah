@@ -6,7 +6,6 @@ from ewah.constants import EWAHConstants as EC
 import json
 import bson
 import math
-import hashlib
 
 from copy import deepcopy
 from collections import OrderedDict
@@ -256,8 +255,6 @@ class EWAHBaseUploader(LoggingMixin):
         update_on_columns=None,
         commit=False,
         clean_data_before_upload=True,
-        hash_columns=None,
-        hashlib_func_name=None,
         default_values=None,
         bson_to_string=True,
     ):
@@ -300,7 +297,6 @@ class EWAHBaseUploader(LoggingMixin):
         field_constraints_mapping.pop(EC.QBC_FIELD_PK, None)
         pk_columns = []
 
-        hash_columns = hash_columns or []
         for column_name in columns_definition.keys():
             raw_row[column_name] = default_values.get(column_name)
             definition = columns_definition[column_name]
@@ -330,34 +326,19 @@ class EWAHBaseUploader(LoggingMixin):
                 pk_columns += [column_name]
                 if create_update_on_columns:
                     update_on_columns += [column_name]
-            if definition.get(EC.QBC_FIELD_HASH):
-                hash_columns += [column_name]
         sql_part_columns = ",\n\t".join(sql_part_columns)
 
         if clean_data_before_upload:
             self.log.info("Cleaning data for upload...")
             upload_data = []
             cols_list = list(raw_row.keys())
-            if hash_columns:
-                hash_func = getattr(hashlib, hashlib_func_name)
             while data:
                 datum = data.pop(0)
                 # Make sure that each dict in upload_data has all keys
                 row = deepcopy(raw_row)
                 for column_name, value in datum.items():
                     if column_name in cols_list:
-                        if column_name in hash_columns:
-                            # hash column, and respect default values!
-                            if value is None:
-                                pre_digest = default_values.get(column_name)
-                            else:
-                                pre_digest = value
-                            if pre_digest is None:
-                                row[column_name] = None
-                            else:
-                                pre_digest = hash_func(str(pre_digest).encode())
-                                row[column_name] = pre_digest.hexdigest()
-                        elif not value is None:
+                        if not value is None:
                             # avoid edge case of data where all instances of a
                             #   field are None, thus having data for a field
                             #   missing in the columns_definition!
