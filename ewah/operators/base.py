@@ -164,7 +164,7 @@ class EWAHBaseOperator(BaseOperator):
         update_on_columns=None,
         primary_key_column_name=None,
         clean_data_before_upload=True,
-        exclude_columns=[],  # list of columns to exclude, if no
+        exclude_columns=None,  # list of columns to exclude, if no
         # columns_definition was supplied (e.g. for select * with sql)
         index_columns=[],  # list of columns to create an index on. can be
         # an expression, must be quoted in list if quoting is required.
@@ -277,6 +277,9 @@ class EWAHBaseOperator(BaseOperator):
             raise Exception(
                 "Must not supply both columns_definition and " + "exclude_columns!"
             )
+        elif exclude_columns:
+            if isinstance(exclude_columns, str):
+                exclude_columns = [exclude_columns]
 
         if not dwh_engine or not dwh_engine in EC.DWH_ENGINES:
             _msg = "Invalid DWH Engine: {0}\n\nAccepted Engines:\n\t{1}".format(
@@ -515,6 +518,7 @@ class EWAHBaseOperator(BaseOperator):
         # Prepare data cleaner
         self.cleaner = self.cleaner(
             default_row=self.default_values,
+            exclude_columns=self.exclude_columns,
             add_metadata=self.add_metadata,
             rename_columns=self.rename_columns,
             hash_columns=self.hash_columns,
@@ -628,9 +632,7 @@ class EWAHBaseOperator(BaseOperator):
         result = {}
         for datum in data:
             for field in datum.keys():
-                if field in self.exclude_columns:
-                    datum[field] = None
-                elif field in (self.hash_columns or []) and not result.get(field):
+                if field in (self.hash_columns or []) and not result.get(field):
                     # Type is appropriate string type & QBC_FIELD_HASH is true
                     result.update(
                         {

@@ -18,15 +18,20 @@ class EWAHCleaner(LoggingMixin):
 
     def __init__(
         self,
-        default_row: Optional[Dict[str, any]] = None,
+        default_row: Optional[Dict[str, Any]] = None,
         add_metadata: bool = False,
-        rename_columns: Optional[Dict[str, str]] = None,
+        exclude_columns: Optional[List[str]] = None,
         hash_columns: Optional[List[str]] = None,
+        rename_columns: Optional[Dict[str, str]] = None,
         additional_callables: Optional[Union[List[Callable], Callable]] = None,
     ):
         super().__init__()
 
         cleaning_steps = []
+
+        if exclude_columns:
+            cleaning_steps.append(self._exclude_columns)
+            self.exclude_columns = exclude_columns
 
         if rename_columns:
             cleaning_steps.append(self._rename_columns)
@@ -46,8 +51,24 @@ class EWAHCleaner(LoggingMixin):
             else:
                 cleaning_steps += additional_callables
 
+        # Clean values right at the end
+        cleaning_steps.append(self.clean_values)
+
         self.cleaning_steps = cleaning_steps
         self.default_row = default_row or {}
+
+        if default_row:
+            # initialize with defaults
+            self.fields_definition = {
+                field: type(value) for field, value in default_row.items()
+            }
+        else:
+            self.fields_definition = {}
+
+    def _exclude_columns(self, row):
+        for column in self.exclude_columns:
+            row.pop(column, None)
+        return row
 
     def _add_metadata(self, row):
         row.update(self.metadata)
@@ -81,7 +102,7 @@ class EWAHCleaner(LoggingMixin):
             cleaned_rows.append(self.clean_row(rows.pop(0)))
         return cleaned_rows
 
-    def clean_row(self, raw_row: dict):
+    def clean_values(self, raw_row: dict):
         row = deepcopy(self.default_row)
 
         while raw_row:
@@ -92,12 +113,15 @@ class EWAHCleaner(LoggingMixin):
                         # This is a null value -> treat as None
                         value = row.get(key)  # Use default, if exists
                     else:
-                        # Some database system don't handle this character well
+                        # Some database systems don't handle this character well
                         # Thus, remove it
                         value = value.replace("\x00", "")
                 row[key] = value
 
+
+        return row
+
+    def clean_row(self, row: dict):
         for step in self.cleaning_steps:
             row = step(row)
-
         return row
