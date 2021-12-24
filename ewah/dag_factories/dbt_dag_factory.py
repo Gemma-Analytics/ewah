@@ -171,6 +171,7 @@ def dbt_dags_factory(
 
     return (dag_1, dag_2)
 
+
 def dbt_snapshot_dag(
     dwh_engine,
     dwh_conn_id,
