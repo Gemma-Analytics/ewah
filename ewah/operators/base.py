@@ -650,7 +650,6 @@ class EWAHBaseOperator(BaseOperator):
                             pk_name
                         )
                     )
-                columns_definition[pk_name][EC.QBC_FIELD_PK] = True
 
         if (self.upload_call_count > 1) or (
             not (self.load_strategy == EC.LS_INSERT_REPLACE)

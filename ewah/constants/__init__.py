@@ -63,24 +63,6 @@ class EWAHConstants:
     # Query Building Constants
     QBC_FIELD_TYPE = "data_type"
 
-    QBC_FIELD_PK = "is_primary_key"
-    QBC_FIELD_HASH = "is_hash_column"
-    QBC_FIELD_GSHEET_COLNO = "column"  # Gsheet operator: position of the column
-    QBC_FIELD_CONSTRAINTS_MAPPING = {
-        DWH_ENGINE_POSTGRES: {
-            QBC_FIELD_PK: "PRIMARY KEY",
-        },
-        DWH_ENGINE_SNOWFLAKE: {
-            QBC_FIELD_PK: "PRIMARY KEY",
-        },
-        # DWH_ENGINE_BIGQUERY: {},
-        # DWH_ENGINE_REDSHIFT: {},
-        # DWH_ENGINE_S3: {},
-        DWH_ENGINE_GS: {
-            # Not applicable
-        },
-    }
-
     """If a field is of inconsistent data type or type does not exist
     in the mapping below, use inconsistent value specified here."""
     QBC_TYPE_MAPPING = {

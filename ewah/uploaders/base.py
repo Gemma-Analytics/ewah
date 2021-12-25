@@ -167,13 +167,6 @@ class EWAHBaseUploader(LoggingMixin):
         database_name = database_name or getattr(self, "database", None)
 
         sql_part_columns = []  # Used for CREATE and INSERT / UPDATE query
-        field_constraints_mapping = EC.QBC_FIELD_CONSTRAINTS_MAPPING.get(
-            self.dwh_engine,
-        )
-
-        # don't add primary key to create table definition
-        # instead make alter table call later for the case of composite PKs
-        field_constraints_mapping.pop(EC.QBC_FIELD_PK, None)
 
         for column_name in columns_definition.keys():
             # Clean up the line above when able - legay logic from when this was
@@ -186,17 +179,9 @@ class EWAHBaseUploader(LoggingMixin):
                     )
                 )
             sql_part_columns += [
-                '"{0}"\t{1}\t{2}'.format(
+                '"{0}"\t{1}'.format(
                     column_name,  # Field name
                     self._get_column_type(definition),  # Type: text, int etc.
-                    " ".join(
-                        [  # Get all additional field properties (unique etc.)
-                            field_constraints_mapping[addon]
-                            if definition.get(addon)
-                            else ""
-                            for addon in list(field_constraints_mapping.keys())
-                        ]
-                    ),
                 )
             ]
         sql_part_columns = ",\n\t".join(sql_part_columns)
