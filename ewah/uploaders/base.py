@@ -166,49 +166,33 @@ class EWAHBaseUploader(LoggingMixin):
         # check this again with Snowflake!!
         database_name = database_name or getattr(self, "database", None)
 
-        sql_part_columns = []  # Used for CREATE and INSERT / UPDATE query
-
-        for column_name in columns_definition.keys():
-            # Clean up the line above when able - legay logic from when this was
-            # where defaults were applied to Nones
-            definition = columns_definition[column_name]
-            if not isinstance(definition, dict):
-                raise Exception(
-                    "Column {0} is not properly defined!".format(
-                        column_name,
-                    )
-                )
-            sql_part_columns += [
-                '"{0}"\t{1}'.format(
-                    column_name,  # Field name
-                    self._get_column_type(definition),  # Type: text, int etc.
-                )
-            ]
-        sql_part_columns = ",\n\t".join(sql_part_columns)
-
         self.log.info(
             "Uploading {0} rows of data...".format(
                 str(len(data)),
             )
         )
 
-        kwargs = {}
+        sql_part_columns = ",\n\t".join(
+            [
+                '"{0}"\t{1}'.format(col, self._get_column_type(defi))
+                for col, defi in columns_definition.items()
+            ]
+        )
+
+        kwargs = {
+            "data": data,
+            "table_name": table_name,
+            "schema_name": schema_name,
+            "schema_suffix": schema_suffix,
+            "columns_definition": columns_definition,
+            "columns_partial_query": sql_part_columns,
+            "load_strategy": load_strategy,
+            "upload_call_count": upload_call_count,
+            "primary_key": primary_key,
+        }
         if database_name:
             kwargs["database_name"] = database_name
 
-        kwargs.update(
-            {
-                "data": data,
-                "table_name": table_name,
-                "schema_name": schema_name,
-                "schema_suffix": schema_suffix,
-                "columns_definition": columns_definition,
-                "columns_partial_query": sql_part_columns,
-                "load_strategy": load_strategy,
-                "upload_call_count": upload_call_count,
-                "primary_key": primary_key,
-            }
-        )
         self._create_or_update_table(**kwargs)
 
         if commit:

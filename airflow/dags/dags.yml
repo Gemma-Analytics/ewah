@@ -112,8 +112,8 @@ el_dags:
         weights:
           source_table_name: bijan_weight
 
-  EL_BigQuery_events: !yml_from_file secret_dag_bq.yml
-  EL_BigQuery_SQL: !yml_from_file secret_dag_bq_sql.yml
+  #EL_BigQuery_events: !yml_from_file secret_dag_bq.yml
+  #EL_BigQuery_SQL: !yml_from_file secret_dag_bq_sql.yml
   # EL_BigQuery_events_sharded: !yml_from_file secret_dag_bq_sharded.yml
 
   EL_Braze:
@@ -149,7 +149,7 @@ el_dags:
           sort_key: status
           source_table_name: invoice-reference
 
-  EL_Facebook: !yml_from_file secret_dag_facebook.yml
+  # EL_Facebook: !yml_from_file secret_dag_facebook.yml
 
   EL_DynamoDB_2:
     dag_strategy: full-refresh
@@ -181,16 +181,16 @@ el_dags:
               - {{ currency|upper() }}
         {% endfor %}
 
-  EL_GAds: !yml_from_file secret_dag_gads.yml
-  EL_GAds_subs: !yml_from_file secret_dag_gads_subsequent.yml
+  # EL_GAds: !yml_from_file secret_dag_gads.yml
+  # EL_GAds_subs: !yml_from_file secret_dag_gads_subsequent.yml
 
-  EL_GA: !yml_from_file secret_dag_google_analytics.yml
-  EL_GA_hourly: !yml_from_file secret_dag_google_analytics_hourly.yml
-  EL_GA_client_test: !yml_from_file secret_dag_google_analytics_client_test.yml
+  # EL_GA: !yml_from_file secret_dag_google_analytics.yml
+  # EL_GA_hourly: !yml_from_file secret_dag_google_analytics_hourly.yml
+  # EL_GA_client_test: !yml_from_file secret_dag_google_analytics_client_test.yml
 
   # EL_GMaps: tbd
 
-  EL_GCS: !yml_from_file secret_dag_gcs.yml
+  # EL_GCS: !yml_from_file secret_dag_gcs.yml
 
   EL_GSheets: !yml_from_file secret_dag_gsheets.yml
 
@@ -250,7 +250,8 @@ el_dags:
     dag_strategy: fr
     el_operator: mailchimp
     target_schema_name: raw_mailchimp
-    dwh_conn_id: ssh_dwh
+    #dwh_conn_id: ssh_dwh
+    dwh_conn_id: dwh
     operator_config:
       general_config:
         source_conn_id: mailchimp
@@ -264,7 +265,14 @@ el_dags:
           hash_columns: name
         conversations:
           resource: conversations
-        campaigns: {}
+        campaigns:
+          default_values:
+            variate_settings: {"I am": "a deault"}
+          rename_columns:
+            type: renamed_type
+            web_id: renamed_web_id
+          exclude_columns:
+            - status
         campaigns_hashed:
           resource: campaigns
           hash_columns:
@@ -293,7 +301,7 @@ el_dags:
           endpoint: getmedia
         export_recipients:
           endpoint: exportrecipients
-          primary_key_column_name: id
+          primary_key: id
           page_size: 2000
           normal_params:
             "advanced[compact]": 1
@@ -304,19 +312,19 @@ el_dags:
               - 3
               - 2
 
-  EL_MongoDB: !yml_from_file secret_dag_mongodb.yml
-  EL_MongoDB_2: !yml_from_file secret_dag_mongodb_2.yml
-  EL_MongoDB_3: !yml_from_file secret_dag_mongodb_3.yml
-  EL_MongoDB_4: !yml_from_file secret_dag_mongodb_4.yml
-  EL_MongoDB_5: !yml_from_file secret_dag_mongodb_5.yml
+  # EL_MongoDB: !yml_from_file secret_dag_mongodb.yml
+  # EL_MongoDB_2: !yml_from_file secret_dag_mongodb_2.yml
+  # EL_MongoDB_3: !yml_from_file secret_dag_mongodb_3.yml
+  # EL_MongoDB_4: !yml_from_file secret_dag_mongodb_4.yml
+  # EL_MongoDB_5: !yml_from_file secret_dag_mongodb_5.yml
 
-  EL_MySQL_Atomic: !yml_from_file secret_dag_mysql_atomic.yml
-  EL_MySQL_Symfony: !yml_from_file secret_dag_mysql.yml
+  # EL_MySQL_Atomic: !yml_from_file secret_dag_mysql_atomic.yml
+  # EL_MySQL_Symfony: !yml_from_file secret_dag_mysql.yml
 
-  EL_Oracle: !yml_from_file secret_dag_oracle_to_snowflake.yml
-  EL_Oracle_2: !yml_from_file secret_dag_oracle_fullcremental.yml
-  EL_Oracle_FR: !yml_from_file secret_dag_oracle_fr.yml
-  EL_Oracle_FR_compress: !yml_from_file secret_dag_oracle_fr_compress.yml
+  # EL_Oracle: !yml_from_file secret_dag_oracle_to_snowflake.yml
+  # EL_Oracle_2: !yml_from_file secret_dag_oracle_fullcremental.yml
+  # EL_Oracle_FR: !yml_from_file secret_dag_oracle_fr.yml
+  # EL_Oracle_FR_compress: !yml_from_file secret_dag_oracle_fr_compress.yml
 
   EL_Pipedrive:
     dag_strategy: fr
@@ -375,7 +383,7 @@ el_dags:
           resource: /rest/accounts/contacts/classes
         order_status_all:
           resource: "/rest/orders/statuses/all"
-          primary_key_column_name: "statusId"
+          primary_key: "statusId"
 
   EL_PlentyMarkets_Subs:
     dag_strategy: atomic
@@ -405,17 +413,17 @@ el_dags:
         dag:
           batch_size: 10
 
-  EL_Postgres_2:
-    dag_strategy: full-refresh
-    el_operator: postgres
-    target_schema_name: raw_mf
-    operator_config:
-      general_config:
-        source_conn_id: mf
-        source_schema_name: public
-      tables:
-        product_prices:
-          sql_select_statement: !text_from_file secret_sql_query.sql
+  #EL_Postgres_2:
+  #  dag_strategy: full-refresh
+  #  el_operator: postgres
+  #  target_schema_name: raw_mf
+  #  operator_config:
+  #    general_config:
+  #      source_conn_id: mf
+  #      source_schema_name: public
+  #    tables:
+  #      product_prices:
+  #        sql_select_statement: !text_from_file secret_sql_query.sql
 
   EL_Recurly_inc:
     dag_strategy: incremental
@@ -441,10 +449,10 @@ el_dags:
         coupons: {}
         items: {}
 
-  EL_S3: !yml_from_file secret_dag_s3.yml
-  EL_S3_2: !yml_from_file secret_dag_s3_2.yml
-  EL_S3_3: !yml_from_file secret_dag_s3_3.yml
-  EL_S3_4: !yml_from_file secret_dag_s3_4.yml
+  # EL_S3: !yml_from_file secret_dag_s3.yml
+  # EL_S3_2: !yml_from_file secret_dag_s3_2.yml
+  # EL_S3_3: !yml_from_file secret_dag_s3_3.yml
+  # EL_S3_4: !yml_from_file secret_dag_s3_4.yml
 
   EL_Salesforce:
     dag_strategy: incremental
