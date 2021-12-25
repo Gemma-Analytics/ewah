@@ -39,11 +39,9 @@ class EWAHFXOperator(EWAHBaseOperator):
             )
         kwargs["source_conn_id"] = None
         # If incremental, the primary key column is 'date'
-        if kwargs.get("update_on_columns"):
-            self.log.info(
-                "update_on_columns is fixed for this operator. Using the default."
-            )
-        kwargs["update_on_columns"] = ["date"]
+        if kwargs.get("primary_key"):
+            self.log.info("primary_key is fixed for this operator. Using the default.")
+        kwargs["primary_key"] = ["date"]
 
         self.currency_pair = currency_pair
         self.frequency = frequency

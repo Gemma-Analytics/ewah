@@ -33,7 +33,7 @@ class EWAHGoogleAdsOperator(EWAHBaseOperator):
         if metrics:
             fields["metrics"] = metrics
 
-        kwargs["update_on_columns"] = list(
+        kwargs["primary_key"] = list(
             set(
                 [
                     "segments__" + col.replace(".", "__")

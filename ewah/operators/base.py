@@ -142,8 +142,7 @@ class EWAHBaseOperator(BaseOperator):
         load_data_until=None,  # set a maximum date
         load_data_until_relative=None,  # optional timedelta for incremental
         load_data_chunking_timedelta=None,  # optional timedelta to chunk by
-        update_on_columns=None,
-        primary_key_column_name=None,
+        primary_key=None,  # either string or list of strings
         exclude_columns=None,  # list of columns to exclude
         index_columns=[],  # list of columns to create an index on. can be
         # an expression, must be quoted in list if quoting is required.
@@ -202,13 +201,10 @@ class EWAHBaseOperator(BaseOperator):
 
         if load_strategy == EC.LS_UPSERT:
             # upserts require a (composite) primary key of some sort
-            if not (update_on_columns or primary_key_column_name):
+            if not primary_key:
                 raise Exception(
-                    "If the load strategy is upsert, "
-                    "one of the following is required:"
-                    "\n- List of columns to update on (update_on_columns)"
-                    "\n- Name of the primary key (primary_key_column_name)"
-                    " the primary key(s)"
+                    "If the load strategy is upsert, name of the primary"
+                    " key(s) (primary_key) is required!"
                 )
         elif load_strategy in (EC.LS_INSERT_ADD, EC.LS_INSERT_REPLACE):
             pass  # No requirements
@@ -246,11 +242,6 @@ class EWAHBaseOperator(BaseOperator):
         if (not dwh_engine == EC.DWH_ENGINE_SNOWFLAKE) and target_database_name:
             raise Exception('Received argument for "target_database_name"!')
 
-        if primary_key_column_name and update_on_columns:
-            raise Exception(
-                "Cannot supply BOTH primary_key_column_name AND" + " update_on_columns!"
-            )
-
         _msg = "load_data_from_relative and load_data_until_relative must be"
         _msg += " timedelta if supplied!"
         assert isinstance(
@@ -282,13 +273,9 @@ class EWAHBaseOperator(BaseOperator):
         self.load_data_until = load_data_until
         self.load_data_until_relative = load_data_until_relative
         self.load_data_chunking_timedelta = load_data_chunking_timedelta
-        if (not update_on_columns) and primary_key_column_name:
-            if type(primary_key_column_name) == str:
-                update_on_columns = [primary_key_column_name]
-            elif type(primary_key_column_name) in (list, tuple):
-                update_on_columns = primary_key_column_name
-        self.update_on_columns = update_on_columns
-        self.primary_key_column_name = primary_key_column_name  # may be used ...
+        if isinstance(primary_key, str):
+            primary_key = [primary_key]
+        self.primary_key = primary_key  # may be used ...
         #   ... by a child class at execution!
         self.exclude_columns = exclude_columns
         self.index_columns = index_columns
@@ -655,15 +642,8 @@ class EWAHBaseOperator(BaseOperator):
             dwh_engine=self.dwh_engine
         )
 
-        if self.update_on_columns:
-            pk_list = self.update_on_columns  # is a list already
-        elif self.primary_key_column_name:
-            pk_list = [self.primary_key_column_name]
-        else:
-            pk_list = []
-
-        if pk_list:
-            for pk_name in pk_list:
+        if self.primary_key:
+            for pk_name in self.primary_key:
                 if not pk_name in columns_definition.keys():
                     raise Exception(
                         ("Column {0} does not exist but is " + "expected!").format(
@@ -705,7 +685,7 @@ class EWAHBaseOperator(BaseOperator):
             schema_name=self.target_schema_name,
             schema_suffix=self.target_schema_suffix,
             database_name=self.target_database_name,
-            update_on_columns=self.update_on_columns,
+            primary_key=self.primary_key,
             commit=False,  # See note below for reason
         )
         """ Note on committing changes:

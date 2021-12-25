@@ -20,7 +20,7 @@ class EWAHGoogleCloudStorageOperator(EWAHBaseOperator):
         self.data_after = data_after
         self.prefix = prefix
         kwargs["subsequent_field"] = "blob_modified_at"
-        kwargs["primary_key_column_name"] = "id"
+        kwargs["primary_key"] = "id"
         super().__init__(*args, **kwargs)
 
     def ewah_execute(self, context):

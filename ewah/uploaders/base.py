@@ -160,22 +160,13 @@ class EWAHBaseUploader(LoggingMixin):
         schema_name,
         schema_suffix,
         database_name=None,
-        update_on_columns=None,
+        primary_key=None,
         commit=False,
     ):
         # check this again with Snowflake!!
         database_name = database_name or getattr(self, "database", None)
 
         sql_part_columns = []  # Used for CREATE and INSERT / UPDATE query
-        create_update_on_columns = not (
-            (load_strategy == EC.LS_INSERT_REPLACE) or update_on_columns
-        )
-        update_on_columns = update_on_columns or []
-        if not isinstance(update_on_columns, list):
-            raise Exception(
-                '"update_on_columns" must be a list!'
-                + "Is currently: type {0}".format(str(type(update_on_columns)))
-            )
         field_constraints_mapping = EC.QBC_FIELD_CONSTRAINTS_MAPPING.get(
             self.dwh_engine,
         )
@@ -183,7 +174,6 @@ class EWAHBaseUploader(LoggingMixin):
         # don't add primary key to create table definition
         # instead make alter table call later for the case of composite PKs
         field_constraints_mapping.pop(EC.QBC_FIELD_PK, None)
-        pk_columns = []
 
         for column_name in columns_definition.keys():
             # Clean up the line above when able - legay logic from when this was
@@ -209,10 +199,6 @@ class EWAHBaseUploader(LoggingMixin):
                     ),
                 )
             ]
-            if definition.get(EC.QBC_FIELD_PK):
-                pk_columns += [column_name]
-                if create_update_on_columns:
-                    update_on_columns += [column_name]
         sql_part_columns = ",\n\t".join(sql_part_columns)
 
         self.log.info(
@@ -233,10 +219,9 @@ class EWAHBaseUploader(LoggingMixin):
                 "schema_suffix": schema_suffix,
                 "columns_definition": columns_definition,
                 "columns_partial_query": sql_part_columns,
-                "update_on_columns": update_on_columns,
                 "load_strategy": load_strategy,
                 "upload_call_count": upload_call_count,
-                "pk_columns": pk_columns,
+                "primary_key": primary_key,
             }
         )
         self._create_or_update_table(**kwargs)

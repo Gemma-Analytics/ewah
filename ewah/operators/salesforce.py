@@ -24,7 +24,7 @@ class EWAHSalesforceOperator(EWAHBaseOperator):
         self, salesforce_object: Optional[str] = None, *args, **kwargs
     ) -> None:
         self.salesforce_object = salesforce_object or kwargs.get("target_table_name")
-        kwargs["primary_key_column_name"] = "Id"
+        kwargs["primary_key"] = "Id"
         # default subsequent_field to placeholder to be filled during execution
         if kwargs.get("extract_strategy") == EC.ES_SUBSEQUENT:
             kwargs["subsequent_field"] = kwargs.get(

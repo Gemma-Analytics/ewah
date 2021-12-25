@@ -159,7 +159,7 @@ class EWAHShopifyOperator(EWAHBaseOperator):
         if not type(page_limit) == int or page_limit > 250 or page_limit < 1:
             raise Exception("Page limit must be a positive integer not exceeding 250!")
 
-        kwargs["primary_key_column_name"] = kwargs.get("primary_key_column_name", "id")
+        kwargs["primary_key"] = kwargs.get("primary_key", "id")
 
         # source conn id is not required on operator call level! avoid error
         kwargs["source_conn_id"] = kwargs.get("source_conn_id", "__none__")

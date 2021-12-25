@@ -94,14 +94,12 @@ class EWAHSnowflakeUploader(EWAHBaseUploader):
         schema_suffix,
         columns_definition,
         columns_partial_query,
-        update_on_columns,
         load_strategy,
         upload_call_count,
         database_name=None,
-        pk_columns=None,
+        primary_key=None,
     ):
         database_name = database_name or self.dwh_hook.conn.database
-        pk_columns = pk_columns or []
         self.log.info("Preparing DWH Tables...")
         schema_name += schema_suffix
         new_table_name = table_name + "_new"
@@ -199,7 +197,7 @@ class EWAHSnowflakeUploader(EWAHBaseUploader):
                 table_name,
                 new_table_name,
             )
-            if pk_columns:
+            if primary_key:
                 sql_final += """
                     ALTER TABLE "{0}"."{1}"."{2}"
                     ADD PRIMARY KEY ("{3}");
@@ -207,12 +205,12 @@ class EWAHSnowflakeUploader(EWAHBaseUploader):
                     database_name,
                     schema_name,
                     table_name,
-                    '","'.join(pk_columns),
+                    '","'.join(primary_key),
                 )
         else:
             update_set_cols = []
             for col in columns_definition.keys():
-                if not (col in update_on_columns):
+                if not (col in primary_key):
                     update_set_cols += [col]
 
             sql_final = """
@@ -232,9 +230,7 @@ class EWAHSnowflakeUploader(EWAHBaseUploader):
                 schema_name,
                 table_name,
                 new_table_name,
-                " AND ".join(
-                    ['a."{0}" = b."{0}"'.format(col) for col in update_on_columns]
-                )
+                " AND ".join(['a."{0}" = b."{0}"'.format(col) for col in primary_key])
                 or "FALSE",
                 ", ".join(['a."{0}" = b."{0}"'.format(col) for col in update_set_cols]),
                 '"' + '", "'.join(list(columns_definition.keys())) + '"',

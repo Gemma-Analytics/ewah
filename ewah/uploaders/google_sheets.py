@@ -66,10 +66,9 @@ class EWAHGSheetsUploader(EWAHBaseUploader):
         schema_suffix,  # unused but always given
         columns_definition,
         columns_partial_query,  # unused but always given
-        update_on_columns,  # unused but always given
         load_strategy,  # Must be LS_INSERT_REPLACE
         upload_call_count,  # Must be 1
-        pk_columns=None,  # must accept arg, but it must also always be []
+        primary_key=None,  # must accept arg, but it must also always be []
     ):
         # Google Sheets only works with drop & replace in one go
         assert (
@@ -77,8 +76,8 @@ class EWAHGSheetsUploader(EWAHBaseUploader):
         ), "Google Sheets DWHs can only be drop_and_replace!"
         assert upload_call_count == 1, "Chunking is not possible for Google Sheets DWH!"
 
-        if pk_columns:
-            raise Exception("Arg pk_columns invalidly supplied!")
+        if primary_key:
+            raise Exception("Arg primary_key invalidly supplied!")
 
         def colnum_string(n):
             # adapted from https://stackoverflow.com/questions/23861680/convert-spreadsheet-number-to-column-letter

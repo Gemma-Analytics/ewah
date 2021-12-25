@@ -18,7 +18,7 @@ class EWAHPlentyMarketsOperator(EWAHBaseOperator):
     _CONN_TYPE = EWAHPlentyMarketsHook.conn_type
 
     def __init__(self, resource=None, additional_api_call_params=None, *args, **kwargs):
-        kwargs["primary_key_column_name"] = kwargs.get("primary_key_column_name", "id")
+        kwargs["primary_key"] = kwargs.get("primary_key", "id")
         resource = resource or kwargs.get("target_table_name")
         if kwargs["extract_strategy"] == EC.ES_SUBSEQUENT:
             kwargs["subsequent_field"] = kwargs.get("subsequent_field", "updatedAt")

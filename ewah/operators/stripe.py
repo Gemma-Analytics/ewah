@@ -18,7 +18,7 @@ class EWAHStripeOperator(EWAHBaseOperator):
     def __init__(self, *args, resource=None, expand=None, batch_size=10000, **kwargs):
         if resource is None:
             resource = kwargs.get("target_table_name")
-        kwargs["primary_key_column_name"] = "id"
+        kwargs["primary_key"] = "id"
         super().__init__(*args, **kwargs)
         self.resource = resource
         self.expand = expand

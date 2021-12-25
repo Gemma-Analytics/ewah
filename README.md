@@ -52,13 +52,12 @@ The following arguments are accepted by all operators, unless explicitly stated 
 | target_schema_name_suffix | no | string | `_next` | when loading new data, how to suffix the schema name during the loading process |
 | target_database_name | yes for Snowflake DWH | string | n.a. | name of the database (only for Snowflake, illegal argument for non-Snowflake DWHs) |
 | drop_and_replace | no | boolean | same as DAG-level setting | whether a table is loading as full refresh or incrementally. Normally set by the DAG level config. Incremental loads can overwrite this setting to fully refresh some small tables (e.g. if they are small and have no `updated_at` column) |
-| update_on_columns | operator-dependent | list of strings | n.a. | for incremental loading, update data on what set columns? (effectively, the list of columns comprising the composite primary key); usually not required |
-| primary_key_column_name | operator-dependent | string | n.a. | name of the primary key column; if given, EWAH will set the column as primary key in the DWH; may also use this as alternatively of update_on_columns for some operators |
+| primary_key | operator-dependent | string or list of strings | n.a. | name of the primary key column(s); if given, EWAH will set the column as primary key in the DWH and use it when applicable during upsert operations |
 | add_metadata | no | boolean | True | some operators may add metadata to the tables; this behavior can be turned off (e.g. shop name for the shopify operator) |
 
 ### Operator: Google Ads
 
-These arguments are specific to the Google Ads operator. In addition, the Google Ads operator ignores any `update_on_columns` argument given, as it overwrites it with the the list of non-metric fields.
+These arguments are specific to the Google Ads operator.
 
 | argument | required | type | default | description |
 | --- | --- | --- | --- | --- |
@@ -197,8 +196,7 @@ dag = dag_factory_drop_and_replace(
             'table_name':{},
             # ...
             # Additional optional kwargs at the table level:
-            #   update_on_columns
-            #   primary_key_column_name
+            #   primary_key
             #   + any operator specific arguments
         },
     },

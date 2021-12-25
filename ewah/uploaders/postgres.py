@@ -57,12 +57,10 @@ class EWAHPostgresUploader(EWAHBaseUploader):
         schema_suffix,
         columns_definition,
         columns_partial_query,
-        update_on_columns,
         load_strategy,
         upload_call_count,
-        pk_columns=None,
+        primary_key=None,
     ):
-        pk_columns = pk_columns or []
         self.log.info("Preparing DWH Tables...")
         schema_name += schema_suffix
         if (upload_call_count == 1 and load_strategy == EC.LS_INSERT_REPLACE) or (
@@ -82,7 +80,7 @@ class EWAHPostgresUploader(EWAHBaseUploader):
                 ),
                 commit=False,
             )
-            if pk_columns:
+            if primary_key:
                 self.dwh_hook.execute(
                     sql="""
                         ALTER TABLE ONLY "{schema_name}"."{table_name}"
@@ -90,12 +88,12 @@ class EWAHPostgresUploader(EWAHBaseUploader):
                     """.format(
                         schema_name=schema_name,
                         table_name=table_name,
-                        columns='","'.join(pk_columns),
+                        columns='","'.join(primary_key),
                     )
                 )
 
-        if update_on_columns:
-            # make sure there is a unique constraint for update_on_columns
+        if primary_key:
+            # make sure there is a unique constraint for primary_key
             self.dwh_hook.execute(
                 sql="""
                     ALTER TABLE "{schema_name}"."{table_name}"
@@ -112,14 +110,14 @@ class EWAHPostgresUploader(EWAHBaseUploader):
                             digest_size=28,
                         ).hexdigest()
                     ),
-                    columns='", "'.join(update_on_columns),
+                    columns='", "'.join(primary_key),
                 ),
                 commit=False,
             )
 
         set_columns = []
         for column in columns_definition.keys():
-            if not (column in update_on_columns):
+            if not (column in (primary_key or [])):
                 set_columns += [column]
 
         cols_list = list(columns_definition.keys())
@@ -135,11 +133,11 @@ class EWAHPostgresUploader(EWAHBaseUploader):
                     "placeholder": "{placeholder}",
                     "column_names": '", "'.join(cols_list),
                     "do_on_conflict": "DO NOTHING"
-                    if not update_on_columns
+                    if not primary_key
                     else """
-                ("{update_on_columns}") DO UPDATE SET\n\t{sets}
+                ("{primary_key}") DO UPDATE SET\n\t{sets}
             """.format(
-                        update_on_columns='", "'.join(update_on_columns),
+                        primary_key='", "'.join(primary_key),
                         sets="\n\t,".join(
                             [
                                 '"{column}" = EXCLUDED."{column}"'.format(column=column)

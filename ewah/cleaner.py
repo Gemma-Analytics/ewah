@@ -8,11 +8,12 @@ from copy import deepcopy
 from hashlib import sha256
 
 # Refactor me
-from bson.json_util import dumps # dumping mongob objects to string
+from bson.json_util import dumps  # dumping mongob objects to string
 from collections import OrderedDict
 from decimal import Decimal
 
 import json
+
 
 class EWAHJSONEncoder(json.JSONEncoder):
     """Extension of the native json encoder to deal with additional datatypes and
@@ -85,6 +86,7 @@ class EWAHJSONEncoder(json.JSONEncoder):
             self.skipkeys,
             _one_shot,
         )(o, 0)
+
 
 class EWAHCleaner(LoggingMixin):
     """Default data cleaner class for EWAH.
@@ -201,13 +203,13 @@ class EWAHCleaner(LoggingMixin):
                 elif isinstance(value, (dict, OrderedDict, list)):
                     # Logic copy-pasted from legacy - TODO: Refactor this!
                     try:
-                        value = json.dumps(
-                            value, cls=self.json_encoder
-                        )
+                        value = json.dumps(value, cls=self.json_encoder)
                     except TypeError:
                         # try dumping with bson utility function
                         # Refactor this, PLEASE!
                         value = dumps(value)
+                elif isinstance(value, Decimal):
+                    value = float(value)
                 row[key] = value
 
                 # Set the fields_definition for the key
@@ -233,7 +235,14 @@ class EWAHCleaner(LoggingMixin):
         return row
 
     def get_columns_definition(self, dwh_engine):
-        return {
-            field: {EC.QBC_FIELD_TYPE: EC.QBC_TYPE_MAPPING[dwh_engine].get(datatype)}
-            for field, datatype in self.fields_definition.items()
-        }
+        columns_definition = {}
+        for field, datatype in self.fields_definition.items():
+            data_type = EC.QBC_TYPE_MAPPING[dwh_engine].get(datatype)
+            if not data_type:
+                raise Exception(
+                    "Field '{field}' has an invalid data type '{data_type}'!".format(
+                        field=field, data_type=str(datatype)
+                    )
+                )
+            columns_definition[field] = {EC.QBC_FIELD_TYPE: data_type}
+        return columns_definition

@@ -41,11 +41,11 @@ class EWAHSQLBaseOperator(EWAHBaseOperator):
     ):
         source_table_name = source_table_name or kwargs["target_table_name"]
 
-        # default subsequent_field to timestamp_column or primary_key_column_name
+        # default subsequent_field to timestamp_column or primary_key
         if kwargs.get("extract_strategy") == EC.ES_SUBSEQUENT:
             kwargs["subsequent_field"] = kwargs.get(
                 "subsequent_field",
-                timestamp_column or kwargs.get("primary_key_column_name", None),
+                timestamp_column or kwargs.get("primary_key", None),
             )
 
         super().__init__(*args, **kwargs)

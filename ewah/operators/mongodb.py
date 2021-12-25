@@ -34,21 +34,16 @@ class EWAHMongoDBOperator(EWAHBaseOperator):
                     "single_column_mode is only compatible with "
                     + "extract_strategy = {0}!".format(EC.ES_FULL_REFRESH)
                 )
-            if kwargs.get("update_on_columns"):
+            if kwargs.get("primary_key"):
                 raise Exception(
-                    "single_column_mode is not compatible with " + "update_on_columns!"
-                )
-            if kwargs.get("primary_key_column_name"):
-                raise Exception(
-                    "single_column_mode is not compatible with "
-                    + "primary_key_column_name!"
+                    "single_column_mode is not compatible with primary_key!"
                 )
         self.single_column_mode = single_column_mode
 
         if kwargs.get("extract_strategy") == EC.ES_SUBSEQUENT:
             kwargs["subsequent_field"] = kwargs.get(
                 "subsequent_field",
-                timestamp_field or kwargs.get("primary_key_column_name", None),
+                timestamp_field or kwargs.get("primary_key", None),
             )
 
         super().__init__(*args, **kwargs)

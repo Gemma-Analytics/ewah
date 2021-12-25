@@ -41,8 +41,8 @@ class EWAHMailingworkOperator(EWAHBaseOperator):
             assert isinstance(iter_param, dict), _msg
             assert isinstance(iter_param.get("name"), str), _msg
             assert isinstance(iter_param.get("values"), list), _msg
-            _msg = "Must provide primary_key_column_name if using iter_param!"
-            assert self.primary_key_column_name, _msg
+            _msg = "Must provide primary_key if using iter_param!"
+            assert self.primary_key, _msg
 
         _msg = "page_size must be a non-negative integer!"
         assert isinstance(page_size, int), _msg
