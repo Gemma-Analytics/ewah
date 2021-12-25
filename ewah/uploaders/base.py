@@ -251,7 +251,6 @@ class EWAHBaseUploader(LoggingMixin):
         database_name=None,
         update_on_columns=None,
         commit=False,
-        clean_data_before_upload=True,
         bson_to_string=True,
     ):
         # check this again with Snowflake!!
@@ -324,7 +323,7 @@ class EWAHBaseUploader(LoggingMixin):
                     update_on_columns += [column_name]
         sql_part_columns = ",\n\t".join(sql_part_columns)
 
-        if clean_data_before_upload:
+        if True:
             self.log.info("Cleaning data for upload...")
             upload_data = []
             cols_list = list(raw_row.keys())

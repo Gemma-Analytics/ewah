@@ -144,7 +144,6 @@ class EWAHBaseOperator(BaseOperator):
         load_data_chunking_timedelta=None,  # optional timedelta to chunk by
         update_on_columns=None,
         primary_key_column_name=None,
-        clean_data_before_upload=True,
         exclude_columns=None,  # list of columns to exclude
         index_columns=[],  # list of columns to create an index on. can be
         # an expression, must be quoted in list if quoting is required.
@@ -167,7 +166,6 @@ class EWAHBaseOperator(BaseOperator):
         super().__init__(*args, **kwargs)
 
         if default_values:
-            assert clean_data_before_upload
             assert isinstance(default_values, dict)
 
         assert pickle_compression is None or pickle_compression in (
@@ -230,10 +228,7 @@ class EWAHBaseOperator(BaseOperator):
         )
         assert self._ACCEPTED_EXTRACT_STRATEGIES.get(extract_strategy), _msg
 
-        if hash_columns and not clean_data_before_upload:
-            _msg = "column hashing is only possible with data cleaning!"
-            raise Exception(_msg)
-        elif isinstance(hash_columns, str):
+        if isinstance(hash_columns, str):
             hash_columns = [hash_columns]
 
         if exclude_columns and isinstance(exclude_columns, str):
@@ -294,7 +289,6 @@ class EWAHBaseOperator(BaseOperator):
             elif type(primary_key_column_name) in (list, tuple):
                 update_on_columns = primary_key_column_name
         self.update_on_columns = update_on_columns
-        self.clean_data_before_upload = clean_data_before_upload
         self.primary_key_column_name = primary_key_column_name  # may be used ...
         #   ... by a child class at execution!
         self.exclude_columns = exclude_columns
@@ -715,7 +709,6 @@ class EWAHBaseOperator(BaseOperator):
             database_name=self.target_database_name,
             update_on_columns=self.update_on_columns,
             commit=False,  # See note below for reason
-            clean_data_before_upload=self.clean_data_before_upload,
             bson_to_string=self.cast_bson_objects_to_string,
         )
         """ Note on committing changes:

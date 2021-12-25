@@ -54,7 +54,6 @@ The following arguments are accepted by all operators, unless explicitly stated 
 | drop_and_replace | no | boolean | same as DAG-level setting | whether a table is loading as full refresh or incrementally. Normally set by the DAG level config. Incremental loads can overwrite this setting to fully refresh some small tables (e.g. if they are small and have no `updated_at` column) |
 | update_on_columns | operator-dependent | list of strings | n.a. | for incremental loading, update data on what set columns? (effectively, the list of columns comprising the composite primary key); usually not required |
 | primary_key_column_name | operator-dependent | string | n.a. | name of the primary key column; if given, EWAH will set the column as primary key in the DWH; may also use this as alternatively of update_on_columns for some operators |
-| clean_data_before_upload | no | boolean | True | Some minor clean up before data upload. Slows performance, but avoids some weird errors in special cases. |
 | add_metadata | no | boolean | True | some operators may add metadata to the tables; this behavior can be turned off (e.g. shop name for the shopify operator) |
 
 ### Operator: Google Ads
