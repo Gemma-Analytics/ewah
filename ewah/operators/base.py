@@ -158,7 +158,6 @@ class EWAHBaseOperator(BaseOperator):
         pickling_upload_chunk_size=100000,  # default chunk size for pickle upload
         pickle_compression=None,  # data compression algorithm to use for pickles
         default_values=None,  # dict with default values for columns (to avoid nulls)
-        cast_bson_objects_to_string=True,  # how to serialize bson object ids
         cleaner=EWAHCleaner,
         *args,
         **kwargs
@@ -303,7 +302,6 @@ class EWAHBaseOperator(BaseOperator):
         self.pickling_upload_chunk_size = pickling_upload_chunk_size
         self.pickle_compression = pickle_compression
         self.default_values = default_values
-        self.cast_bson_objects_to_string = cast_bson_objects_to_string
         self.cleaner = cleaner
 
         self.uploader = get_uploader(self.dwh_engine)
@@ -709,7 +707,6 @@ class EWAHBaseOperator(BaseOperator):
             database_name=self.target_database_name,
             update_on_columns=self.update_on_columns,
             commit=False,  # See note below for reason
-            bson_to_string=self.cast_bson_objects_to_string,
         )
         """ Note on committing changes:
             The hook used for data uploading is created at the beginning of the

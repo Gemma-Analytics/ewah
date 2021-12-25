@@ -3,99 +3,10 @@ from airflow.utils.log.logging_mixin import LoggingMixin
 from ewah.hooks.base import EWAHBaseHook
 from ewah.constants import EWAHConstants as EC
 
-import json
-import bson
 import math
 
 from copy import deepcopy
-from collections import OrderedDict
-from psycopg2.extras import RealDictCursor
-from bson.json_util import dumps
-from decimal import Decimal
 from typing import Optional, Type, Union, Dict
-
-
-class EWAHJSONEncoder(json.JSONEncoder):
-    """Extension of the native json encoder to deal with additional datatypes and
-    issues relating to (+/-) Inf and NaN numbers.
-    """
-
-    def default(self, obj):
-        """Method is called if an object cannot be serialized.
-
-        Ought to return a serializeable value for the object. Ought to raise an error
-        if unable to do so.
-
-        Implemented types:
-            - Decimal -> float
-            - bson.objectid.ObjectId -> string
-        """
-
-        if isinstance(obj, Decimal):
-            return float(obj)
-        # Let the base class default method raise the TypeError
-        return super().default(obj)
-
-    def iterencode(self, o, _one_shot=False):
-        """Overwrite the iterencode method because this is where the float
-        special cases are handled in the floatstr() function. Copy-pasted
-        original code and then adapted it to change floatstr() behavior.
-
-        This was necessary because the json module accepts (+/-) Infinity and NaN
-        objects as floats, but PostgreSQL uses the tighter JSON standard and does not
-        accept them in json. The json module offers no optional flag to deal with this
-        issue natively. Thus, overwrite the iterencode method and remove Inf and NaN
-        by returning null instead.
-        """
-        if self.check_circular:
-            markers = {}
-        else:
-            markers = None
-        if self.ensure_ascii:
-            _encoder = json.encoder.encode_basestring_ascii
-        else:
-            _encoder = json.encoder.encode_basestring
-
-        def floatstr(
-            o,
-            allow_nan=self.allow_nan,
-            _repr=float.__repr__,
-            _inf=float("inf"),
-            _neginf=-float("inf"),
-        ):
-            # Check for specials.  Note that this type of test is processor
-            # and/or platform-specific, so do tests which don't depend on the
-            # internals.
-            if not (o != o or o == _inf or o == _neginf):
-                return _repr(o)
-            if not allow_nan:
-                raise ValueError(
-                    "Out of range float values are not JSON compliant: " + repr(o)
-                )
-            return "null"
-
-        return json.encoder._make_iterencode(
-            markers,
-            self.default,
-            _encoder,
-            self.indent,
-            floatstr,
-            self.key_separator,
-            self.item_separator,
-            self.sort_keys,
-            self.skipkeys,
-            _one_shot,
-        )(o, 0)
-
-
-class EWAHJSONEncoderBSON(EWAHJSONEncoder):
-    """Further extension: cast bson object IDs to text"""
-
-    def default(self, obj):
-        if isinstance(obj, bson.objectid.ObjectId):
-            # MongoDB Object IDs - return just the ID itself as string
-            return str(obj)
-        return super().default(obj)
 
 
 class EWAHBaseUploader(LoggingMixin):
@@ -251,27 +162,11 @@ class EWAHBaseUploader(LoggingMixin):
         database_name=None,
         update_on_columns=None,
         commit=False,
-        bson_to_string=True,
     ):
         # check this again with Snowflake!!
         database_name = database_name or getattr(self, "database", None)
 
-        if bson_to_string:
-            json_encoder_class = EWAHJSONEncoderBSON
-        else:
-            json_encoder_class = EWAHJSONEncoder
-
-        mapped_types = tuple(
-            [
-                k
-                for k in EC.QBC_TYPE_MAPPING[self.dwh_engine].keys()
-                if isinstance(k, type)
-            ]
-        )
-
-        raw_row = {}  # Used as template for params at execution
         sql_part_columns = []  # Used for CREATE and INSERT / UPDATE query
-        jsonb_columns = []  # JSON columns require special treatment
         create_update_on_columns = not (
             (load_strategy == EC.LS_INSERT_REPLACE) or update_on_columns
         )
@@ -291,7 +186,6 @@ class EWAHBaseUploader(LoggingMixin):
         pk_columns = []
 
         for column_name in columns_definition.keys():
-            raw_row[column_name] = raw_row.get(column_name)
             # Clean up the line above when able - legay logic from when this was
             # where defaults were applied to Nones
             definition = columns_definition[column_name]
@@ -315,51 +209,15 @@ class EWAHBaseUploader(LoggingMixin):
                     ),
                 )
             ]
-            if self._get_column_type(definition) == "jsonb":
-                jsonb_columns += [column_name]
             if definition.get(EC.QBC_FIELD_PK):
                 pk_columns += [column_name]
                 if create_update_on_columns:
                     update_on_columns += [column_name]
         sql_part_columns = ",\n\t".join(sql_part_columns)
 
-        if True:
-            self.log.info("Cleaning data for upload...")
-            upload_data = []
-            cols_list = list(raw_row.keys())
-            while data:
-                datum = data.pop(0)
-                # Make sure that each dict in upload_data has all keys
-                row = deepcopy(raw_row)
-                for column_name, value in datum.items():
-                    if column_name in cols_list:
-                        if not value is None:
-                            # avoid edge case of data where all instances of a
-                            #   field are None, thus having data for a field
-                            #   missing in the columns_definition!
-                            if (
-                                column_name in jsonb_columns
-                                or isinstance(value, (dict, OrderedDict, list))
-                                or (not isinstance(value, mapped_types))
-                            ):
-                                try:
-                                    row[column_name] = json.dumps(
-                                        value, cls=json_encoder_class
-                                    )
-                                except TypeError:
-                                    # try dumping with bson utility function
-                                    row[column_name] = dumps(value)
-                            else:
-                                row[column_name] = value
-                upload_data += [row]
-            data_len = len(upload_data)
-        else:
-            data_len = len(data)
-            upload_data = None
-
         self.log.info(
             "Uploading {0} rows of data...".format(
-                str(data_len),
+                str(len(data)),
             )
         )
 
@@ -369,7 +227,7 @@ class EWAHBaseUploader(LoggingMixin):
 
         kwargs.update(
             {
-                "data": upload_data or data,
+                "data": data,
                 "table_name": table_name,
                 "schema_name": schema_name,
                 "schema_suffix": schema_suffix,
