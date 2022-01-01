@@ -21,12 +21,24 @@ class EWAHBaseUploader(LoggingMixin):
     """
 
     def __init__(
-        self, dwh_engine: str, dwh_conn: Type[EWAHBaseHook], *args, **kwarg
+        self,
+        dwh_engine: str,
+        dwh_conn: Type[EWAHBaseHook],
+        load_strategy: str,
+        table_name: str,
+        schema_name: str,
+        schema_suffix: str = "_next",
+        database_name: Optional[str] = None,
     ) -> None:
-        super().__init__(*args, **kwarg)
+        super().__init__()
         self.dwh_engine = dwh_engine
         self.dwh_conn = dwh_conn
         self.dwh_hook = dwh_conn.get_hook()
+        self.load_strategy = load_strategy
+        self.table_name = table_name
+        self.schema_name = schema_name
+        self.schema_suffix = schema_suffix
+        self.database_name = database_name
 
     def _get_column_type(self, column_definition: dict) -> str:
         """Return the column type of the field. Returns the DWH engine specific default
@@ -43,42 +55,22 @@ class EWAHBaseUploader(LoggingMixin):
     def close(self):
         self.dwh_hook.close()
 
-    def copy_table(
-        self,
-        old_schema: str,
-        old_table: str,
-        new_schema: str,
-        new_table: str,
-        **kwargs: Optional[Dict[str, str]],  # e.g. database_name
-    ) -> None:
-        """Copy a table, including all data.
-
-        :param old_schema: Schema name of the source table.
-        :param old_table: Table name of the source table.
-        :param new_schema: Schema name of the newly created table.
-        :param new_table: Table name of the newly created table.
-
-        :Keyword Arguments:
-            * Any argument that may be given as format keyword argument to format the
-                ``_COPY_TABLE`` default SQL, e.g. ``database_name`` for Snowflake
-        """
-        test_kwargs = {"table_name": old_table, "schema_name": old_schema}
-        test_kwargs.update(
-            {key: value for (key, value) in kwargs.items() if not value is None}
-        )
+    def copy_table(self) -> None:
+        """Copy the existing version of the table, including all data, if it exists."""
+        test_kwargs = {"table_name": self.table_name, "schema_name": self.schema_name}
+        if self.database_name:
+            test_kwargs["database_name"] = self.database_name
         if self.test_if_table_exists(**test_kwargs):
-            try:  # refactor ASAP - snowflake bugfix
-                kwargs["database_name"] = (
-                    kwargs.get("database_name", None) or self.dwh_conn.database
-                )
-            except:
-                pass
+            if self.database_name:
+                kwargs = {"database_name": self.database_name}
+            else:
+                kwargs = {}
             self.dwh_hook.execute(
                 sql=self._COPY_TABLE.format(
-                    old_schema=old_schema,
-                    old_table=old_table,
-                    new_schema=new_schema,
-                    new_table=new_table,
+                    old_schema=self.schema_name,
+                    old_table=self.table_name,
+                    new_schema=self.schema_name + self.schema_suffix,
+                    new_table=self.table_name,
                     **kwargs,
                 ),
                 commit=False,
@@ -86,22 +78,20 @@ class EWAHBaseUploader(LoggingMixin):
 
     def detect_and_apply_schema_changes(
         self,
-        new_schema_name,
-        new_table_name,
         new_columns_dictionary,
         drop_missing_columns=False,
         database=None,
-        commit=False,
     ):
+        # Note: Don't commit any changes!
         params = {
-            "schema_name": new_schema_name,
-            "table_name": new_table_name,
+            "schema_name": self.schema_name + self.schema_suffix,
+            "table_name": self.table_name,
         }
         if self.dwh_engine == EC.DWH_ENGINE_SNOWFLAKE:
-            database = database or self.database or self.dwh_hook.conn.database
-            params["database_name"] = database
+            params["database_name"] = self.database_name
         if not self.test_if_table_exists(**params):
-            return ([], [])  # Table did not previously exist, so there is nothing to do
+            # Table did not previously exist, so there is nothing to do
+            return ([], [])
 
         list_of_old_columns = [
             col[0].strip()
@@ -145,26 +135,18 @@ class EWAHBaseUploader(LoggingMixin):
                     commit=False,
                 )
 
-        if commit:
-            self.dwh_hook.commit()
-
         return (new_columns, dropped_columns)
 
     def create_or_update_table(
         self,
         data,
-        load_strategy,
         upload_call_count,
         columns_definition,
-        table_name,
-        schema_name,
-        schema_suffix,
-        database_name=None,
         primary_key=None,
         commit=False,
     ):
         # check this again with Snowflake!!
-        database_name = database_name or getattr(self, "database", None)
+        database_name = self.database_name
 
         self.log.info(
             "Uploading {0} rows of data...".format(
@@ -174,11 +156,11 @@ class EWAHBaseUploader(LoggingMixin):
 
         kwargs = {
             "data": data,
-            "table_name": table_name,
-            "schema_name": schema_name,
-            "schema_suffix": schema_suffix,
+            "table_name": self.table_name,
+            "schema_name": self.schema_name,
+            "schema_suffix": self.schema_suffix,
             "columns_definition": columns_definition,
-            "load_strategy": load_strategy,
+            "load_strategy": self.load_strategy,
             "upload_call_count": upload_call_count,
             "primary_key": primary_key,
         }

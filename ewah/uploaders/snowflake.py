@@ -67,9 +67,10 @@ class EWAHSnowflakeUploader(EWAHBaseUploader):
             CLONE "{database_name}"."{old_schema}"."{old_table}";
     """
 
-    def __init__(self, *args, database=None, **kwargs):
-        self.database = database  # TODO: can I remove this??
+    def __init__(self, *args, **kwargs):
         super().__init__(EC.DWH_ENGINE_SNOWFLAKE, *args, **kwargs)
+        # Snowflake database name may be set in the connection
+        self.database_name = self.database_name or self.dwh_hook.conn.database
 
     def commit(self):
         self.dwh_hook.commit()
@@ -254,7 +255,7 @@ class EWAHSnowflakeUploader(EWAHBaseUploader):
     ):
         self.dwh_hook.execute(
             "USE DATABASE {0}".format(
-                database_name or self.database or self.dwh_hook.conn.database,
+                database_name or self.database_name,
             )
         )
         return 0 < len(
@@ -264,7 +265,7 @@ class EWAHSnowflakeUploader(EWAHBaseUploader):
             WHERE table_schema LIKE '{1}'
             AND table_name LIKE '{2}'
             """.format(
-                    database_name or self.database or self.dwh_hook.conn.database,
+                    database_name or self.database_name,
                     schema_name,
                     table_name,
                 )
@@ -276,7 +277,7 @@ class EWAHSnowflakeUploader(EWAHBaseUploader):
     ):
         self.dwh_hook.execute(
             "USE DATABASE {0}".format(
-                database_name or self.database or self.dwh_hook.conn.database,
+                database_name or self.database_name,
             )
         )
         return self.dwh_hook.execute_and_return_result(

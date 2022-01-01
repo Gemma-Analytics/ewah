@@ -344,7 +344,14 @@ class EWAHBaseOperator(BaseOperator):
         self._execution_time = datetime_utcnow_with_tz()
         self._context = context
 
-        self.uploader = self.uploader(EWAHBaseHook.get_connection(self.dwh_conn_id))
+        self.uploader = self.uploader(
+            dwh_conn=EWAHBaseHook.get_connection(self.dwh_conn_id),
+            table_name=self.target_table_name,
+            schema_name=self.target_schema_name,
+            schema_suffix=self.target_schema_suffix,
+            database_name=self.target_database_name,
+            load_strategy=self.load_strategy,
+        )
 
         # If applicable: set the session's default time zone
         if self.default_timezone:
@@ -362,20 +369,13 @@ class EWAHBaseOperator(BaseOperator):
             _msg = "Error - connection type must be {0}!".format(self._CONN_TYPE)
             assert self._CONN_TYPE == self.source_conn.conn_type, _msg
 
-        temp_schema_name = self.target_schema_name + self.target_schema_suffix
         # Create a new copy of the target table.
         # This is so data is loaded into a new table and if data loading
         # fails, the original data is not corrupted. At a new try or re-run,
         # the original table is just copied anew.
         if not self.load_strategy == EC.LS_INSERT_REPLACE:
             # insert_replace always drops and replaces the tables completely
-            self.uploader.copy_table(
-                old_schema=self.target_schema_name,
-                old_table=self.target_table_name,
-                new_schema=temp_schema_name,
-                new_table=self.target_table_name,
-                database_name=self.target_database_name,
-            )
+            self.uploader.copy_table()
 
         # set load_data_from and load_data_until as required
         data_from = ada(self.load_data_from)
@@ -655,16 +655,11 @@ class EWAHBaseOperator(BaseOperator):
             not (self.load_strategy == EC.LS_INSERT_REPLACE)
         ):
             self.log.info("Checking for, and applying schema changes.")
-            _new_schema_name = self.target_schema_name + self.target_schema_suffix
             new_cols, del_cols = self.uploader.detect_and_apply_schema_changes(
-                new_schema_name=_new_schema_name,
-                new_table_name=self.target_table_name,
                 new_columns_dictionary=columns_definition,
                 # When introducing a feature utilizing this, remember to
                 #  consider multiple runs within the same execution
                 drop_missing_columns=False and self.upload_call_count == 1,
-                database=self.target_database_name,
-                commit=False,  # Commit only when / after uploading data
             )
             self.log.info(
                 "Added fields:\n\t{0}\nDeleted fields:\n\t{1}".format(
@@ -677,13 +672,8 @@ class EWAHBaseOperator(BaseOperator):
 
         self.uploader.create_or_update_table(
             data=data,
-            load_strategy=self.load_strategy,
             upload_call_count=self.upload_call_count,
             columns_definition=columns_definition,
-            table_name=self.target_table_name,
-            schema_name=self.target_schema_name,
-            schema_suffix=self.target_schema_suffix,
-            database_name=self.target_database_name,
             primary_key=self.primary_key,
             commit=False,  # See note below for reason
         )
