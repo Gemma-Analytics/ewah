@@ -272,18 +272,12 @@ class EWAHSnowflakeUploader(EWAHBaseUploader):
             )
         )
 
-    def get_max_value_of_column(
-        self, column_name, table_name, schema_name, database_name=None
-    ):
-        self.dwh_hook.execute(
-            "USE DATABASE {0}".format(
-                database_name or self.database_name,
-            )
-        )
+    def get_max_value_of_column(self, column_name):
+        self.dwh_hook.execute("USE DATABASE {0}".format(self.database_name))
         return self.dwh_hook.execute_and_return_result(
             sql='SELECT MAX("{0}") FROM {1}'.format(
                 column_name,
-                f'"{schema_name}"."{table_name}"',
+                f'"{self.schema_name}{self.schema_suffix}"."{self.table_name}"',
             ),
             return_dict=False,
         )[0][0]
