@@ -56,7 +56,6 @@ class EWAHPostgresUploader(EWAHBaseUploader):
         schema_name,
         schema_suffix,
         columns_definition,
-        columns_partial_query,
         load_strategy,
         upload_call_count,
         primary_key=None,
@@ -76,7 +75,12 @@ class EWAHPostgresUploader(EWAHBaseUploader):
                 """.format(
                     schema_name=schema_name,
                     table_name=table_name,
-                    columns=columns_partial_query,
+                    columns=",\n\t".join(
+                        [
+                            '"{0}"\t{1}'.format(col, self._get_column_type(defi))
+                            for col, defi in columns_definition.items()
+                        ]
+                    ),
                 ),
                 commit=False,
             )

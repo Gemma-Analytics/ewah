@@ -65,7 +65,6 @@ class EWAHGSheetsUploader(EWAHBaseUploader):
         schema_name,
         schema_suffix,  # unused but always given
         columns_definition,
-        columns_partial_query,  # unused but always given
         load_strategy,  # Must be LS_INSERT_REPLACE
         upload_call_count,  # Must be 1
         primary_key=None,  # must accept arg, but it must also always be []

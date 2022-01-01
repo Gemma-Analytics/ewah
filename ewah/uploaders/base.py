@@ -172,20 +172,12 @@ class EWAHBaseUploader(LoggingMixin):
             )
         )
 
-        sql_part_columns = ",\n\t".join(
-            [
-                '"{0}"\t{1}'.format(col, self._get_column_type(defi))
-                for col, defi in columns_definition.items()
-            ]
-        )
-
         kwargs = {
             "data": data,
             "table_name": table_name,
             "schema_name": schema_name,
             "schema_suffix": schema_suffix,
             "columns_definition": columns_definition,
-            "columns_partial_query": sql_part_columns,
             "load_strategy": load_strategy,
             "upload_call_count": upload_call_count,
             "primary_key": primary_key,
