@@ -76,12 +76,7 @@ class EWAHBaseUploader(LoggingMixin):
                 commit=False,
             )
 
-    def detect_and_apply_schema_changes(
-        self,
-        new_columns_dictionary,
-        drop_missing_columns=False,
-        database=None,
-    ):
+    def detect_and_apply_schema_changes(self, new_columns_dictionary):
         # Note: Don't commit any changes!
         params = {
             "schema_name": self.schema_name + self.schema_suffix,
@@ -91,7 +86,7 @@ class EWAHBaseUploader(LoggingMixin):
             params["database_name"] = self.database_name
         if not self.test_if_table_exists(**params):
             # Table did not previously exist, so there is nothing to do
-            return ([], [])
+            return
 
         list_of_old_columns = [
             col[0].strip()
@@ -104,20 +99,6 @@ class EWAHBaseUploader(LoggingMixin):
         list_of_columns = [
             col_name.strip() for col_name in list(new_columns_dictionary.keys())
         ]
-
-        dropped_columns = []
-        if drop_missing_columns:
-            for old_column in list_of_old_columns:
-                if not (old_column in list_of_columns):
-                    drop_params = deepcopy(params)
-                    drop_params["column_name"] = old_column
-                    dropped_columns += [old_column]
-                    self.dwh_hook.execute(
-                        sql=self._QUERY_SCHEMA_CHANGES_DROP_COLUMN.format(
-                            **drop_params,
-                        ),
-                        commit=False,
-                    )
 
         new_columns = []
         for column in list_of_columns:
@@ -135,7 +116,7 @@ class EWAHBaseUploader(LoggingMixin):
                     commit=False,
                 )
 
-        return (new_columns, dropped_columns)
+        return new_columns
 
     def create_or_update_table(
         self,

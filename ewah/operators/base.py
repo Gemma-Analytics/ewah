@@ -655,16 +655,14 @@ class EWAHBaseOperator(BaseOperator):
             not (self.load_strategy == EC.LS_INSERT_REPLACE)
         ):
             self.log.info("Checking for, and applying schema changes.")
-            new_cols, del_cols = self.uploader.detect_and_apply_schema_changes(
-                new_columns_dictionary=columns_definition,
-                # When introducing a feature utilizing this, remember to
-                #  consider multiple runs within the same execution
-                drop_missing_columns=False and self.upload_call_count == 1,
-            )
             self.log.info(
-                "Added fields:\n\t{0}\nDeleted fields:\n\t{1}".format(
-                    "\n\t".join(new_cols) or "\n",
-                    "\n\t".join(del_cols) or "\n",
+                "Added fields:\n\t{0}\n".format(
+                    "\n\t".join(
+                        self.uploader.detect_and_apply_schema_changes(
+                            new_columns_dictionary=columns_definition,
+                        )
+                        or ["No fields were added."]
+                    )
                 )
             )
 
