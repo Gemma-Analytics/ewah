@@ -326,12 +326,12 @@ class EWAHBaseOperator(BaseOperator):
         self.log.info(
             """
 
-        Running EWAH Operator {0}.
-        DWH: {1} (connection id: {2})
-        Extract Strategy: {3}
-        Load Strategy: {4}
+            Running EWAH Operator {0}.
+            DWH: {1} (connection id: {2})
+            Extract Strategy: {3}
+            Load Strategy: {4}
 
-        """.format(
+            """.format(
                 str(self),
                 self.dwh_engine,
                 self.dwh_conn_id,
