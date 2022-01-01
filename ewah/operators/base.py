@@ -532,20 +532,8 @@ class EWAHBaseOperator(BaseOperator):
         raise Exception("Function not implemented!")
 
     def get_max_value_of_column(self, column_name):
-        # Need to use existing hook to work within open transaction
-        kwargs = {
-            "column_name": column_name,
-            "table_name": self.target_table_name,
-            "schema_name": self.target_schema_name + self.target_schema_suffix,
-        }
-        if self.dwh_engine == EC.DWH_ENGINE_SNOWFLAKE:
-            kwargs["database_name"] = self.target_database_name
-            return self.uploader.get_max_value_of_column(**kwargs)
-        if self.dwh_engine in [EC.DWH_ENGINE_POSTGRES, EC.DWH_ENGINE_SNOWFLAKE]:
-            return self.uploader.get_max_value_of_column(**kwargs)
-        # For a new DWH, need to manually check if function works properly
-        # Thus, fail until explicitly added
-        raise Exception("Function not implemented!")
+        # Deprecated - better to call uploader directly if able
+        return self.uploader.get_max_value_of_column(column_name=column_name)
 
     def _upload_via_pickling(self, data: Union[dict, List[dict]]):
         """Call this function to earmark a dictionary for later upload."""
