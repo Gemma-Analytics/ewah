@@ -4,9 +4,12 @@ from ewah.hooks.base import EWAHBaseHook
 from ewah.constants import EWAHConstants as EC
 
 import math
+import pickle
+import os
 
 from copy import deepcopy
-from typing import Optional, Type, Union, Dict
+from tempfile import TemporaryFile, TemporaryDirectory
+from typing import Optional, Type, Union, Dict, List, Any
 
 
 class EWAHBaseUploader(LoggingMixin):
@@ -20,25 +23,60 @@ class EWAHBaseUploader(LoggingMixin):
     uploading data. Each target shall have a subclass derived from this class.
     """
 
+    upload_call_count = 0
+
     def __init__(
         self,
         dwh_engine: str,
         dwh_conn: Type[EWAHBaseHook],
         load_strategy: str,
+        cleaner: "EWAHCleaner",
         table_name: str,
         schema_name: str,
         schema_suffix: str = "_next",
         database_name: Optional[str] = None,
+        primary_key: Optional[List[str]] = None,
+        use_temp_pickling: bool = False,
+        pickling_upload_chunk_size: int = 100000,
+        pickle_compression: Optional[str] = None,
     ) -> None:
+        assert pickle_compression is None or pickle_compression in (
+            "gzip",
+            "bz2",
+            "lzma",
+        )
+
+        if use_temp_pickling:
+            # Set a function to use for temporary pickle files
+            if pickle_compression is None:
+                self.pickle_file_open = open
+            else:
+                self.pickle_file_open = __import__(pickle_compression).open
+
+            # Prepare file used for temporary data pickling
+            self.temp_pickle_folder = TemporaryDirectory()
+            self.temp_file_name = (
+                self.temp_pickle_folder.name + os.sep + "temp_pickle_file"
+            )
+            self.temp_pickle_file = self.pickle_file_open(self.temp_file_name, "wb")
+
         super().__init__()
         self.dwh_engine = dwh_engine
         self.dwh_conn = dwh_conn
         self.dwh_hook = dwh_conn.get_hook()
         self.load_strategy = load_strategy
+        self.cleaner = cleaner
         self.table_name = table_name
         self.schema_name = schema_name
         self.schema_suffix = schema_suffix
         self.database_name = database_name
+        self.primary_key = primary_key
+        self.use_temp_pickling = use_temp_pickling
+        self.pickling_upload_chunk_size = pickling_upload_chunk_size
+
+    @property
+    def columns_definition(self):
+        return self.cleaner.get_columns_definition(dwh_engine=self.dwh_engine)
 
     def _get_column_type(self, column_definition: dict) -> str:
         """Return the column type of the field. Returns the DWH engine specific default
@@ -51,6 +89,113 @@ class EWAHBaseUploader(LoggingMixin):
             EC.QBC_FIELD_TYPE,
             EC.QBC_TYPE_MAPPING[self.dwh_engine].get(str),
         )
+
+    def upload_data(
+        self,
+        data: List[Dict[str, any]],
+        metadata: Optional[Dict[str, Any]] = None,
+    ) -> None:
+
+        data = self.cleaner.clean_rows(rows=data, metadata=metadata)
+
+        if self.primary_key:
+            for pk_name in self.primary_key:
+                if not pk_name in self.columns_definition.keys():
+                    raise Exception(
+                        ("Column {0} does not exist but is " + "expected!").format(
+                            pk_name
+                        )
+                    )
+
+        if self.use_temp_pickling:
+            # earmark for later upload
+            self._upload_via_pickling(data=data)
+        else:
+            # upload straightaway
+            self._upload_data(data)
+
+    def _upload_data(self, data=None):
+        if not data:
+            self.log.info("No data to upload!")
+            return
+        self.upload_call_count += 1
+        self.log.info(
+            "Chunk {1}: Uploading {0} rows of data.".format(
+                str(len(data)),
+                str(self.upload_call_count),
+            )
+        )
+
+        if (self.upload_call_count > 1) or (
+            not (self.load_strategy == EC.LS_INSERT_REPLACE)
+        ):
+            self.log.info("Checking for, and applying schema changes.")
+            self.log.info(
+                "Added fields:\n\t{0}\n".format(
+                    "\n\t".join(
+                        self.detect_and_apply_schema_changes()
+                        or ["No fields were added."]
+                    )
+                )
+            )
+
+        self.create_or_update_table(
+            data=data,
+            upload_call_count=self.upload_call_count,
+            primary_key=self.primary_key,
+            commit=False,  # See note below for reason
+        )
+        """ Note on committing changes:
+            The hook used for data uploading is created at the beginning of the
+            execute function and automatically committed and closed at the end.
+            DO NOT commit in this function, as multiple uploads may be required,
+            and any intermediate commit may be subsequently followed by an
+            error, which would then result in incomplete data committed.
+        """
+
+    def _upload_via_pickling(self, data: Union[dict, List[dict]]):
+        """Call this function to earmark a dictionary for later upload."""
+        assert self.use_temp_pickling, "Can only call function if using temp pickling!"
+        if isinstance(data, dict):
+            pickle.dump(data, self.temp_pickle_file)
+        elif isinstance(data, list):
+            self.log.info(
+                "Pickling {0} rows of data for later upload...".format(len(data))
+            )
+            for row in data:
+                assert isinstance(
+                    row, dict
+                ), "Invalid data format for function! Must be dict or list of dicts!"
+                pickle.dump(row, self.temp_pickle_file)
+        else:
+            raise Exception(
+                "Invalid data format for function! Must be dict or list of dicts!"
+            )
+
+    def _upload_from_pickle(self):
+        """Call this function to upload previously pickled data."""
+        assert self.use_temp_pickling
+        assert hasattr(self, "temp_pickle_file")
+        self.temp_pickle_file.close()
+        self.temp_pickle_file = self.pickle_file_open(self.temp_file_name, "rb")
+        keep_unpickling = True
+        while keep_unpickling:
+            raw_data = []
+            for _ in range(self.pickling_upload_chunk_size):
+                try:
+                    raw_data.append(pickle.load(self.temp_pickle_file))
+                except EOFError:
+                    # all done
+                    keep_unpickling = False
+                    break
+            self._upload_data(raw_data)
+        # re-open a new pickle file for new data
+        self.temp_pickle_file.close()
+        self.temp_pickle_file = self.pickle_file_open(self.temp_file_name, "wb")
+
+    def finalize_upload(self):
+        if self.use_temp_pickling:
+            self._upload_from_pickle()
 
     def close(self):
         self.dwh_hook.close()
@@ -76,7 +221,7 @@ class EWAHBaseUploader(LoggingMixin):
                 commit=False,
             )
 
-    def detect_and_apply_schema_changes(self, new_columns_dictionary):
+    def detect_and_apply_schema_changes(self):
         # Note: Don't commit any changes!
         params = {
             "schema_name": self.schema_name + self.schema_suffix,
@@ -97,7 +242,7 @@ class EWAHBaseUploader(LoggingMixin):
             )
         ]
         list_of_columns = [
-            col_name.strip() for col_name in list(new_columns_dictionary.keys())
+            col_name.strip() for col_name in list(self.columns_definition.keys())
         ]
 
         new_columns = []
@@ -122,7 +267,6 @@ class EWAHBaseUploader(LoggingMixin):
         self,
         data,
         upload_call_count,
-        columns_definition,
         primary_key=None,
         commit=False,
     ):
@@ -140,7 +284,7 @@ class EWAHBaseUploader(LoggingMixin):
             "table_name": self.table_name,
             "schema_name": self.schema_name,
             "schema_suffix": self.schema_suffix,
-            "columns_definition": columns_definition,
+            "columns_definition": self.columns_definition,
             "load_strategy": self.load_strategy,
             "upload_call_count": upload_call_count,
             "primary_key": primary_key,

@@ -10,16 +10,10 @@ from ewah.hooks.base import EWAHBaseHook
 from ewah.uploaders import get_uploader
 
 from datetime import datetime, timedelta
-from tempfile import TemporaryFile, TemporaryDirectory
 from typing import Optional, List, Dict, Union
 
-import bz2
 import copy
-import gzip
 import hashlib
-import lzma
-import os
-import pickle
 import sys
 import time
 
@@ -76,8 +70,6 @@ class EWAHBaseOperator(BaseOperator):
         CREATE INDEX IF NOT EXISTS {0}
         ON "{1}"."{2}" ({3})
     """
-
-    upload_call_count = 0
 
     _metadata = {}  # to be updated by operator, if applicable
 
@@ -157,7 +149,7 @@ class EWAHBaseOperator(BaseOperator):
         pickling_upload_chunk_size=100000,  # default chunk size for pickle upload
         pickle_compression=None,  # data compression algorithm to use for pickles
         default_values=None,  # dict with default values for columns (to avoid nulls)
-        cleaner=EWAHCleaner,
+        cleaner_class=EWAHCleaner,
         *args,
         **kwargs
     ):
@@ -289,7 +281,7 @@ class EWAHBaseOperator(BaseOperator):
         self.pickling_upload_chunk_size = pickling_upload_chunk_size
         self.pickle_compression = pickle_compression
         self.default_values = default_values
-        self.cleaner = cleaner
+        self.cleaner_class = cleaner_class
 
         self.uploader = get_uploader(self.dwh_engine)
 
@@ -297,19 +289,6 @@ class EWAHBaseOperator(BaseOperator):
             extract_strategy,
         )
         # assert self.uploader._ACCEPTED_EXTRACT_STRATEGIES.get(extract_strategy), _msg
-
-    @staticmethod
-    def _pickle_file_open(name, mode, compression_mode):
-        if compression_mode is None:
-            return open(name, mode)
-        elif compression_mode == "gzip":
-            return gzip.open(name, mode)
-        elif compression_mode == "lzma":
-            return lzma.open(name, mode)
-        elif compression_mode == "bz2":
-            return bz2.open(name, mode)
-        else:
-            raise Exception("Compression Mode not implemented!")
 
     def ewah_execute(self, context):
         raise Exception("You need to overwrite me!")
@@ -346,11 +325,23 @@ class EWAHBaseOperator(BaseOperator):
 
         self.uploader = self.uploader(
             dwh_conn=EWAHBaseHook.get_connection(self.dwh_conn_id),
+            cleaner=self.cleaner_class(
+                default_row=self.default_values,
+                exclude_columns=self.exclude_columns,
+                add_metadata=self.add_metadata,
+                rename_columns=self.rename_columns,
+                hash_columns=self.hash_columns,
+                # additional_callables=None, TBD: Make option available in operator
+            ),
             table_name=self.target_table_name,
             schema_name=self.target_schema_name,
             schema_suffix=self.target_schema_suffix,
             database_name=self.target_database_name,
+            primary_key=self.primary_key,
             load_strategy=self.load_strategy,
+            use_temp_pickling=self.use_temp_pickling,
+            pickling_upload_chunk_size=self.pickling_upload_chunk_size,
+            pickle_compression=self.pickle_compression,
         )
 
         # If applicable: set the session's default time zone
@@ -414,14 +405,6 @@ class EWAHBaseOperator(BaseOperator):
             # keep this param for subsequent loads
             del self.load_data_from_relative
 
-        # Prepare file used for temporary data pickling, if applicable
-        if self.use_temp_pickling:
-            temp_pickle_folder = TemporaryDirectory()
-            temp_file_name = temp_pickle_folder.name + os.sep + "temp_pickle_file"
-            self.temp_pickle_file = self._pickle_file_open(
-                temp_file_name, "wb", self.pickle_compression
-            )
-
         # Have an option to wait until a short period (e.g. 2 minutes) past
         # the incremental loading range timeframe to ensure that all data is
         # loaded, useful e.g. if APIs lag or if server timestamps are not
@@ -445,16 +428,6 @@ class EWAHBaseOperator(BaseOperator):
                 wait_for_timedelta = wait_until - datetime_utcnow_with_tz()
                 time.sleep(max(0, min(wait_for_timedelta.total_seconds(), 5)))
 
-        # Prepare data cleaner
-        self.cleaner = self.cleaner(
-            default_row=self.default_values,
-            exclude_columns=self.exclude_columns,
-            add_metadata=self.add_metadata,
-            rename_columns=self.rename_columns,
-            hash_columns=self.hash_columns,
-            # additional_callables=None, TBD: Make option available in operator
-        )
-
         # execute operator
         if self.load_data_chunking_timedelta and data_from and data_until:
             # Chunking to avoid OOM
@@ -471,18 +444,12 @@ class EWAHBaseOperator(BaseOperator):
                 )
                 self.ewah_execute(context)
                 self.data_from += self.load_data_chunking_timedelta
-                if self.use_temp_pickling:
-                    self._upload_from_pickle(temp_file_name=temp_file_name)
         else:
             self.ewah_execute(context)
-            if self.use_temp_pickling:
-                self._upload_from_pickle(temp_file_name=temp_file_name)
 
-        if self.use_temp_pickling:
-            # always clean up after yourself
-            self.temp_pickle_file.close()
-            del self.temp_pickle_file
-            del temp_pickle_folder
+        # Run final scripts
+        # TODO: Include indexes into uploader and then remove this step
+        self.uploader.finalize_upload()
 
         # if PostgreSQL and arg given: create indices
         for column in self.index_columns:
@@ -535,69 +502,13 @@ class EWAHBaseOperator(BaseOperator):
         # Deprecated - better to call uploader directly if able
         return self.uploader.get_max_value_of_column(column_name=column_name)
 
-    def _upload_via_pickling(self, data: Union[dict, List[dict]]):
-        """Call this function to earmark a dictionary for later upload."""
-        assert self.use_temp_pickling, "Can only call function if using temp pickling!"
-        if isinstance(data, dict):
-            pickle.dump(data, self.temp_pickle_file)
-        elif isinstance(data, list):
-            self.log.info(
-                "Pickling {0} rows of data for later upload...".format(len(data))
-            )
-            for row in data:
-                self._upload_via_pickling(row)
-        else:
-            raise Exception(
-                "Invalid data format for function! Must be dict or list of dicts!"
-            )
-
-    def _upload_from_pickle(self, temp_file_name):
-        """Call this function to upload previously pickled data."""
-        assert self.use_temp_pickling
-        assert hasattr(self, "temp_pickle_file")
-        self.temp_pickle_file.close()
-        self.temp_pickle_file = self._pickle_file_open(
-            temp_file_name, "rb", self.pickle_compression
-        )
-        keep_unpickling = True
-        while keep_unpickling:
-            raw_data = []
-            for _ in range(self.pickling_upload_chunk_size):
-                try:
-                    raw_data.append(pickle.load(self.temp_pickle_file))
-                except EOFError:
-                    # all done
-                    keep_unpickling = False
-                    break
-            self._upload_data(raw_data)
-        # re-open a new pickle file for new data
-        self.temp_pickle_file.close()
-        self.temp_pickle_file = self._pickle_file_open(
-            temp_file_name, "wb", self.pickle_compression
-        )
-
     def upload_data(self, data=None):
-        if self.use_temp_pickling:
-            # earmark for later upload
-            self._upload_via_pickling(data=data)
-        else:
-            # upload straightaway
-            self._upload_data(data)
-
-    def _upload_data(self, data=None):
         """Upload data, no matter the source. Call this functions in the child
         operator whenever data is available for upload, as often as needed.
         """
         if not data:
             self.log.info("No data to upload!")
             return
-        self.upload_call_count += 1
-        self.log.info(
-            "Chunk {1}: Uploading {0} rows of data.".format(
-                str(len(data)),
-                str(self.upload_call_count),
-            )
-        )
 
         if self.add_metadata:
             metadata = copy.deepcopy(self._metadata)  # from individual operator
@@ -614,7 +525,6 @@ class EWAHBaseOperator(BaseOperator):
                     "_ewah_extract_strategy": self.extract_strategy,
                     "_ewah_load_strategy": self.load_strategy,
                     "_ewah_executed_at": self._execution_time,
-                    "_ewah_execution_chunk": self.upload_call_count,
                     "_ewah_dag_id": self._context["dag"].dag_id,
                     "_ewah_dag_run_id": self._context["run_id"],
                     "_ewah_dag_run_data_interval_start": interval_start,
@@ -624,49 +534,4 @@ class EWAHBaseOperator(BaseOperator):
         else:
             metadata = None
 
-        data = self.cleaner.clean_rows(rows=data, metadata=metadata)
-
-        columns_definition = self.cleaner.get_columns_definition(
-            dwh_engine=self.dwh_engine
-        )
-
-        if self.primary_key:
-            for pk_name in self.primary_key:
-                if not pk_name in columns_definition.keys():
-                    raise Exception(
-                        ("Column {0} does not exist but is " + "expected!").format(
-                            pk_name
-                        )
-                    )
-
-        if (self.upload_call_count > 1) or (
-            not (self.load_strategy == EC.LS_INSERT_REPLACE)
-        ):
-            self.log.info("Checking for, and applying schema changes.")
-            self.log.info(
-                "Added fields:\n\t{0}\n".format(
-                    "\n\t".join(
-                        self.uploader.detect_and_apply_schema_changes(
-                            new_columns_dictionary=columns_definition,
-                        )
-                        or ["No fields were added."]
-                    )
-                )
-            )
-
-        self.log.info("Uploading data now.")
-
-        self.uploader.create_or_update_table(
-            data=data,
-            upload_call_count=self.upload_call_count,
-            columns_definition=columns_definition,
-            primary_key=self.primary_key,
-            commit=False,  # See note below for reason
-        )
-        """ Note on committing changes:
-            The hook used for data uploading is created at the beginning of the
-            execute function and automatically committed and closed at the end.
-            DO NOT commit in this function, as multiple uploads may be required,
-            and any intermediate commit may be subsequently followed by an
-            error, which would then result in incomplete data committed.
-        """
+        return self.uploader.upload_data(data, metadata)
