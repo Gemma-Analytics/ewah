@@ -150,6 +150,7 @@ class EWAHBaseOperator(BaseOperator):
         pickle_compression=None,  # data compression algorithm to use for pickles
         default_values=None,  # dict with default values for columns (to avoid nulls)
         cleaner_class=EWAHCleaner,
+        uploader_class=None, # Future: deprecate dwh_engine and use this kwarg instead
         *args,
         **kwargs
     ):
@@ -283,7 +284,7 @@ class EWAHBaseOperator(BaseOperator):
         self.default_values = default_values
         self.cleaner_class = cleaner_class
 
-        self.uploader = get_uploader(self.dwh_engine)
+        self.uploader_class = uploader_class or get_uploader(self.dwh_engine)
 
         _msg = "DWH hook does not support extract strategy {0}!".format(
             extract_strategy,
@@ -323,7 +324,7 @@ class EWAHBaseOperator(BaseOperator):
         self._execution_time = datetime_utcnow_with_tz()
         self._context = context
 
-        self.uploader = self.uploader(
+        self.uploader = self.uploader_class(
             dwh_conn=EWAHBaseHook.get_connection(self.dwh_conn_id),
             cleaner=self.cleaner_class(
                 default_row=self.default_values,
@@ -357,8 +358,9 @@ class EWAHBaseOperator(BaseOperator):
         del self.source_conn_id
 
         if self._CONN_TYPE:
-            _msg = "Error - connection type must be {0}!".format(self._CONN_TYPE)
-            assert self._CONN_TYPE == self.source_conn.conn_type, _msg
+            assert (
+                self._CONN_TYPE == self.source_conn.conn_type
+            ), "Error - connection type must be {0}!".format(self._CONN_TYPE)
 
         # Create a new copy of the target table.
         # This is so data is loaded into a new table and if data loading
@@ -484,6 +486,7 @@ class EWAHBaseOperator(BaseOperator):
         self.uploader.close()
 
     def test_if_target_table_exists(self):
+        # TODO: move this function to uploader
         # Need to use existing hook to work within open transaction
         kwargs = {
             "table_name": self.target_table_name,
