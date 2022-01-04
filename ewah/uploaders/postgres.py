@@ -1,9 +1,13 @@
 from ewah.uploaders.base import EWAHBaseUploader
 from ewah.hooks.postgres import EWAHPostgresHook
 from ewah.constants import EWAHConstants as EC
+from ewah.utils.airflow_utils import PGO
+
 from psycopg2.extras import execute_values
+from copy import deepcopy
 
 import hashlib
+import re
 
 
 class EWAHPostgresUploader(EWAHBaseUploader):
@@ -39,6 +43,79 @@ class EWAHPostgresUploader(EWAHBaseUploader):
 
     def __init__(self, *args, **kwargs) -> None:
         super().__init__(EC.DWH_ENGINE_POSTGRES, *args, **kwargs)
+
+    @classmethod
+    def get_schema_tasks(
+        cls,
+        dag,
+        dwh_engine,
+        dwh_conn_id,
+        target_schema_name,
+        target_schema_suffix="_next",
+        target_database_name=None,
+        read_right_users=None,  # Only for PostgreSQL
+        **additional_task_args,
+    ):
+        sql_kickoff = """
+            DROP SCHEMA IF EXISTS "{schema_name}{schema_suffix}" CASCADE;
+            CREATE SCHEMA "{schema_name}{schema_suffix}";
+        """.format(
+            schema_name=target_schema_name,
+            schema_suffix=target_schema_suffix,
+        )
+        sql_final = """
+            DROP SCHEMA IF EXISTS "{schema_name}" CASCADE;
+            ALTER SCHEMA "{schema_name}{schema_suffix}"
+                RENAME TO "{schema_name}";
+        """.format(
+            schema_name=target_schema_name,
+            schema_suffix=target_schema_suffix,
+        )
+
+        # Don't fail final task just because a user or role that should
+        # be granted read rights does not exist!
+        grant_rights_sql = """
+            DO $$
+            BEGIN
+              GRANT USAGE ON SCHEMA "{target_schema_name}" TO {user};
+              GRANT SELECT ON ALL TABLES
+                IN SCHEMA "{target_schema_name}" TO {user};
+              EXCEPTION WHEN OTHERS THEN -- catches any error
+                RAISE NOTICE 'not granting rights - user does not exist!';
+            END
+            $$;
+        """
+        if read_right_users:
+            if not isinstance(read_right_users, list):
+                raise Exception("Arg read_right_users must be of type List!")
+            for user in read_right_users:
+                if re.search(r"\s", user) or (";" in user):
+                    _msg = "No whitespace or semicolons allowed in usernames!"
+                    raise ValueError(_msg)
+                sql_final += grant_rights_sql.format(
+                    target_schema_name=target_schema_name,
+                    user=user,
+                )
+
+        task_1_args = deepcopy(additional_task_args)
+        task_2_args = deepcopy(additional_task_args)
+        task_1_args.update(
+            {
+                "sql": sql_kickoff,
+                "task_id": "kickoff",
+                "dag": dag,
+                "postgres_conn_id": dwh_conn_id,
+            }
+        )
+        task_2_args.update(
+            {
+                "sql": sql_final,
+                "task_id": "final",
+                "dag": dag,
+                "postgres_conn_id": dwh_conn_id,
+            }
+        )
+        return (PGO(**task_1_args), PGO(**task_2_args))
 
     def commit(self):
         self.dwh_hook.commit()

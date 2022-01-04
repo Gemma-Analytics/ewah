@@ -4,9 +4,10 @@ from airflow.operators.bash import BashOperator
 
 from ewah.constants import EWAHConstants as EC
 from ewah.uploaders.snowflake import SnowflakeOperator
-from ewah.utils.airflow_utils import PGO, etl_schema_tasks, datetime_utcnow_with_tz
+from ewah.utils.airflow_utils import PGO, datetime_utcnow_with_tz
 from ewah.hooks.base import EWAHBaseHook as BaseHook
 from ewah.operators.base import EWAHBaseOperator
+from ewah.uploaders import get_uploader
 
 from collections.abc import Iterable
 from copy import deepcopy
@@ -309,7 +310,7 @@ def dag_factory_idempotent(
     reset_task >> drop_task
 
     # Incremental DAG schema tasks
-    kickoff, final = etl_schema_tasks(
+    kickoff, final = get_uploader(dwh_engine).get_schema_tasks(
         dag=dags[0],
         dwh_engine=dwh_engine,
         target_schema_name=target_schema_name,
@@ -322,7 +323,7 @@ def dag_factory_idempotent(
     )
 
     # Backfill DAG schema tasks
-    kickoff_backfill, final_backfill = etl_schema_tasks(
+    kickoff_backfill, final_backfill = get_uploader(dwh_engine).get_schema_tasks(
         dag=dags[1],
         dwh_engine=dwh_engine,
         target_schema_name=target_schema_name,

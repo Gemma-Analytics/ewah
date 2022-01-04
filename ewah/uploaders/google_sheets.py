@@ -1,6 +1,8 @@
 from ewah.uploaders.base import EWAHBaseUploader
 from ewah.constants import EWAHConstants as EC
 
+from airflow.operators.dummy import DummyOperator
+
 from tempfile import NamedTemporaryFile
 from datetime import datetime
 from decimal import Decimal
@@ -44,6 +46,20 @@ class EWAHGSheetsUploader(EWAHBaseUploader):
     def __init__(self, *args, **kwargs):
         self._upload_call_count = 0  # Make sure there is only a single upload
         super().__init__(EC.DWH_ENGINE_GS, *args, **kwargs)
+
+    @classmethod
+    def get_schema_tasks(cls, dag, *args, **kwargs):
+        # Dummy tasks - there are no schemas in Google Sheets
+        return (
+            DummyOperator(
+                task_id="kickoff",
+                dag=dag,
+            ),
+            DummyOperator(
+                task_id="final",
+                dag=dag,
+            ),
+        )
 
     def detect_and_apply_schema_changes(self, *args, **kwargs):
         # need to overwrite parent function, does nothing

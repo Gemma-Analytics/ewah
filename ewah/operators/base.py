@@ -150,7 +150,7 @@ class EWAHBaseOperator(BaseOperator):
         pickle_compression=None,  # data compression algorithm to use for pickles
         default_values=None,  # dict with default values for columns (to avoid nulls)
         cleaner_class=EWAHCleaner,
-        uploader_class=None, # Future: deprecate dwh_engine and use this kwarg instead
+        uploader_class=None,  # Future: deprecate dwh_engine and use this kwarg instead
         *args,
         **kwargs
     ):

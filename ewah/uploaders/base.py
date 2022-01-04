@@ -74,6 +74,20 @@ class EWAHBaseUploader(LoggingMixin):
         self.use_temp_pickling = use_temp_pickling
         self.pickling_upload_chunk_size = pickling_upload_chunk_size
 
+    @classmethod
+    def get_schema_tasks(cls, *args, **kwargs):
+        """
+        This classmethod needs to be overwritten by a child class and return
+        a tuple of two tasks, the kickoff and final tasks for the data loading DAGs.
+
+        The kickoff task is supposed to create a new, empty schema to use during data
+        loading.
+
+        The final task is supposed to replace the old with the new schema e.g. by
+        removing the old schema and renaming the new schema.
+        """
+        raise Exception("Not implemented!")
+
     @property
     def columns_definition(self):
         return self.cleaner.get_columns_definition(dwh_engine=self.dwh_engine)

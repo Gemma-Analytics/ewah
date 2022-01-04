@@ -18,13 +18,13 @@ from ewah.constants import EWAHConstants as EC
 from ewah.dag_factories.dag_factory_idempotent import ExtendedETS
 from ewah.utils.airflow_utils import (
     PGO,
-    etl_schema_tasks,
     datetime_utcnow_with_tz,
     EWAHSqlSensor,
 )
 from ewah.operators.base import EWAHBaseOperator
 from ewah.hooks.base import EWAHBaseHook
 from ewah.uploaders.snowflake import SnowflakeOperator
+from ewah.uploaders import get_uploader
 
 from datetime import datetime, timedelta
 from collections.abc import Iterable
@@ -230,7 +230,7 @@ def dag_factory_mixed(
     else:
         raise_exception(f'DWH "{dwh_engine}" not implemented for this task!')
 
-    kickoff_fr, final_fr = etl_schema_tasks(
+    kickoff_fr, final_fr = get_uploader(dwh_engine).get_schema_tasks(
         dag=dags[0],
         dwh_engine=dwh_engine,
         dwh_conn_id=dwh_conn_id,
@@ -242,7 +242,7 @@ def dag_factory_mixed(
         **additional_task_args,
     )
 
-    kickoff_inc, final_inc = etl_schema_tasks(
+    kickoff_inc, final_inc = get_uploader(dwh_engine).get_schema_tasks(
         dag=dags[1],
         dwh_engine=dwh_engine,
         dwh_conn_id=dwh_conn_id,

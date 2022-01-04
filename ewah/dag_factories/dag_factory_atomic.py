@@ -1,8 +1,9 @@
 from airflow import DAG
 
 from ewah.constants import EWAHConstants as EC
-from ewah.utils.airflow_utils import etl_schema_tasks, datetime_utcnow_with_tz
+from ewah.utils.airflow_utils import datetime_utcnow_with_tz
 from ewah.operators.base import EWAHBaseOperator
+from ewah.uploaders import get_uploader
 
 from collections.abc import Iterable
 from copy import deepcopy
@@ -97,7 +98,7 @@ def dag_factory_atomic(
         **additional_dag_args,
     )
 
-    kickoff, final = etl_schema_tasks(
+    kickoff, final = get_uploader(dwh_engine).get_schema_tasks(
         dag=dag,
         dwh_engine=dwh_engine,
         dwh_conn_id=dwh_conn_id,

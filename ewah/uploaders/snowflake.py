@@ -5,6 +5,7 @@ by the Snowflake Python SDK maintainers.
 
 from ewah.uploaders.base import EWAHBaseUploader
 from ewah.constants import EWAHConstants as EC
+from ewah.hooks.base import EWAHBaseHook
 
 import os
 import csv
@@ -13,6 +14,7 @@ import pickle
 import snowflake.connector
 from tempfile import NamedTemporaryFile, TemporaryDirectory
 from airflow.models import BaseOperator
+from copy import deepcopy
 
 
 class SnowflakeOperator(BaseOperator):
@@ -71,6 +73,68 @@ class EWAHSnowflakeUploader(EWAHBaseUploader):
         super().__init__(EC.DWH_ENGINE_SNOWFLAKE, *args, **kwargs)
         # Snowflake database name may be set in the connection
         self.database_name = self.database_name or self.dwh_hook.conn.database
+
+    @classmethod
+    def get_schema_tasks(
+        cls,
+        dag,
+        dwh_engine,
+        dwh_conn_id,
+        target_schema_name,
+        target_schema_suffix="_next",
+        target_database_name=None,
+        read_right_users=None,  # Only for PostgreSQL
+        **additional_task_args,
+    ):
+        target_database_name = target_database_name or (
+            EWAHBaseHook.get_connection(dwh_conn_id).database
+        )
+        sql_kickoff = """
+            DROP SCHEMA IF EXISTS
+                "{database}"."{schema_name}{schema_suffix}" CASCADE;
+            CREATE SCHEMA "{database}"."{schema_name}{schema_suffix}";
+        """.format(
+            database=target_database_name,
+            schema_name=target_schema_name,
+            schema_suffix=target_schema_suffix,
+        )
+        sql_final = """
+            DROP SCHEMA IF EXISTS "{database}"."{schema_name}" CASCADE;
+            ALTER SCHEMA "{database}"."{schema_name}{schema_suffix}"
+                RENAME TO "{schema_name}";
+        """.format(
+            database=target_database_name,
+            schema_name=target_schema_name,
+            schema_suffix=target_schema_suffix,
+        )
+
+        def execute_snowflake(sql, conn_id, **kwargs):
+            hook = EWAHBaseHook.get_hook_from_conn_id(conn_id)
+            hook.execute(sql)
+            hook.commit()
+            hook.close()
+
+        task_1_args = deepcopy(additional_task_args)
+        task_2_args = deepcopy(additional_task_args)
+        task_1_args.update(
+            {
+                "task_id": "kickoff",
+                "sql": sql_kickoff,
+                "snowflake_conn_id": dwh_conn_id,
+                "database": target_database_name,
+                "dag": dag,
+            }
+        )
+        task_2_args.update(
+            {
+                "task_id": "final",
+                "sql": sql_final,
+                "snowflake_conn_id": dwh_conn_id,
+                "database": target_database_name,
+                "dag": dag,
+            }
+        )
+        return (SnowflakeOperator(**task_1_args), SnowflakeOperator(**task_2_args))
 
     def commit(self):
         self.dwh_hook.commit()
