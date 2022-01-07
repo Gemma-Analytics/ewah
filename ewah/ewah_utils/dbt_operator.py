@@ -136,7 +136,7 @@ class EWAHdbtOperator(BaseOperator):
                 # Clone repo into temp folder
                 git_hook = EWAHBaseHook.get_hook_from_conn_id(conn_id=self.git_conn_id)
                 git_hook.clone_repo(repo_dir, env)
-            if self.repo_type == "local":
+            elif self.repo_type == "local":
                 # Copy local version of the repository into temp folder
                 copy_tree(self.local_path, repo_dir)
             else:
