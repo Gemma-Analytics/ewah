@@ -8,7 +8,7 @@ import pickle
 import os
 
 from copy import deepcopy
-from tempfile import TemporaryFile, TemporaryDirectory
+from tempfile import TemporaryDirectory
 from typing import Optional, Type, Union, Dict, List, Any
 
 
@@ -73,6 +73,11 @@ class EWAHBaseUploader(LoggingMixin):
         self.primary_key = primary_key
         self.use_temp_pickling = use_temp_pickling
         self.pickling_upload_chunk_size = pickling_upload_chunk_size
+
+    @classmethod
+    def cleaner_callables(cls):
+        # overwrite me for cleaner callables that are always called
+        return []
 
     @classmethod
     def get_schema_tasks(cls, *args, **kwargs):

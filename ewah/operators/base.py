@@ -332,7 +332,7 @@ class EWAHBaseOperator(BaseOperator):
                 add_metadata=self.add_metadata,
                 rename_columns=self.rename_columns,
                 hash_columns=self.hash_columns,
-                # additional_callables=None, TBD: Make option available in operator
+                additional_callables=self.uploader_class.cleaner_callables(),  # TBD: Make option available in operator
             ),
             table_name=self.target_table_name,
             schema_name=self.target_schema_name,
