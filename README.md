@@ -51,16 +51,13 @@ The following arguments are accepted by all operators, unless explicitly stated 
 | target_schema_name | yes | string | name of the schema in the DWH where the table will live  |
 | target_schema_name_suffix | no | string | `_next` | when loading new data, how to suffix the schema name during the loading process |
 | target_database_name | yes for Snowflake DWH | string | n.a. | name of the database (only for Snowflake, illegal argument for non-Snowflake DWHs) |
-| columns_definition | operator-dependent | dict | n.a. | usually not required; dictionary definition of the columns to get from a data source and their data types; if left blank, all data will be pulled and data types inferred |
 | drop_and_replace | no | boolean | same as DAG-level setting | whether a table is loading as full refresh or incrementally. Normally set by the DAG level config. Incremental loads can overwrite this setting to fully refresh some small tables (e.g. if they are small and have no `updated_at` column) |
-| update_on_columns | operator-dependent | list of strings | n.a. | for incremental loading, update data on what set columns? (effectively, the list of columns comprising the composite primary key); usually not required |
-| primary_key_column_name | operator-dependent | string | n.a. | name of the primary key column; if given, EWAH will set the column as primary key in the DWH; may also use this as alternatively of update_on_columns for some operators |
-| clean_data_before_upload | no | boolean | True | Some minor clean up before data upload. Slows performance, but avoids some weird errors in special cases. |
+| primary_key | operator-dependent | string or list of strings | n.a. | name of the primary key column(s); if given, EWAH will set the column as primary key in the DWH and use it when applicable during upsert operations |
 | add_metadata | no | boolean | True | some operators may add metadata to the tables; this behavior can be turned off (e.g. shop name for the shopify operator) |
 
 ### Operator: Google Ads
 
-These arguments are specific to the Google Ads operator. In addition, the Google Ads operator ignores any `update_on_columns` argument given, as it overwrites it with the the list of non-metric fields.
+These arguments are specific to the Google Ads operator.
 
 | argument | required | type | default | description |
 | --- | --- | --- | --- | --- |
@@ -166,7 +163,7 @@ The former must be a child object of `ewah.operators.base.EWAHBaseOperator`. Ide
 
 A `filename.py` file in your airflow/dags folder may look something like this:
 ```python
-from ewah.ewah_utils.dag_factory_full_refresh import dag_factory_drop_and_replace
+from ewah.utils.dag_factory_full_refresh import dag_factory_drop_and_replace
 from ewah.constants import EWAHConstants as EC
 from ewah.operators.postgres import EWAHPostgresOperator
 
@@ -199,9 +196,7 @@ dag = dag_factory_drop_and_replace(
             'table_name':{},
             # ...
             # Additional optional kwargs at the table level:
-            #   columns_definition
-            #   update_on_columns
-            #   primary_key_column_name
+            #   primary_key
             #   + any operator specific arguments
         },
     },

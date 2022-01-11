@@ -1,7 +1,7 @@
 from airflow import settings
 from airflow.models import Connection
 
-from ewah.ewah_utils.yml_loader import Loader, Dumper
+from ewah.utils.yml_loader import Loader, Dumper
 
 import os
 import yaml

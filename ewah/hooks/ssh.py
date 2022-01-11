@@ -28,7 +28,7 @@ class EWAHSSHHook(EWAHBaseHook):
         """Returns connection widgets to add to connection form"""
         from wtforms import StringField
         from flask_appbuilder.fieldwidgets import BS3TextFieldWidget
-        from ewah.ewah_utils.widgets import EWAHTextAreaWidget
+        from ewah.utils.widgets import EWAHTextAreaWidget
 
         return {
             "extra__ewah_ssh__private_key": StringField(

@@ -1,6 +1,8 @@
 from ewah.uploaders.base import EWAHBaseUploader
 from ewah.constants import EWAHConstants as EC
 
+from airflow.operators.dummy import DummyOperator
+
 from tempfile import NamedTemporaryFile
 from datetime import datetime
 from decimal import Decimal
@@ -45,6 +47,20 @@ class EWAHGSheetsUploader(EWAHBaseUploader):
         self._upload_call_count = 0  # Make sure there is only a single upload
         super().__init__(EC.DWH_ENGINE_GS, *args, **kwargs)
 
+    @classmethod
+    def get_schema_tasks(cls, dag, *args, **kwargs):
+        # Dummy tasks - there are no schemas in Google Sheets
+        return (
+            DummyOperator(
+                task_id="kickoff",
+                dag=dag,
+            ),
+            DummyOperator(
+                task_id="final",
+                dag=dag,
+            ),
+        )
+
     def detect_and_apply_schema_changes(self, *args, **kwargs):
         # need to overwrite parent function, does nothing
         raise Exception("This function is not implemented for this DWHook!")
@@ -64,12 +80,10 @@ class EWAHGSheetsUploader(EWAHBaseUploader):
         table_name,
         schema_name,
         schema_suffix,  # unused but always given
-        columns_definition,  # unused but always given
-        columns_partial_query,  # unused but always given
-        update_on_columns,  # unused but always given
+        columns_definition,
         load_strategy,  # Must be LS_INSERT_REPLACE
         upload_call_count,  # Must be 1
-        pk_columns=None,  # must accept arg, but it must also always be []
+        primary_key=None,  # must accept arg, but it must also always be []
     ):
         # Google Sheets only works with drop & replace in one go
         assert (
@@ -77,8 +91,8 @@ class EWAHGSheetsUploader(EWAHBaseUploader):
         ), "Google Sheets DWHs can only be drop_and_replace!"
         assert upload_call_count == 1, "Chunking is not possible for Google Sheets DWH!"
 
-        if pk_columns:
-            raise Exception("Arg pk_columns invalidly supplied!")
+        if primary_key:
+            raise Exception("Arg primary_key invalidly supplied!")
 
         def colnum_string(n):
             # adapted from https://stackoverflow.com/questions/23861680/convert-spreadsheet-number-to-column-letter
@@ -123,10 +137,10 @@ class EWAHGSheetsUploader(EWAHBaseUploader):
         # insert new data - need to change the format! use columns definition
         self.log.info("Preparing data for Google Sheets upload...")
         column_header = list(columns_definition.keys())
-        upload_data = [column_header]
+        upload_data = [column_header]  # First row: headers
         while data:
             current_data = data.pop(0)
-            upload_data += [[current_data.get(col, "") for col in column_header]]
+            upload_data.append([current_data.get(col, "") for col in column_header])
         range_notation = "A1:" + colnum_string(len(column_header))
         range_notation += str(len(upload_data))
         self.log.info("Uploading data now!")

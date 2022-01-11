@@ -18,7 +18,7 @@ class EWAHBrazeOperator(EWAHBaseOperator):
     _CONN_TYPE = EWAHBrazeHook.conn_type
 
     def __init__(self, object: Optional[str] = None, *args, **kwargs):
-        kwargs["primary_key_column_name"] = "id"
+        kwargs["primary_key"] = "id"
         object = object or kwargs.get("target_table_name")
         if kwargs.get("extract_strategy") == EC.ES_SUBSEQUENT and not kwargs.get(
             "subsequent_field"

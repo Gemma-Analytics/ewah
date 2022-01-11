@@ -25,7 +25,7 @@ class EWAHGMapsOperator(EWAHBaseOperator):
 
     def __init__(self, address_sql, *args, **kwargs):
         self.template_fields.add("address_sql")
-        kwargs["primary_key_column_name"] = "address"
+        kwargs["primary_key"] = "address"
         super().__init__(*args, **kwargs)
 
         self.address_sql = address_sql

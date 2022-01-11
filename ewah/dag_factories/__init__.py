@@ -13,7 +13,7 @@ from copy import deepcopy
 from jinja2 import Template
 
 import yaml
-from ewah.ewah_utils.yml_loader import Loader, Dumper
+from ewah.utils.yml_loader import Loader, Dumper
 
 
 class EWAHDAGGenerator(LoggingMixin):

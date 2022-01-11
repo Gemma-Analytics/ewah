@@ -51,7 +51,7 @@ class EWAHZendeskOperator(EWAHBaseOperator):
         if not auth_type in ["basic_auth"]:
             raise Exception("auth_type must be basic_auth!")
 
-        kwargs["primary_key_column_name"] = kwargs.get("primary_key_column_name", "id")
+        kwargs["primary_key"] = kwargs.get("primary_key", "id")
 
         if self._accepted_resources[resource].get("drop_and_replace"):
             kwargs["extract_strategy"] = EC.ES_FULL_REFRESH

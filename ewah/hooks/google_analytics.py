@@ -53,7 +53,7 @@ class EWAHGoogleAnalyticsHook(EWAHBaseHook):
     def get_connection_form_widgets() -> dict:
         """Returns connection widgets to add to connection form"""
         # from flask_appbuilder.fieldwidgets import BS3TextFieldWidget
-        from ewah.ewah_utils.widgets import EWAHTextAreaWidget
+        from ewah.utils.widgets import EWAHTextAreaWidget
         from wtforms import StringField
 
         return {

@@ -15,8 +15,6 @@ class EWAHDynamoDBOperator(EWAHBaseOperator):
         EC.ES_INCREMENTAL: False,
     }
 
-    _REQUIRES_COLUMNS_DEFINITION = False
-
     def __init__(
         self,
         partition_key,
@@ -30,9 +28,9 @@ class EWAHDynamoDBOperator(EWAHBaseOperator):
     ):
 
         source_table_name = source_table_name or kwargs.get("target_table_name")
-        kwargs["primary_key_column_name"] = [partition_key]
+        kwargs["primary_key"] = [partition_key]
         if sort_key:
-            kwargs["primary_key_column_name"].append(sort_key)
+            kwargs["primary_key"].append(sort_key)
         super().__init__(*args, **kwargs)
         self.source_table_name = source_table_name
         self.pagination_limit = pagination_limit

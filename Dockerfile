@@ -65,11 +65,13 @@ RUN mkdir -p /home/airflow/.ssh
 # install psycopg2 - optional, but increases iteration speed
 RUN pip install --user --upgrade --no-cache-dir psycopg2
 
-# Force using environment variables to set Fernet Key
-ENV AIRFLOW__CORE__FERNET_KEY='Hello, I am AIRFLOW__CORE__FERNET_KEY and I need to be set in production!'
-
-# Force overwrite of this secret via ENV VAR to ensure it is set uniquely
-ENV AIRFLOW__WEBSERVER__SECRET_KEY=''
+# Set development secrets (overwrite in production)
+## Minimum required env variables
+ENV AIRFLOW__CORE__SQL_ALCHEMY_CONN='postgresql+psycopg2://postgres:postgres@database:5432/ewah'
+## Fernet key
+ENV AIRFLOW__CORE__FERNET_KEY='kiQHALe31o7by-d9U-lzxhpDsmllTmu0DUagDuYQoWs='
+## Flask App Secret Key
+ENV AIRFLOW__WEBSERVER__SECRET_KEY='eb993886c858d0a3a24ff8a71d7913725e2f124261faf09cb05bd8d1a890'
 
 # Let entrypoint know to install from bind-mounted volume
 ENV EWAH_IMAGE_TYPE='DEV'
@@ -152,9 +154,13 @@ ENV EWAH_IMAGE_TYPE='PROD'
 # EWAH_AIRFLOW_USER_USER, EWAH_AIRFLOW_USER_PASSWORD, EWAH_AIRFLOW_USER_EMAIL)
 ENV EWAH_RUN_DEV_SUPPORT_SCRIPTS='0'
 
+# Force using environment variables to set Fernet Key
+ENV AIRFLOW__CORE__FERNET_KEY='Hello, I am AIRFLOW__CORE__FERNET_KEY and I need to be set in production!'
+
+# Force overwrite of these secrets via ENV VAR to ensure it is set uniquely
+ENV AIRFLOW__WEBSERVER__SECRET_KEY=''
+ENV AIRFLOW__CORE__SQL_ALCHEMY_CONN=''
+
 # install from pip
 ARG package_version
 RUN pip install --user --upgrade --no-cache-dir ewah==${package_version}
-
-# copy default EWAH files into the dags folder
-COPY airflow/kubernetes_dags_folder /opt/airflow/dags

@@ -13,14 +13,12 @@ class EWAHStripeOperator(EWAHBaseOperator):
         EC.ES_INCREMENTAL: False,
     }
 
-    _REQUIRES_COLUMNS_DEFINITION = False
-
     _CONN_TYPE = EWAHStripeHook.conn_type
 
     def __init__(self, *args, resource=None, expand=None, batch_size=10000, **kwargs):
         if resource is None:
             resource = kwargs.get("target_table_name")
-        kwargs["primary_key_column_name"] = "id"
+        kwargs["primary_key"] = "id"
         super().__init__(*args, **kwargs)
         self.resource = resource
         self.expand = expand
