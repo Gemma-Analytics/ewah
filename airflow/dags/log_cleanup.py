@@ -1,5 +1,5 @@
 from airflow.operators.bash_operator import BashOperator
-from ewah.ewah_utils.log_cleanup_dag import cleanup_dag_factory
+from ewah.utils.log_cleanup_dag import cleanup_dag_factory
 
 email = ["me+airflowerror@email.com"]
 

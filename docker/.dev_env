@@ -1,8 +1,0 @@
-# Minimum required env variables
-AIRFLOW__CORE__SQL_ALCHEMY_CONN=postgresql+psycopg2://postgres:postgres@database:5432/ewah
-
-# Fernet key
-AIRFLOW__CORE__FERNET_KEY=kiQHALe31o7by-d9U-lzxhpDsmllTmu0DUagDuYQoWs=
-
-# Flask App Secret Key
-AIRFLOW__WEBSERVER__SECRET_KEY=eb993886c858d0a3a24ff8a71d7913725e2f124261faf09cb05bd8d1a890

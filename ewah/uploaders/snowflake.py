@@ -5,6 +5,7 @@ by the Snowflake Python SDK maintainers.
 
 from ewah.uploaders.base import EWAHBaseUploader
 from ewah.constants import EWAHConstants as EC
+from ewah.hooks.base import EWAHBaseHook
 
 import os
 import csv
@@ -13,6 +14,7 @@ import pickle
 import snowflake.connector
 from tempfile import NamedTemporaryFile, TemporaryDirectory
 from airflow.models import BaseOperator
+from copy import deepcopy
 
 
 class SnowflakeOperator(BaseOperator):
@@ -67,9 +69,72 @@ class EWAHSnowflakeUploader(EWAHBaseUploader):
             CLONE "{database_name}"."{old_schema}"."{old_table}";
     """
 
-    def __init__(self, *args, database=None, **kwargs):
-        self.database = database  # TODO: can I remove this??
+    def __init__(self, *args, **kwargs):
         super().__init__(EC.DWH_ENGINE_SNOWFLAKE, *args, **kwargs)
+        # Snowflake database name may be set in the connection
+        self.database_name = self.database_name or self.dwh_hook.conn.database
+
+    @classmethod
+    def get_schema_tasks(
+        cls,
+        dag,
+        dwh_engine,
+        dwh_conn_id,
+        target_schema_name,
+        target_schema_suffix="_next",
+        target_database_name=None,
+        read_right_users=None,  # Only for PostgreSQL
+        **additional_task_args,
+    ):
+        target_database_name = target_database_name or (
+            EWAHBaseHook.get_connection(dwh_conn_id).database
+        )
+        sql_kickoff = """
+            DROP SCHEMA IF EXISTS
+                "{database}"."{schema_name}{schema_suffix}" CASCADE;
+            CREATE SCHEMA "{database}"."{schema_name}{schema_suffix}";
+        """.format(
+            database=target_database_name,
+            schema_name=target_schema_name,
+            schema_suffix=target_schema_suffix,
+        )
+        sql_final = """
+            DROP SCHEMA IF EXISTS "{database}"."{schema_name}" CASCADE;
+            ALTER SCHEMA "{database}"."{schema_name}{schema_suffix}"
+                RENAME TO "{schema_name}";
+        """.format(
+            database=target_database_name,
+            schema_name=target_schema_name,
+            schema_suffix=target_schema_suffix,
+        )
+
+        def execute_snowflake(sql, conn_id, **kwargs):
+            hook = EWAHBaseHook.get_hook_from_conn_id(conn_id)
+            hook.execute(sql)
+            hook.commit()
+            hook.close()
+
+        task_1_args = deepcopy(additional_task_args)
+        task_2_args = deepcopy(additional_task_args)
+        task_1_args.update(
+            {
+                "task_id": "kickoff",
+                "sql": sql_kickoff,
+                "snowflake_conn_id": dwh_conn_id,
+                "database": target_database_name,
+                "dag": dag,
+            }
+        )
+        task_2_args.update(
+            {
+                "task_id": "final",
+                "sql": sql_final,
+                "snowflake_conn_id": dwh_conn_id,
+                "database": target_database_name,
+                "dag": dag,
+            }
+        )
+        return (SnowflakeOperator(**task_1_args), SnowflakeOperator(**task_2_args))
 
     def commit(self):
         self.dwh_hook.commit()
@@ -93,15 +158,12 @@ class EWAHSnowflakeUploader(EWAHBaseUploader):
         schema_name,
         schema_suffix,
         columns_definition,
-        columns_partial_query,
-        update_on_columns,
         load_strategy,
         upload_call_count,
         database_name=None,
-        pk_columns=None,
+        primary_key=None,
     ):
         database_name = database_name or self.dwh_hook.conn.database
-        pk_columns = pk_columns or []
         self.log.info("Preparing DWH Tables...")
         schema_name += schema_suffix
         new_table_name = table_name + "_new"
@@ -113,7 +175,12 @@ class EWAHSnowflakeUploader(EWAHBaseUploader):
                 database_name=database_name,
                 schema_name=schema_name,
                 table_name=new_table_name,
-                columns=columns_partial_query,
+                columns=",\n\t".join(
+                    [
+                        '"{0}"\t{1}'.format(col, self._get_column_type(defi))
+                        for col, defi in columns_definition.items()
+                    ]
+                ),
             ),
             commit=False,
         )
@@ -199,7 +266,7 @@ class EWAHSnowflakeUploader(EWAHBaseUploader):
                 table_name,
                 new_table_name,
             )
-            if pk_columns:
+            if primary_key:
                 sql_final += """
                     ALTER TABLE "{0}"."{1}"."{2}"
                     ADD PRIMARY KEY ("{3}");
@@ -207,12 +274,12 @@ class EWAHSnowflakeUploader(EWAHBaseUploader):
                     database_name,
                     schema_name,
                     table_name,
-                    '","'.join(pk_columns),
+                    '","'.join(primary_key),
                 )
         else:
             update_set_cols = []
             for col in columns_definition.keys():
-                if not (col in update_on_columns):
+                if not (col in primary_key):
                     update_set_cols += [col]
 
             sql_final = """
@@ -232,9 +299,7 @@ class EWAHSnowflakeUploader(EWAHBaseUploader):
                 schema_name,
                 table_name,
                 new_table_name,
-                " AND ".join(
-                    ['a."{0}" = b."{0}"'.format(col) for col in update_on_columns]
-                )
+                " AND ".join(['a."{0}" = b."{0}"'.format(col) for col in primary_key])
                 or "FALSE",
                 ", ".join(['a."{0}" = b."{0}"'.format(col) for col in update_set_cols]),
                 '"' + '", "'.join(list(columns_definition.keys())) + '"',
@@ -254,7 +319,7 @@ class EWAHSnowflakeUploader(EWAHBaseUploader):
     ):
         self.dwh_hook.execute(
             "USE DATABASE {0}".format(
-                database_name or self.database or self.dwh_hook.conn.database,
+                database_name or self.database_name,
             )
         )
         return 0 < len(
@@ -264,25 +329,19 @@ class EWAHSnowflakeUploader(EWAHBaseUploader):
             WHERE table_schema LIKE '{1}'
             AND table_name LIKE '{2}'
             """.format(
-                    database_name or self.database or self.dwh_hook.conn.database,
+                    database_name or self.database_name,
                     schema_name,
                     table_name,
                 )
             )
         )
 
-    def get_max_value_of_column(
-        self, column_name, table_name, schema_name, database_name=None
-    ):
-        self.dwh_hook.execute(
-            "USE DATABASE {0}".format(
-                database_name or self.database or self.dwh_hook.conn.database,
-            )
-        )
+    def get_max_value_of_column(self, column_name):
+        self.dwh_hook.execute("USE DATABASE {0}".format(self.database_name))
         return self.dwh_hook.execute_and_return_result(
             sql='SELECT MAX("{0}") FROM {1}'.format(
                 column_name,
-                f'"{schema_name}"."{table_name}"',
+                f'"{self.schema_name}{self.schema_suffix}"."{self.table_name}"',
             ),
             return_dict=False,
         )[0][0]

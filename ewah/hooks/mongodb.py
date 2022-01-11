@@ -39,7 +39,7 @@ class EWAHMongoDBHook(EWAHBaseHook):
         """Returns connection widgets to add to connection form"""
         from flask_appbuilder.fieldwidgets import BS3TextFieldWidget
         from wtforms import StringField, BooleanField, PasswordField
-        from ewah.ewah_utils.widgets import EWAHTextAreaWidget
+        from ewah.utils.widgets import EWAHTextAreaWidget
 
         return {
             "extra__ewah_mongodb__conn_style": StringField(

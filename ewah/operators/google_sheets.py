@@ -17,8 +17,6 @@ class EWAHGSpreadOperator(EWAHBaseOperator):
         EC.ES_INCREMENTAL: False,
     }
 
-    _REQUIRES_COLUMNS_DEFINITION = True
-
     _SAMPLE_JSON = {
         "client_secrets": {
             "type": "service_account",
@@ -34,8 +32,9 @@ class EWAHGSpreadOperator(EWAHBaseOperator):
         }
     }
 
-    def _translate_alphanumeric_column(self, column_identifier):
-        if type(column_identifier) == str:
+    @staticmethod
+    def _translate_alphanumeric_column(column_identifier):
+        if isinstance(column_identifier, str):
             column_number = 0
             i = 0
             ident_dict = {}
@@ -58,6 +57,7 @@ class EWAHGSpreadOperator(EWAHBaseOperator):
         self,
         workbook_key,  # can be seen in the URL of the workbook
         sheet_key,  # name of the worksheet
+        sheet_columns,  # list or dict[column name, position] defining which columns to load
         start_row=2,  # in what row does the data begin?
         end_row=None,  # optional: what is the last row? None gets all data
         *args,
@@ -77,21 +77,18 @@ class EWAHGSpreadOperator(EWAHBaseOperator):
                 raise Exception(_msg)
 
         column_match = {}
-        for col_key, col_def in self.columns_definition.items():
-            if (not col_def) or (not col_def.get(EC.QBC_FIELD_GSHEET_COLNO)):
-                raise Exception(
-                    (
-                        "Column {0} is missing information regarding the "
-                        + "position of the column in the sheet."
-                    ).format(col_key)
-                )
-            column_match.update(
-                {
-                    self._translate_alphanumeric_column(
-                        col_def[EC.QBC_FIELD_GSHEET_COLNO],
-                    ): col_key,
-                }
-            )
+        if isinstance(sheet_columns, list):
+            i = 0
+            for column in sheet_columns:
+                i += 1
+                column_match[i] = column
+        elif isinstance(sheet_columns, dict):
+            column_match = {
+                self._translate_alphanumeric_column(value): key
+                for key, value in sheet_columns.items()
+            }
+        else:
+            raise Exception("sheet_columns must be a list or a dict!")
 
         self.client_secrets = credentials
         self.column_match = column_match

@@ -1,9 +1,13 @@
 from ewah.uploaders.base import EWAHBaseUploader
 from ewah.hooks.postgres import EWAHPostgresHook
 from ewah.constants import EWAHConstants as EC
+from ewah.utils.airflow_utils import PGO
+
 from psycopg2.extras import execute_values
+from copy import deepcopy
 
 import hashlib
+import re
 
 
 class EWAHPostgresUploader(EWAHBaseUploader):
@@ -40,6 +44,79 @@ class EWAHPostgresUploader(EWAHBaseUploader):
     def __init__(self, *args, **kwargs) -> None:
         super().__init__(EC.DWH_ENGINE_POSTGRES, *args, **kwargs)
 
+    @classmethod
+    def get_schema_tasks(
+        cls,
+        dag,
+        dwh_engine,
+        dwh_conn_id,
+        target_schema_name,
+        target_schema_suffix="_next",
+        target_database_name=None,
+        read_right_users=None,  # Only for PostgreSQL
+        **additional_task_args,
+    ):
+        sql_kickoff = """
+            DROP SCHEMA IF EXISTS "{schema_name}{schema_suffix}" CASCADE;
+            CREATE SCHEMA "{schema_name}{schema_suffix}";
+        """.format(
+            schema_name=target_schema_name,
+            schema_suffix=target_schema_suffix,
+        )
+        sql_final = """
+            DROP SCHEMA IF EXISTS "{schema_name}" CASCADE;
+            ALTER SCHEMA "{schema_name}{schema_suffix}"
+                RENAME TO "{schema_name}";
+        """.format(
+            schema_name=target_schema_name,
+            schema_suffix=target_schema_suffix,
+        )
+
+        # Don't fail final task just because a user or role that should
+        # be granted read rights does not exist!
+        grant_rights_sql = """
+            DO $$
+            BEGIN
+              GRANT USAGE ON SCHEMA "{target_schema_name}" TO {user};
+              GRANT SELECT ON ALL TABLES
+                IN SCHEMA "{target_schema_name}" TO {user};
+              EXCEPTION WHEN OTHERS THEN -- catches any error
+                RAISE NOTICE 'not granting rights - user does not exist!';
+            END
+            $$;
+        """
+        if read_right_users:
+            if not isinstance(read_right_users, list):
+                raise Exception("Arg read_right_users must be of type List!")
+            for user in read_right_users:
+                if re.search(r"\s", user) or (";" in user):
+                    _msg = "No whitespace or semicolons allowed in usernames!"
+                    raise ValueError(_msg)
+                sql_final += grant_rights_sql.format(
+                    target_schema_name=target_schema_name,
+                    user=user,
+                )
+
+        task_1_args = deepcopy(additional_task_args)
+        task_2_args = deepcopy(additional_task_args)
+        task_1_args.update(
+            {
+                "sql": sql_kickoff,
+                "task_id": "kickoff",
+                "dag": dag,
+                "postgres_conn_id": dwh_conn_id,
+            }
+        )
+        task_2_args.update(
+            {
+                "sql": sql_final,
+                "task_id": "final",
+                "dag": dag,
+                "postgres_conn_id": dwh_conn_id,
+            }
+        )
+        return (PGO(**task_1_args), PGO(**task_2_args))
+
     def commit(self):
         self.dwh_hook.commit()
 
@@ -56,13 +133,10 @@ class EWAHPostgresUploader(EWAHBaseUploader):
         schema_name,
         schema_suffix,
         columns_definition,
-        columns_partial_query,
-        update_on_columns,
         load_strategy,
         upload_call_count,
-        pk_columns=None,
+        primary_key=None,
     ):
-        pk_columns = pk_columns or []
         self.log.info("Preparing DWH Tables...")
         schema_name += schema_suffix
         if (upload_call_count == 1 and load_strategy == EC.LS_INSERT_REPLACE) or (
@@ -78,11 +152,16 @@ class EWAHPostgresUploader(EWAHBaseUploader):
                 """.format(
                     schema_name=schema_name,
                     table_name=table_name,
-                    columns=columns_partial_query,
+                    columns=",\n\t".join(
+                        [
+                            '"{0}"\t{1}'.format(col, self._get_column_type(defi))
+                            for col, defi in columns_definition.items()
+                        ]
+                    ),
                 ),
                 commit=False,
             )
-            if pk_columns:
+            if primary_key:
                 self.dwh_hook.execute(
                     sql="""
                         ALTER TABLE ONLY "{schema_name}"."{table_name}"
@@ -90,12 +169,12 @@ class EWAHPostgresUploader(EWAHBaseUploader):
                     """.format(
                         schema_name=schema_name,
                         table_name=table_name,
-                        columns='","'.join(pk_columns),
+                        columns='","'.join(primary_key),
                     )
                 )
 
-        if update_on_columns:
-            # make sure there is a unique constraint for update_on_columns
+        if primary_key:
+            # make sure there is a unique constraint for primary_key
             self.dwh_hook.execute(
                 sql="""
                     ALTER TABLE "{schema_name}"."{table_name}"
@@ -112,14 +191,14 @@ class EWAHPostgresUploader(EWAHBaseUploader):
                             digest_size=28,
                         ).hexdigest()
                     ),
-                    columns='", "'.join(update_on_columns),
+                    columns='", "'.join(primary_key),
                 ),
                 commit=False,
             )
 
         set_columns = []
         for column in columns_definition.keys():
-            if not (column in update_on_columns):
+            if not (column in (primary_key or [])):
                 set_columns += [column]
 
         cols_list = list(columns_definition.keys())
@@ -135,11 +214,11 @@ class EWAHPostgresUploader(EWAHBaseUploader):
                     "placeholder": "{placeholder}",
                     "column_names": '", "'.join(cols_list),
                     "do_on_conflict": "DO NOTHING"
-                    if not update_on_columns
+                    if not primary_key
                     else """
-                ("{update_on_columns}") DO UPDATE SET\n\t{sets}
+                ("{primary_key}") DO UPDATE SET\n\t{sets}
             """.format(
-                        update_on_columns='", "'.join(update_on_columns),
+                        primary_key='", "'.join(primary_key),
                         sets="\n\t,".join(
                             [
                                 '"{column}" = EXCLUDED."{column}"'.format(column=column)
@@ -162,8 +241,7 @@ class EWAHPostgresUploader(EWAHBaseUploader):
         template = "(%(" + ")s, %(".join([val for key, val in cols_map.items()]) + ")s)"
         cur = self.dwh_hook.cursor
         upload_data = [
-            {cols_map[key]: val for key, val in row.items() if key in cols_map.keys()}
-            for row in data
+            {cols_map[key]: row.get(key) for key in cols_list} for row in data
         ]
         execute_values(
             cur=cur,
@@ -186,11 +264,11 @@ class EWAHPostgresUploader(EWAHBaseUploader):
             )[0][0]
         )
 
-    def get_max_value_of_column(self, column_name, table_name, schema_name):
+    def get_max_value_of_column(self, column_name):
         return self.dwh_hook.execute_and_return_result(
             sql='SELECT MAX("{0}") FROM {1}'.format(
                 column_name,
-                f'"{schema_name}"."{table_name}"',
+                f'"{self.schema_name}{self.schema_suffix}"."{self.table_name}"',
             ),
             return_dict=False,
         )[0][0]

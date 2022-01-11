@@ -3,10 +3,12 @@ from airflow.sensors.external_task import ExternalTaskSensor
 from airflow.operators.bash import BashOperator
 
 from ewah.constants import EWAHConstants as EC
+from ewah.uploaders.bigquery import BigqueryOperator
 from ewah.uploaders.snowflake import SnowflakeOperator
-from ewah.ewah_utils.airflow_utils import PGO, etl_schema_tasks, datetime_utcnow_with_tz
+from ewah.utils.airflow_utils import PGO, datetime_utcnow_with_tz
 from ewah.hooks.base import EWAHBaseHook as BaseHook
 from ewah.operators.base import EWAHBaseOperator
+from ewah.uploaders import get_uploader
 
 from collections.abc import Iterable
 from copy import deepcopy
@@ -304,12 +306,26 @@ def dag_factory_idempotent(
             **additional_task_args,
         )
     else:
-        raise_exception(f'DWH "{dwh_engine}" not implemented for this task!')
+        drop_sql = """
+            DROP SCHEMA IF EXISTS `{0}` CASCADE;
+            DROP SCHEMA IF EXISTS `{1}` CASCADE;
+        """.format(
+            target_schema_name,
+            target_schema_name + target_schema_suffix,
+        )
+        drop_task = BigqueryOperator(
+            sql=drop_sql,
+            bigquery_conn_id=dwh_conn_id,
+            project=target_database_name,
+            task_id="delete_previous_schema_if_exists",
+            dag=dags[2],
+            **additional_task_args,
+        )
 
     reset_task >> drop_task
 
     # Incremental DAG schema tasks
-    kickoff, final = etl_schema_tasks(
+    kickoff, final = get_uploader(dwh_engine).get_schema_tasks(
         dag=dags[0],
         dwh_engine=dwh_engine,
         target_schema_name=target_schema_name,
@@ -322,7 +338,7 @@ def dag_factory_idempotent(
     )
 
     # Backfill DAG schema tasks
-    kickoff_backfill, final_backfill = etl_schema_tasks(
+    kickoff_backfill, final_backfill = get_uploader(dwh_engine).get_schema_tasks(
         dag=dags[1],
         dwh_engine=dwh_engine,
         target_schema_name=target_schema_name,

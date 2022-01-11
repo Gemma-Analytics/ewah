@@ -1,6 +1,6 @@
 from ewah.operators.base import EWAHBaseOperator
 from ewah.constants import EWAHConstants as EC
-from ewah.ewah_utils.airflow_utils import datetime_utcnow_with_tz
+from ewah.utils.airflow_utils import datetime_utcnow_with_tz
 
 from ewah.hooks.base import EWAHBaseHook as BaseHook
 
@@ -44,8 +44,8 @@ class EWAHFBOperator(EWAHBaseOperator):
         elif not isinstance(refresh_interval, timedelta):
             raise Exception("refresh_interval must be type timedelta or integer!")
 
-        if kwargs.get("update_on_columns"):
-            raise Exception("update_on_columns is set by operator!")
+        if kwargs.get("primary_key"):
+            raise Exception("primary_key is set by operator!")
 
         if (
             not account_ids is None
@@ -60,7 +60,7 @@ class EWAHFBOperator(EWAHBaseOperator):
             account_ids = [account_ids]
 
         if level == self.levels.ad:
-            kwargs["update_on_columns"] = [
+            kwargs["primary_key"] = [
                 "ad_id",
                 "date_start",
                 "date_stop",

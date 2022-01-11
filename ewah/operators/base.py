@@ -1,7 +1,8 @@
 from airflow.models import BaseOperator
 
+from ewah.cleaner import EWAHCleaner
 from ewah.constants import EWAHConstants as EC
-from ewah.ewah_utils.airflow_utils import (
+from ewah.utils.airflow_utils import (
     datetime_utcnow_with_tz,
     airflow_datetime_adjustments as ada,
 )
@@ -9,16 +10,10 @@ from ewah.hooks.base import EWAHBaseHook
 from ewah.uploaders import get_uploader
 
 from datetime import datetime, timedelta
-from tempfile import TemporaryFile, TemporaryDirectory
 from typing import Optional, List, Dict, Union
 
-import bz2
 import copy
-import gzip
 import hashlib
-import lzma
-import os
-import pickle
 import sys
 import time
 
@@ -41,22 +36,6 @@ class EWAHBaseOperator(BaseOperator):
     one row of data and the contained dict is fieldname:value. Value can be
     None, or a fieldname can be missing in a particular dictionary, in which
     case the value is assumed to be None.
-
-    columns_definition may be supplied at the self.update() function call,
-    at initialization, or not at all, depending on the usecase. The use order is
-    - If available, take the columns_definition from the self.update() call
-    - If None, check if columns_definition was supplied to the operator at init
-    - If neither, create a columns_definition on the fly using (all) the data
-
-    columns_definition is a dictionary with fieldname:properties. Properties
-    is None or a dictionary of option:value where option can be one of the
-    following:
-    - EC.QBC_FIELD_TYPE -> String: Field type (default text)
-    - EC.QBC_FIELD_PK -> Boolean: Is this field the primary key? (default False)
-
-    Note that the value of EC.QBC_FIELD_TYPE is DWH-engine specific!
-
-    columns_definition is case sensitive.
 
     Implemented DWH engines:
     - PostgreSQL
@@ -85,16 +64,12 @@ class EWAHBaseOperator(BaseOperator):
         EC.ES_SUBSEQUENT: False,
     }
 
-    _REQUIRES_COLUMNS_DEFINITION = False  # raise error if true and None supplied
-
     _CONN_TYPE = None  # overwrite me with the required connection type, if applicable
 
     _INDEX_QUERY = """
         CREATE INDEX IF NOT EXISTS {0}
         ON "{1}"."{2}" ({3})
     """
-
-    upload_call_count = 0
 
     _metadata = {}  # to be updated by operator, if applicable
 
@@ -159,16 +134,11 @@ class EWAHBaseOperator(BaseOperator):
         load_data_until=None,  # set a maximum date
         load_data_until_relative=None,  # optional timedelta for incremental
         load_data_chunking_timedelta=None,  # optional timedelta to chunk by
-        columns_definition=None,
-        update_on_columns=None,
-        primary_key_column_name=None,
-        clean_data_before_upload=True,
-        exclude_columns=[],  # list of columns to exclude, if no
-        # columns_definition was supplied (e.g. for select * with sql)
+        primary_key=None,  # either string or list of strings
+        exclude_columns=None,  # list of columns to exclude
         index_columns=[],  # list of columns to create an index on. can be
         # an expression, must be quoted in list if quoting is required.
         hash_columns=None,  # str or list of str - columns to hash pre-upload
-        hashlib_func_name="sha256",  # specify hashlib hashing function
         wait_for_seconds=120,  # seconds past data_interval_end to wait until
         # wait_for_seconds only applies for incremental loads
         add_metadata=True,
@@ -179,14 +149,14 @@ class EWAHBaseOperator(BaseOperator):
         pickling_upload_chunk_size=100000,  # default chunk size for pickle upload
         pickle_compression=None,  # data compression algorithm to use for pickles
         default_values=None,  # dict with default values for columns (to avoid nulls)
-        cast_bson_objects_to_string=True,  # how to serialize bson object ids
+        cleaner_class=EWAHCleaner,
+        uploader_class=None,  # Future: deprecate dwh_engine and use this kwarg instead
         *args,
         **kwargs
     ):
         super().__init__(*args, **kwargs)
 
         if default_values:
-            assert clean_data_before_upload
             assert isinstance(default_values, dict)
 
         assert pickle_compression is None or pickle_compression in (
@@ -195,8 +165,7 @@ class EWAHBaseOperator(BaseOperator):
             "lzma",
         )
 
-        assert not (rename_columns and columns_definition)
-        assert rename_columns is None or isinstance(rename_columns, dict)
+        assert isinstance(rename_columns, (type(None), dict))
 
         if default_timezone:
             assert dwh_engine in (EC.DWH_ENGINE_POSTGRES,)  # Only for PostgreSQL so far
@@ -225,29 +194,10 @@ class EWAHBaseOperator(BaseOperator):
 
         if load_strategy == EC.LS_UPSERT:
             # upserts require a (composite) primary key of some sort
-            if not (
-                update_on_columns
-                or primary_key_column_name
-                or (
-                    columns_definition
-                    and (
-                        0
-                        < sum(
-                            [
-                                bool(columns_definition[col].get(EC.QBC_FIELD_PK))
-                                for col in list(columns_definition.keys())
-                            ]
-                        )
-                    )
-                )
-            ):
+            if not primary_key:
                 raise Exception(
-                    "If the load strategy is upsert, "
-                    "one of the following is required:"
-                    "\n- List of columns to update on (update_on_columns)"
-                    "\n- Name of the primary key (primary_key_column_name)"
-                    "\n- Columns definition (columns_definition) that includes"
-                    " the primary key(s)"
+                    "If the load strategy is upsert, name of the primary"
+                    " key(s) (primary_key) is required!"
                 )
         elif load_strategy in (EC.LS_INSERT_ADD, EC.LS_INSERT_REPLACE):
             pass  # No requirements
@@ -266,20 +216,11 @@ class EWAHBaseOperator(BaseOperator):
         )
         assert self._ACCEPTED_EXTRACT_STRATEGIES.get(extract_strategy), _msg
 
-        if hash_columns and not clean_data_before_upload:
-            _msg = "column hashing is only possible with data cleaning!"
-            raise Exception(_msg)
-        elif isinstance(hash_columns, str):
+        if isinstance(hash_columns, str):
             hash_columns = [hash_columns]
-        if hashlib_func_name:
-            _msg = "Invalid hashing function: hashlib.{0}()"
-            _msg = _msg.format(hashlib_func_name)
-            assert hasattr(hashlib, hashlib_func_name), _msg
 
-        if columns_definition and exclude_columns:
-            raise Exception(
-                "Must not supply both columns_definition and " + "exclude_columns!"
-            )
+        if exclude_columns and isinstance(exclude_columns, str):
+            exclude_columns = [exclude_columns]
 
         if not dwh_engine or not dwh_engine in EC.DWH_ENGINES:
             _msg = "Invalid DWH Engine: {0}\n\nAccepted Engines:\n\t{1}".format(
@@ -293,17 +234,6 @@ class EWAHBaseOperator(BaseOperator):
 
         if (not dwh_engine == EC.DWH_ENGINE_SNOWFLAKE) and target_database_name:
             raise Exception('Received argument for "target_database_name"!')
-
-        if self._REQUIRES_COLUMNS_DEFINITION:
-            if not columns_definition:
-                raise Exception(
-                    "This operator requires the argument " + "columns_definition!"
-                )
-
-        if primary_key_column_name and update_on_columns:
-            raise Exception(
-                "Cannot supply BOTH primary_key_column_name AND" + " update_on_columns!"
-            )
 
         _msg = "load_data_from_relative and load_data_until_relative must be"
         _msg += " timedelta if supplied!"
@@ -336,20 +266,13 @@ class EWAHBaseOperator(BaseOperator):
         self.load_data_until = load_data_until
         self.load_data_until_relative = load_data_until_relative
         self.load_data_chunking_timedelta = load_data_chunking_timedelta
-        self.columns_definition = columns_definition
-        if (not update_on_columns) and primary_key_column_name:
-            if type(primary_key_column_name) == str:
-                update_on_columns = [primary_key_column_name]
-            elif type(primary_key_column_name) in (list, tuple):
-                update_on_columns = primary_key_column_name
-        self.update_on_columns = update_on_columns
-        self.clean_data_before_upload = clean_data_before_upload
-        self.primary_key_column_name = primary_key_column_name  # may be used ...
+        if isinstance(primary_key, str):
+            primary_key = [primary_key]
+        self.primary_key = primary_key  # may be used ...
         #   ... by a child class at execution!
         self.exclude_columns = exclude_columns
         self.index_columns = index_columns
         self.hash_columns = hash_columns
-        self.hashlib_func_name = hashlib_func_name
         self.wait_for_seconds = wait_for_seconds
         self.add_metadata = add_metadata
         self.rename_columns = rename_columns
@@ -359,27 +282,14 @@ class EWAHBaseOperator(BaseOperator):
         self.pickling_upload_chunk_size = pickling_upload_chunk_size
         self.pickle_compression = pickle_compression
         self.default_values = default_values
-        self.cast_bson_objects_to_string = cast_bson_objects_to_string
+        self.cleaner_class = cleaner_class
 
-        self.uploader = get_uploader(self.dwh_engine)
+        self.uploader_class = uploader_class or get_uploader(self.dwh_engine)
 
         _msg = "DWH hook does not support extract strategy {0}!".format(
             extract_strategy,
         )
         # assert self.uploader._ACCEPTED_EXTRACT_STRATEGIES.get(extract_strategy), _msg
-
-    @staticmethod
-    def _pickle_file_open(name, mode, compression_mode):
-        if compression_mode is None:
-            return open(name, mode)
-        elif compression_mode == "gzip":
-            return gzip.open(name, mode)
-        elif compression_mode == "lzma":
-            return lzma.open(name, mode)
-        elif compression_mode == "bz2":
-            return bz2.open(name, mode)
-        else:
-            raise Exception("Compression Mode not implemented!")
 
     def ewah_execute(self, context):
         raise Exception("You need to overwrite me!")
@@ -396,12 +306,12 @@ class EWAHBaseOperator(BaseOperator):
         self.log.info(
             """
 
-        Running EWAH Operator {0}.
-        DWH: {1} (connection id: {2})
-        Extract Strategy: {3}
-        Load Strategy: {4}
+            Running EWAH Operator {0}.
+            DWH: {1} (connection id: {2})
+            Extract Strategy: {3}
+            Load Strategy: {4}
 
-        """.format(
+            """.format(
                 str(self),
                 self.dwh_engine,
                 self.dwh_conn_id,
@@ -414,7 +324,26 @@ class EWAHBaseOperator(BaseOperator):
         self._execution_time = datetime_utcnow_with_tz()
         self._context = context
 
-        self.uploader = self.uploader(EWAHBaseHook.get_connection(self.dwh_conn_id))
+        self.uploader = self.uploader_class(
+            dwh_conn=EWAHBaseHook.get_connection(self.dwh_conn_id),
+            cleaner=self.cleaner_class(
+                default_row=self.default_values,
+                exclude_columns=self.exclude_columns,
+                add_metadata=self.add_metadata,
+                rename_columns=self.rename_columns,
+                hash_columns=self.hash_columns,
+                additional_callables=self.uploader_class.cleaner_callables(),  # TBD: Make option available in operator
+            ),
+            table_name=self.target_table_name,
+            schema_name=self.target_schema_name,
+            schema_suffix=self.target_schema_suffix,
+            database_name=self.target_database_name,
+            primary_key=self.primary_key,
+            load_strategy=self.load_strategy,
+            use_temp_pickling=self.use_temp_pickling,
+            pickling_upload_chunk_size=self.pickling_upload_chunk_size,
+            pickle_compression=self.pickle_compression,
+        )
 
         # If applicable: set the session's default time zone
         if self.default_timezone:
@@ -429,23 +358,17 @@ class EWAHBaseOperator(BaseOperator):
         del self.source_conn_id
 
         if self._CONN_TYPE:
-            _msg = "Error - connection type must be {0}!".format(self._CONN_TYPE)
-            assert self._CONN_TYPE == self.source_conn.conn_type, _msg
+            assert (
+                self._CONN_TYPE == self.source_conn.conn_type
+            ), "Error - connection type must be {0}!".format(self._CONN_TYPE)
 
-        temp_schema_name = self.target_schema_name + self.target_schema_suffix
         # Create a new copy of the target table.
         # This is so data is loaded into a new table and if data loading
         # fails, the original data is not corrupted. At a new try or re-run,
         # the original table is just copied anew.
         if not self.load_strategy == EC.LS_INSERT_REPLACE:
             # insert_replace always drops and replaces the tables completely
-            self.uploader.copy_table(
-                old_schema=self.target_schema_name,
-                old_table=self.target_table_name,
-                new_schema=temp_schema_name,
-                new_table=self.target_table_name,
-                database_name=self.target_database_name,
-            )
+            self.uploader.copy_table()
 
         # set load_data_from and load_data_until as required
         data_from = ada(self.load_data_from)
@@ -483,14 +406,6 @@ class EWAHBaseOperator(BaseOperator):
         if not self.extract_strategy == EC.ES_SUBSEQUENT:
             # keep this param for subsequent loads
             del self.load_data_from_relative
-
-        # Prepare file used for temporary data pickling, if applicable
-        if self.use_temp_pickling:
-            temp_pickle_folder = TemporaryDirectory()
-            temp_file_name = temp_pickle_folder.name + os.sep + "temp_pickle_file"
-            self.temp_pickle_file = self._pickle_file_open(
-                temp_file_name, "wb", self.pickle_compression
-            )
 
         # Have an option to wait until a short period (e.g. 2 minutes) past
         # the incremental loading range timeframe to ensure that all data is
@@ -531,18 +446,12 @@ class EWAHBaseOperator(BaseOperator):
                 )
                 self.ewah_execute(context)
                 self.data_from += self.load_data_chunking_timedelta
-                if self.use_temp_pickling:
-                    self._upload_from_pickle(temp_file_name=temp_file_name)
         else:
             self.ewah_execute(context)
-            if self.use_temp_pickling:
-                self._upload_from_pickle(temp_file_name=temp_file_name)
 
-        if self.use_temp_pickling:
-            # always clean up after yourself
-            self.temp_pickle_file.close()
-            del self.temp_pickle_file
-            del temp_pickle_folder
+        # Run final scripts
+        # TODO: Include indexes into uploader and then remove this step
+        self.uploader.finalize_upload()
 
         # if PostgreSQL and arg given: create indices
         for column in self.index_columns:
@@ -577,6 +486,7 @@ class EWAHBaseOperator(BaseOperator):
         self.uploader.close()
 
     def test_if_target_table_exists(self):
+        # TODO: move this function to uploader
         # Need to use existing hook to work within open transaction
         kwargs = {
             "table_name": self.target_table_name,
@@ -585,239 +495,49 @@ class EWAHBaseOperator(BaseOperator):
         if self.dwh_engine == EC.DWH_ENGINE_SNOWFLAKE:
             kwargs["database_name"] = self.target_database_name
             return self.uploader.test_if_table_exists(**kwargs)
-        if self.dwh_engine in [EC.DWH_ENGINE_POSTGRES, EC.DWH_ENGINE_SNOWFLAKE]:
+        if self.dwh_engine == EC.DWH_ENGINE_BIGQUERY:
+            kwargs["project_id"] = self.target_database_name
+            return self.uploader.test_if_table_exists(**kwargs)
+        if self.dwh_engine == EC.DWH_ENGINE_POSTGRES:
             return self.uploader.test_if_table_exists(**kwargs)
         # For a new DWH, need to manually check if function works properly
         # Thus, fail until explicitly added
         raise Exception("Function not implemented!")
 
     def get_max_value_of_column(self, column_name):
-        # Need to use existing hook to work within open transaction
-        kwargs = {
-            "column_name": column_name,
-            "table_name": self.target_table_name,
-            "schema_name": self.target_schema_name + self.target_schema_suffix,
-        }
-        if self.dwh_engine == EC.DWH_ENGINE_SNOWFLAKE:
-            kwargs["database_name"] = self.target_database_name
-            return self.uploader.get_max_value_of_column(**kwargs)
-        if self.dwh_engine in [EC.DWH_ENGINE_POSTGRES, EC.DWH_ENGINE_SNOWFLAKE]:
-            return self.uploader.get_max_value_of_column(**kwargs)
-        # For a new DWH, need to manually check if function works properly
-        # Thus, fail until explicitly added
-        raise Exception("Function not implemented!")
+        # Deprecated - better to call uploader directly if able
+        return self.uploader.get_max_value_of_column(column_name=column_name)
 
-    def _create_columns_definition(self, data):
-        "Create a columns_definition from data (list of dicts)."
-        inconsistent_data_type = EC.QBC_TYPE_MAPPING[self.dwh_engine].get(
-            EC.QBC_TYPE_MAPPING_INCONSISTENT
-        )
-
-        def get_field_type(value):
-            return (
-                EC.QBC_TYPE_MAPPING[self.dwh_engine].get(type(value))
-                or inconsistent_data_type
-            )
-
-        result = {}
-        for datum in data:
-            for field in datum.keys():
-                if field in self.exclude_columns:
-                    datum[field] = None
-                elif field in (self.hash_columns or []) and not result.get(field):
-                    # Type is appropriate string type & QBC_FIELD_HASH is true
-                    result.update(
-                        {
-                            field: {
-                                EC.QBC_FIELD_TYPE: get_field_type("str"),
-                                EC.QBC_FIELD_HASH: True,
-                            }
-                        }
-                    )
-                elif not (
-                    result.get(field, {}).get(EC.QBC_FIELD_TYPE)
-                    == inconsistent_data_type
-                ) and (not datum[field] is None):
-                    if result.get(field):
-                        # column has been added in a previous iteration.
-                        # If not default column: check if new and old column
-                        #   type identification agree.
-                        if not (
-                            result[field][EC.QBC_FIELD_TYPE]
-                            == get_field_type(datum[field])
-                        ):
-                            self.log.info(
-                                "WARNING! Data types are inconsistent."
-                                + " Affected column: {0}".format(field)
-                            )
-                            result[field][EC.QBC_FIELD_TYPE] = inconsistent_data_type
-
-                    else:
-                        # First iteration with this column. Add to result.
-                        result.update(
-                            {field: {EC.QBC_FIELD_TYPE: get_field_type(datum[field])}}
-                        )
-        return result
-
-    def _upload_via_pickling(self, data: Union[dict, List[dict]]):
-        """Call this function to earmark a dictionary for later upload."""
-        assert self.use_temp_pickling, "Can only call function if using temp pickling!"
-        if isinstance(data, dict):
-            pickle.dump(data, self.temp_pickle_file)
-        elif isinstance(data, list):
-            self.log.info(
-                "Pickling {0} rows of data for later upload...".format(len(data))
-            )
-            for row in data:
-                self._upload_via_pickling(row)
-        else:
-            raise Exception(
-                "Invalid data format for function! Must be dict or list of dicts!"
-            )
-
-    def _upload_from_pickle(self, temp_file_name):
-        """Call this function to upload previously pickled data."""
-        assert self.use_temp_pickling
-        assert hasattr(self, "temp_pickle_file")
-        self.temp_pickle_file.close()
-        self.temp_pickle_file = self._pickle_file_open(
-            temp_file_name, "rb", self.pickle_compression
-        )
-        keep_unpickling = True
-        while keep_unpickling:
-            raw_data = []
-            for _ in range(self.pickling_upload_chunk_size):
-                try:
-                    raw_data.append(pickle.load(self.temp_pickle_file))
-                except EOFError:
-                    # all done
-                    keep_unpickling = False
-                    break
-            self._upload_data(raw_data)
-        # re-open a new pickle file for new data
-        self.temp_pickle_file.close()
-        self.temp_pickle_file = self._pickle_file_open(
-            temp_file_name, "wb", self.pickle_compression
-        )
-
-    def upload_data(self, data=None, columns_definition=None):
-        if self.use_temp_pickling:
-            # earmark for later upload
-            self._upload_via_pickling(data=data)
-        else:
-            # upload straightaway
-            self._upload_data(data, columns_definition)
-
-    def _upload_data(self, data=None, columns_definition=None):
+    def upload_data(self, data=None):
         """Upload data, no matter the source. Call this functions in the child
         operator whenever data is available for upload, as often as needed.
         """
         if not data:
             self.log.info("No data to upload!")
             return
-        self.upload_call_count += 1
-        self.log.info(
-            "Chunk {1}: Uploading {0} rows of data.".format(
-                str(len(data)),
-                str(self.upload_call_count),
+
+        if self.add_metadata:
+            metadata = copy.deepcopy(self._metadata)  # from individual operator
+            interval_start = self._context["data_interval_start"]
+            interval_start = datetime.fromtimestamp(
+                interval_start.timestamp(), interval_start.tz
             )
-        )
-
-        if self.add_metadata or self.rename_columns:
-            if self.add_metadata:
-                self.log.info("Adding metadata...")
-                metadata = copy.deepcopy(self._metadata)  # from individual operator
-                # for all operators alike
-                metadata.update(
-                    {
-                        "_ewah_extract_strategy": self.extract_strategy,
-                        "_ewah_load_strategy": self.load_strategy,
-                        "_ewah_executed_at": self._execution_time,
-                        "_ewah_execution_chunk": self.upload_call_count,
-                        "_ewah_dag_id": self._context["dag"].dag_id,
-                        "_ewah_dag_run_id": self._context["run_id"],
-                        "_ewah_dag_run_data_interval_start": self._context[
-                            "data_interval_start"
-                        ],
-                        "_ewah_dag_run_data_interval_end": self._context[
-                            "data_interval_end"
-                        ],
-                    }
-                )
-            rename_columns = self.rename_columns or {}
-            for datum in data:
-                if self.add_metadata:
-                    datum.update(metadata)
-                if rename_columns:
-                    for (old_name, new_name) in rename_columns.items():
-                        datum[new_name] = datum.pop(old_name, None)
-
-        columns_definition = columns_definition or self.columns_definition
-        if not columns_definition:
-            self.log.info("Creating table schema on the fly based on data.")
-            columns_definition = self._create_columns_definition(data)
-
-        if self.update_on_columns:
-            pk_list = self.update_on_columns  # is a list already
-        elif self.primary_key_column_name:
-            pk_list = [self.primary_key_column_name]
+            interval_end = self._context["data_interval_end"]
+            interval_end = datetime.fromtimestamp(
+                interval_end.timestamp(), interval_end.tz
+            )
+            metadata.update(
+                {
+                    "_ewah_extract_strategy": self.extract_strategy,
+                    "_ewah_load_strategy": self.load_strategy,
+                    "_ewah_executed_at": self._execution_time,
+                    "_ewah_dag_id": self._context["dag"].dag_id,
+                    "_ewah_dag_run_id": self._context["run_id"],
+                    "_ewah_dag_run_data_interval_start": interval_start,
+                    "_ewah_dag_run_data_interval_end": interval_end,
+                }
+            )
         else:
-            pk_list = []
+            metadata = None
 
-        if pk_list:
-            for pk_name in pk_list:
-                if not pk_name in columns_definition.keys():
-                    raise Exception(
-                        ("Column {0} does not exist but is " + "expected!").format(
-                            pk_name
-                        )
-                    )
-                columns_definition[pk_name][EC.QBC_FIELD_PK] = True
-
-        if (self.upload_call_count > 1) or (
-            not (self.load_strategy == EC.LS_INSERT_REPLACE)
-        ):
-            self.log.info("Checking for, and applying schema changes.")
-            _new_schema_name = self.target_schema_name + self.target_schema_suffix
-            new_cols, del_cols = self.uploader.detect_and_apply_schema_changes(
-                new_schema_name=_new_schema_name,
-                new_table_name=self.target_table_name,
-                new_columns_dictionary=columns_definition,
-                # When introducing a feature utilizing this, remember to
-                #  consider multiple runs within the same execution
-                drop_missing_columns=False and self.upload_call_count == 1,
-                database=self.target_database_name,
-                commit=False,  # Commit only when / after uploading data
-            )
-            self.log.info(
-                "Added fields:\n\t{0}\nDeleted fields:\n\t{1}".format(
-                    "\n\t".join(new_cols) or "\n",
-                    "\n\t".join(del_cols) or "\n",
-                )
-            )
-
-        self.log.info("Uploading data now.")
-        self.uploader.create_or_update_table(
-            data=data,
-            load_strategy=self.load_strategy,
-            upload_call_count=self.upload_call_count,
-            columns_definition=columns_definition,
-            table_name=self.target_table_name,
-            schema_name=self.target_schema_name,
-            schema_suffix=self.target_schema_suffix,
-            database_name=self.target_database_name,
-            update_on_columns=self.update_on_columns,
-            commit=False,  # See note below for reason
-            clean_data_before_upload=self.clean_data_before_upload,
-            hash_columns=self.hash_columns,
-            hashlib_func_name=self.hashlib_func_name,
-            default_values=self.default_values,
-            bson_to_string=self.cast_bson_objects_to_string,
-        )
-        """ Note on committing changes:
-            The hook used for data uploading is created at the beginning of the
-            execute function and automatically committed and closed at the end.
-            DO NOT commit in this function, as multiple uploads may be required,
-            and any intermediate commit may be subsequently followed by an
-            error, which would then result in incomplete data committed.
-        """
+        return self.uploader.upload_data(data, metadata)

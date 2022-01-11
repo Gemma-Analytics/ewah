@@ -24,7 +24,7 @@ class EWAHSalesforceOperator(EWAHBaseOperator):
         self, salesforce_object: Optional[str] = None, *args, **kwargs
     ) -> None:
         self.salesforce_object = salesforce_object or kwargs.get("target_table_name")
-        kwargs["primary_key_column_name"] = "Id"
+        kwargs["primary_key"] = "Id"
         # default subsequent_field to placeholder to be filled during execution
         if kwargs.get("extract_strategy") == EC.ES_SUBSEQUENT:
             kwargs["subsequent_field"] = kwargs.get(
@@ -45,7 +45,6 @@ class EWAHSalesforceOperator(EWAHBaseOperator):
 
         for batch in self.source_hook.get_data_in_batches(
             salesforce_object=self.salesforce_object,
-            columns=list(self.columns_definition or []) or None,
             data_from=self.data_from,
             data_until=self.data_until,
         ):
