@@ -14,7 +14,7 @@ class EWAHConstants:
     DWH_ENGINES = [
         DWH_ENGINE_POSTGRES,
         DWH_ENGINE_SNOWFLAKE,
-        # DWH_ENGINE_BIGQUERY, To Be Implemented
+        DWH_ENGINE_BIGQUERY,
         # DWH_ENGINE_REDSHIFT, To Be Implemented
         # DWH_ENGINE_S3, To Be Implemented
         DWH_ENGINE_GS,

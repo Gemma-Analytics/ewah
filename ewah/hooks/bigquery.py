@@ -2,17 +2,19 @@ from ewah.hooks.sql_base import EWAHSQLBaseHook
 from ewah.constants import EWAHConstants as EC
 
 from google.cloud import bigquery
+from google.oauth2 import service_account
 from tempfile import NamedTemporaryFile
 from datetime import timedelta
 
 from typing import List, Dict, Union, Type, Optional
 
 import os
+import json
 
 
 class EWAHBigQueryHook(EWAHSQLBaseHook):
 
-    _ATTR_RELABEL: dict = {}
+    _ATTR_RELABEL: dict = {"project": "host"}
 
     conn_name_attr = "ewah_bigquery_conn_id"
     default_conn_name = "ewah_bigquery_default"
@@ -22,8 +24,8 @@ class EWAHBigQueryHook(EWAHSQLBaseHook):
     @staticmethod
     def get_ui_field_behaviour() -> dict:
         return {
-            "hidden_fields": ["extra", "password", "login", "schema", "host", "port"],
-            "relabeling": {},
+            "hidden_fields": ["extra", "password", "login", "schema", "port"],
+            "relabeling": {"host": "Project ID"},
         }
 
     @staticmethod
@@ -39,10 +41,14 @@ class EWAHBigQueryHook(EWAHSQLBaseHook):
                 widget=EWAHTextAreaWidget(rows=12),
             ),
             "extra__ewah_bigquery__location": StringField(
-                "[dbt - optional] location",
+                "[optional] location",
                 widget=EWAHTextAreaWidget(rows=1),
             ),
         }
+
+    def __init__(self, *args, project_id=None, **kwargs):
+        self.project_id = project_id
+        return super().__init__(*args, **kwargs)
 
     class bq_cursor(object):
         """Wrapper around the BigQuery client to work similarly to other db cursor.
@@ -94,11 +100,12 @@ class EWAHBigQueryHook(EWAHSQLBaseHook):
             if not self.latest_query:
                 return []
 
-            dict_result = [dict(row) for row in latest_query.result()]
+            dict_result = [dict(row) for row in self.latest_query.result()]
             if self.return_dict:
                 return dict_result
 
-            keys = dict_result[0].keys()
+            # Note: Must deal with empty results
+            keys = (dict_result[0] if dict_result else {}).keys()
             return [[row[key] for key in keys] for row in dict_result]
 
         def fetch_in_batches(self, batch_size: int):
@@ -116,15 +123,16 @@ class EWAHBigQueryHook(EWAHSQLBaseHook):
 
     def _get_db_conn(self):
         # Authenticate via service account json stored in a temporary file
-        with NamedTemporaryFile() as cred_json:
-            cred_json.seek(0)
-            cred_json.write(self.conn.service_account_json.encode())
-            cred_json.seek(0)
-            cred_json.flush()
-            conn = bigquery.client.Client.from_service_account_json(
-                os.path.abspath(cred_json.name)
+        conn_kwargs = {
+            "credentials": service_account.Credentials.from_service_account_info(
+                json.loads(self.conn.service_account_json)
             )
-        return conn
+        }
+        if self.conn.location:
+            conn_kwargs["location"] = self.conn.location
+        if self.project_id or self.conn.project:
+            conn_kwargs["project"] = self.project_id or self.conn.project
+        return bigquery.client.Client(**conn_kwargs)
 
     def _get_cursor(self):
         return self.bq_cursor(outer_class=self, client=self.dbconn, return_dict=False)

@@ -248,6 +248,8 @@ class EWAHBaseUploader(LoggingMixin):
         }
         if self.dwh_engine == EC.DWH_ENGINE_SNOWFLAKE:
             params["database_name"] = self.database_name
+        elif self.dwh_engine == EC.DWH_ENGINE_BIGQUERY:
+            params["project_id"] = self.database_name
         if not self.test_if_table_exists(**params):
             # Table did not previously exist, so there is nothing to do
             return
@@ -271,7 +273,7 @@ class EWAHBaseUploader(LoggingMixin):
                 add_params = deepcopy(params)
                 add_params["column_name"] = column
                 add_params["column_type"] = self._get_column_type(
-                    new_columns_dictionary[column]
+                    self.columns_definition[column]
                 )
                 self.dwh_hook.execute(
                     sql=self._QUERY_SCHEMA_CHANGES_ADD_COLUMN.format(

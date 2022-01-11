@@ -3,6 +3,7 @@ from airflow.sensors.external_task import ExternalTaskSensor
 from airflow.operators.bash import BashOperator
 
 from ewah.constants import EWAHConstants as EC
+from ewah.uploaders.bigquery import BigqueryOperator
 from ewah.uploaders.snowflake import SnowflakeOperator
 from ewah.utils.airflow_utils import PGO, datetime_utcnow_with_tz
 from ewah.hooks.base import EWAHBaseHook as BaseHook
@@ -305,7 +306,21 @@ def dag_factory_idempotent(
             **additional_task_args,
         )
     else:
-        raise_exception(f'DWH "{dwh_engine}" not implemented for this task!')
+        drop_sql = """
+            DROP SCHEMA IF EXISTS `{0}` CASCADE;
+            DROP SCHEMA IF EXISTS `{1}` CASCADE;
+        """.format(
+            target_schema_name,
+            target_schema_name + target_schema_suffix,
+        )
+        drop_task = BigqueryOperator(
+            sql=drop_sql,
+            bigquery_conn_id=dwh_conn_id,
+            project=target_database_name,
+            task_id="delete_previous_schema_if_exists",
+            dag=dags[2],
+            **additional_task_args,
+        )
 
     reset_task >> drop_task
 
