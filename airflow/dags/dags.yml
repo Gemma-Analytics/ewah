@@ -1,8 +1,8 @@
 ---
 
 base_config: # applied to all DAGs unless overwritten
-  dwh_engine: postgres
-  dwh_conn_id: dwh
+  dwh_engine: bigquery # postgres
+  dwh_conn_id: bq # dwh
   airflow_conn_id: airflow
   start_date: 2020-10-01 00:00:00+00:00
   schedule_interval: !!python/object/apply:datetime.timedelta
@@ -149,7 +149,7 @@ el_dags:
           sort_key: status
           source_table_name: invoice-reference
 
-  # EL_Facebook: !yml_from_file secret_dag_facebook.yml
+  EL_Facebook: !yml_from_file secret_dag_facebook.yml
 
   EL_DynamoDB_2:
     dag_strategy: full-refresh
@@ -251,7 +251,6 @@ el_dags:
     el_operator: mailchimp
     target_schema_name: raw_mailchimp
     #dwh_conn_id: ssh_dwh
-    dwh_conn_id: dwh
     operator_config:
       general_config:
         source_conn_id: mailchimp
@@ -267,7 +266,7 @@ el_dags:
           resource: conversations
         campaigns:
           default_values:
-            variate_settings: {"I am": "a deault"}
+            variate_settings: {"i_am": "a deault"}
           rename_columns:
             type: renamed_type
             web_id: renamed_web_id
@@ -341,6 +340,8 @@ el_dags:
         leads: {}
         activities: {}
         notes: {}
+        dealfields:
+          pipedrive_object: dealFields
 
   EL_PlentyMarkets:
     dag_strategy: idempotent
@@ -399,7 +400,7 @@ el_dags:
         account_contacts:
           resource: "/rest/accounts/contacts"
           additional_api_call_params:
-            createdAtAfter: "2021-06-15"
+            createdAtAfter: "2022-01-08"
 
   EL_Postgres:
     dag_strategy: fr
@@ -407,11 +408,17 @@ el_dags:
     target_schema_name: raw_pg_fr
     operator_config:
       general_config:
-        source_conn_id: dwh # load from dwh to dwh
+        source_conn_id: pg_test_conn
         source_schema_name: public
       tables:
-        dag:
-          batch_size: 10
+        orders: {}
+        users: {}
+        deliveries:
+          pickling_upload_chunk_size: 1000
+        delivery_providers: {}
+        delivery_slots: {}
+          # exclude_columns:
+          #   - preferences
 
   #EL_Postgres_2:
   #  dag_strategy: full-refresh
