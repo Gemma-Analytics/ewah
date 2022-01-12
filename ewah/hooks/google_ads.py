@@ -91,7 +91,8 @@ class EWAHGoogleAdsHook(EWAHBaseHook):
             query += "\nWHERE {0}".format("\n\tAND ".join(conditions))
         return query
 
-    def transform_raw_data_to_relational_format(self, raw_row, _prefix=None):
+    @staticmethod
+    def transform_raw_data_to_relational_format(raw_row, _prefix=None):
         """Each row of the returned data is a protobuf message that can have many
         layers. Unpack it into a 1-layer dictionary."""
 
@@ -119,12 +120,12 @@ class EWAHGoogleAdsHook(EWAHBaseHook):
             )
         )
 
-    def get_raw_data_from_query(self, client_id, query):
+    def get_raw_data_from_query(self, customer_id, query):
         self.log.info("Running query:\n\n{0}\n\n".format(query))
         return [
             row
             for row in self.service.search(
-                customer_id=client_id.replace("-", ""), query=query
+                customer_id=customer_id.replace("-", ""), query=query
             )
         ]
 
@@ -132,7 +133,7 @@ class EWAHGoogleAdsHook(EWAHBaseHook):
         return [
             self.transform_raw_data_to_relational_format(raw_row=row)
             for row in self.get_raw_data_from_query(
-                client_id=client_id,
+                customer_id=client_id,
                 query=self.create_query(
                     fields=fields, resource=resource, conditions=conditions
                 ),

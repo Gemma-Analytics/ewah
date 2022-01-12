@@ -32,7 +32,7 @@ class EWAHSharepointHook(EWAHBaseHook):
             },
         }
 
-    def get_data_from_excel(self, relative_url, worksheet_name):
+    def get_data_from_excel(self, relative_url, worksheet_name, header_row, start_row):
         # adapted from: https://stackoverflow.com/a/69292234/14125255
         # (accessed 2021-10-15)
 
@@ -43,14 +43,14 @@ class EWAHSharepointHook(EWAHBaseHook):
         bytes_file_obj = io.BytesIO()
         bytes_file_obj.write(response.content)
         bytes_file_obj.seek(0)
-        ws = load_workbook(bytes_file_obj)[worksheet_name]
+        ws = load_workbook(bytes_file_obj, data_only=True)[worksheet_name]
         headers = {
-            ws.cell(row=1, column=col).value: col
+            ws.cell(row=header_row, column=col).value: col
             for col in range(1, ws.max_column + 1)
-            if ws.cell(row=1, column=col)
+            if ws.cell(row=header_row, column=col)
         }
         data = [
             {k: ws.cell(row=row, column=v).value for k, v in headers.items()}
-            for row in range(2, ws.max_row + 1)
+            for row in range(start_row, ws.max_row + 1)
         ]
         return data

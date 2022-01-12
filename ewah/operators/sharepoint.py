@@ -18,18 +18,25 @@ class EWAHSharepointOperator(EWAHBaseOperator):
         self,
         file_relative_path: str,
         sheet_name: str,
+        header_row: int = 1,
+        start_row: int = 2,
         *args,
         **kwargs,
     ) -> None:
         assert file_relative_path.endswith(".xlsx"), "Only Excel files for now!"
         self.file_relative_path = file_relative_path
         self.sheet_name = sheet_name
+        self.header_row = header_row
+        self.start_row = start_row
         super().__init__(*args, **kwargs)
 
     def ewah_execute(self, context: dict) -> None:
         self.log.info("Loading data...")
         self.upload_data(
             self.source_hook.get_data_from_excel(
-                self.file_relative_path, self.sheet_name
+                self.file_relative_path,
+                self.sheet_name,
+                self.header_row,
+                self.start_row,
             )
         )
