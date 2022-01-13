@@ -40,7 +40,6 @@ class EWAHMetabaseHook(EWAHBaseHook):
         return {
             "extra__ewah_metabase__http_string": StringField(
                 "Use http instead of https?",
-                default="uri",
             )
         }
 
