@@ -38,14 +38,16 @@ class EWAHMetabaseHook(EWAHBaseHook):
         from wtforms import StringField, BooleanField
 
         return {
-            "extra__ewah_metabase__http": BooleanField("Use HTTP instead of HTTPS?"),
+            "extra__ewah_metabase__http_string": StringField(
+                "Use http instead of https?",
+                default="uri",
+            )
         }
 
     def push_dbt_docs_to_metabase(
         self,
         dbt_project_path: str,
         dbt_database_name: str,
-        dbt_schema_name: str,
     ):
         models, aliases = DbtInterface(
             path=None,
@@ -60,7 +62,6 @@ class EWAHMetabaseHook(EWAHBaseHook):
                 )
             ),
             database=dbt_database_name,
-            schema=dbt_schema_name,
             schema_excludes=None,
             includes=None,
             excludes=None,
@@ -73,7 +74,7 @@ class EWAHMetabaseHook(EWAHBaseHook):
             host=self.conn.host.replace("http://", "").replace("https://", ""),
             user=self.conn.user,
             password=self.conn.password,
-            use_http=self.conn.http,
+            use_http=(self.conn.http_string or "").lower().startswith(("y", "j")),
             verify=True,
             database=self.conn.database,
             sync=True,

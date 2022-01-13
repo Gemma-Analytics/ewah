@@ -88,15 +88,18 @@ dag7, dag8 = dbt_dags_factory(
 )
 
 dag9, dag10 = dbt_dags_factory(
-    dag_base_name="dbt_1.0_local",
+    dag_base_name="dbt_1.0_local_bq",
     airflow_conn_id="airflow",
     repo_type="local",
-    dwh_engine=EC.DWH_ENGINE_POSTGRES,
-    dwh_conn_id="dwh",
+    dwh_engine=EC.DWH_ENGINE_BIGQUERY,
+    dwh_conn_id="bigquery_dbt",
+    project="gemma-287313",
+    dataset="ewah_dbt_metabase",
     local_path="/opt/airflow/test_dbt_project",
     dbt_version="1.0.0",
     schedule_interval=timedelta(hours=1),
     start_date=datetime(2020, 7, 22),
+    metabase_conn_id="metabase_2",
     default_args={
         "retries": 0,
         "retry_delay": timedelta(minutes=5),
