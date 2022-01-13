@@ -2,6 +2,9 @@ from ewah.hooks.base import EWAHBaseHook
 
 from dbtmetabase.models.interface import MetabaseInterface, DbtInterface
 
+import os
+import yaml
+
 
 class EWAHMetabaseHook(EWAHBaseHook):
 
@@ -45,8 +48,17 @@ class EWAHMetabaseHook(EWAHBaseHook):
         dbt_schema_name: str,
     ):
         models, aliases = DbtInterface(
-            path=dbt_project_path,
-            manifest_path=None,
+            path=None,
+            manifest_path=os.sep.join(
+                (
+                    dbt_project_path,
+                    yaml.load(
+                        open(os.sep.join((dbt_project_path, "dbt_project.yml")), "rb"),
+                        Loader=yaml.Loader,
+                    )["target-path"],
+                    "manifest.json",
+                )
+            ),
             database=dbt_database_name,
             schema=dbt_schema_name,
             schema_excludes=None,
