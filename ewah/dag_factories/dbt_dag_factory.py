@@ -31,6 +31,7 @@ def dbt_dags_factory(
     dataset=None,  # BigQuery alias
     dagrun_timeout_factor=None,  # doesn't apply to full refresh
     task_timeout_factor=0.8,  # doesn't apply to full refresh
+    metabase_conn_id=None,  # push docs to Metabase after full refresh run if exists
 ):
     run_flags = run_flags or ""  # use empty string instead of None
 
@@ -152,6 +153,8 @@ def dbt_dags_factory(
         task_id="dbt_run",
         dbt_commands=["seed --full-refresh", f"run --full-refresh {run_flags}"],
         dag=dag_2,
+        # If metabase_conn_id exists, push dbt docs to Metabase after full refresh run
+        metabase_conn_id=metabase_conn_id,
         **dbt_kwargs,
     )
 

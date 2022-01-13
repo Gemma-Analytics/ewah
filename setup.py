@@ -24,6 +24,7 @@ setuptools.setup(
     install_requires=[
         "avro",
         "azure-storage-blob>=2.1.0",  # a temporay 2.0.0 bugfix
+        "dbt-metabase",
         "cx_Oracle",
         "facebook_business",
         "google-ads>=13.0.0",

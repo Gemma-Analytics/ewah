@@ -11,7 +11,7 @@ dag1, dag2 = dbt_dags_factory(
     dwh_engine=EC.DWH_ENGINE_POSTGRES,
     dwh_conn_id="dwh",
     git_conn_id="github",
-    dbt_version="0.18.1",
+    dbt_version="0.21.0",
     schedule_interval=timedelta(hours=1),
     start_date=datetime(2020, 7, 22),
     default_args={
@@ -116,9 +116,10 @@ bq1, bq2 = dbt_dags_factory(
     project="gemma-287313",
     dataset="ewah_jaffle_shop",
     git_conn_id="github",
-    dbt_version="0.18.1",
+    dbt_version="0.21.0",
     schedule_interval=timedelta(hours=1),
     start_date=datetime(2020, 7, 22),
+    metabase_conn_id="metabase",
     default_args={
         "retries": 0,
         "retry_delay": timedelta(minutes=5),
