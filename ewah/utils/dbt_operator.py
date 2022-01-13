@@ -51,6 +51,7 @@ class EWAHdbtOperator(BaseOperator):
         keepalives_idle=0,  # see https://docs.getdbt.com/reference/warehouse-profiles/postgres-profile/
         dataset=None,  # BigQuery alias for schema_name
         project=None,  # BigQuery alias for database_name
+        metabase_conn_id=None,  # Push docs to Metabase if exists
         *args,
         **kwargs
     ):
@@ -121,6 +122,7 @@ class EWAHdbtOperator(BaseOperator):
         self.schema_name = schema_name
         self.keepalives_idle = keepalives_idle
         self.database_name = database_name
+        self.metabase_conn_id = metabase_conn_id
 
     def execute(self, context):
 
@@ -202,6 +204,8 @@ class EWAHdbtOperator(BaseOperator):
                 },
             }
             if self.dwh_engine == EC.DWH_ENGINE_POSTGRES:
+                mb_database = dwh_conn.schema
+                mb_schema = self.schema_name
                 profiles_yml[profile_name] = {
                     "target": "prod",  # same as the output defined below
                     "outputs": {
@@ -219,6 +223,8 @@ class EWAHdbtOperator(BaseOperator):
                     },
                 }
             elif self.dwh_engine == EC.DWH_ENGINE_SNOWFLAKE:
+                mb_database = self.database_name or dwh_conn.database
+                mb_schema = self.schema_name or dwh_conn.schema
                 profiles_yml[profile_name] = {
                     "target": "prod",  # same as the output defined below
                     "outputs": {
@@ -237,10 +243,12 @@ class EWAHdbtOperator(BaseOperator):
                     },
                 }
             elif self.dwh_engine == EC.DWH_ENGINE_BIGQUERY:
+                mb_database = self.database_name
+                mb_schema = self.schema_name
                 profiles_yml[profile_name] = {
                     "target": "prod",  # same as the output defined below
                     "outputs": {
-                        "prod": {  # for snowflake
+                        "prod": {
                             "type": "bigquery",
                             "method": "service-account-json",
                             "project": self.database_name,
@@ -275,3 +283,14 @@ class EWAHdbtOperator(BaseOperator):
                 [cmd.append("dbt {0}".format(dc)) for dc in self.dbt_commands]
                 cmd.append("deactivate")
                 assert run_cmd(cmd, env, self.log.info) == 0
+
+                if self.metabase_conn_id:
+                    # Push docs to Metabase at the end of the run!
+                    metabase_hook = EWAHBaseHook.get_hook_from_conn_id(
+                        conn_id=self.metabase_conn_id
+                    )
+                    metabase_hook.push_dbt_docs_to_metabase(
+                        dbt_project_path=dbt_dir,
+                        dbt_database_name=mb_database,
+                        dbt_schema_name=mb_schema,
+                    )
