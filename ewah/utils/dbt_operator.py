@@ -205,7 +205,6 @@ class EWAHdbtOperator(BaseOperator):
             }
             if self.dwh_engine == EC.DWH_ENGINE_POSTGRES:
                 mb_database = dwh_conn.schema
-                mb_schema = self.schema_name
                 profiles_yml[profile_name] = {
                     "target": "prod",  # same as the output defined below
                     "outputs": {
@@ -224,7 +223,6 @@ class EWAHdbtOperator(BaseOperator):
                 }
             elif self.dwh_engine == EC.DWH_ENGINE_SNOWFLAKE:
                 mb_database = self.database_name or dwh_conn.database
-                mb_schema = self.schema_name or dwh_conn.schema
                 profiles_yml[profile_name] = {
                     "target": "prod",  # same as the output defined below
                     "outputs": {
@@ -244,7 +242,6 @@ class EWAHdbtOperator(BaseOperator):
                 }
             elif self.dwh_engine == EC.DWH_ENGINE_BIGQUERY:
                 mb_database = self.database_name
-                mb_schema = self.schema_name
                 profiles_yml[profile_name] = {
                     "target": "prod",  # same as the output defined below
                     "outputs": {
@@ -279,6 +276,8 @@ class EWAHdbtOperator(BaseOperator):
                 cmd = []
                 cmd.append("cd {0}".format(dbt_dir))
                 cmd.append("source {0}/bin/activate".format(venv_folder))
+                if self.repo_type == "local":
+                    cmd.append("dbt clean")
                 cmd.append("dbt deps")
                 [cmd.append("dbt {0}".format(dc)) for dc in self.dbt_commands]
                 cmd.append("deactivate")
@@ -292,5 +291,4 @@ class EWAHdbtOperator(BaseOperator):
                     metabase_hook.push_dbt_docs_to_metabase(
                         dbt_project_path=dbt_dir,
                         dbt_database_name=mb_database,
-                        dbt_schema_name=mb_schema,
                     )
