@@ -122,7 +122,6 @@ class EWAHBigQueryHook(EWAHSQLBaseHook):
                     yield [[row[key] for key in keys] for row in dict_result]
 
     def _get_db_conn(self):
-        # Authenticate via service account json stored in a temporary file
         conn_kwargs = {
             "credentials": service_account.Credentials.from_service_account_info(
                 json.loads(self.conn.service_account_json)
