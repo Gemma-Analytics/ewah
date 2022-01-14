@@ -432,6 +432,23 @@ el_dags:
   #      product_prices:
   #        sql_select_statement: !text_from_file secret_sql_query.sql
 
+  EL_Rapidmail:
+    dag_strategy: atomic
+    el_operator: rapidmail
+    target_schema_name: rapidmail
+    operator_config:
+      general_config:
+        source_conn_id: rapidmail
+      tables:
+        apiusers: {}
+        blacklist: {}
+        forms: {}
+        mailings: {}
+        recipientlists: {}
+        recipients: {}
+        transaction_emails:
+          endpoint: "trx/emails"
+
   EL_Recurly_inc:
     dag_strategy: incremental
     el_operator: recurly
