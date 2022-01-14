@@ -514,14 +514,6 @@ el_dags:
       tables:
         accounts:
           sheet_name: "SKR03 Accounts"
-        sf_invoice_data_invoices_test:
-          file_relative_path: "/sites/Finance/Freigegebene Dokumente/internal/_Ausgangsrechnungen/Invoice File.xlsx"
-          sheet_name: "Invoice Overview"
-          source_conn_id: sharepoint_finance
-        sf_invoice_data_invoice_linteitems_test:
-          file_relative_path: "/sites/Finance/Freigegebene Dokumente/internal/_Ausgangsrechnungen/Invoice File.xlsx"
-          sheet_name: "LineItem Overview"
-          source_conn_id: sharepoint_finance
 
   # EL_Shopify: tbd
 
