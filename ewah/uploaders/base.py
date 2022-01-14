@@ -75,7 +75,7 @@ class EWAHBaseUploader(LoggingMixin):
         self.pickling_upload_chunk_size = pickling_upload_chunk_size
 
     @classmethod
-    def cleaner_callables(cls):
+    def get_cleaner_callables(cls):
         # overwrite me for cleaner callables that are always called
         return []
 

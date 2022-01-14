@@ -311,8 +311,8 @@ el_dags:
               - 3
               - 2
 
-  # EL_MongoDB: !yml_from_file secret_dag_mongodb.yml
-  # EL_MongoDB_2: !yml_from_file secret_dag_mongodb_2.yml
+  EL_MongoDB: !yml_from_file secret_dag_mongodb.yml
+  EL_MongoDB_2: !yml_from_file secret_dag_mongodb_2.yml
   # EL_MongoDB_3: !yml_from_file secret_dag_mongodb_3.yml
   # EL_MongoDB_4: !yml_from_file secret_dag_mongodb_4.yml
   # EL_MongoDB_5: !yml_from_file secret_dag_mongodb_5.yml

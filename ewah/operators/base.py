@@ -150,6 +150,7 @@ class EWAHBaseOperator(BaseOperator):
         pickle_compression=None,  # data compression algorithm to use for pickles
         default_values=None,  # dict with default values for columns (to avoid nulls)
         cleaner_class=EWAHCleaner,
+        cleaner_callables=None,  # callables or list of callables to run during cleaning
         uploader_class=None,  # Future: deprecate dwh_engine and use this kwarg instead
         *args,
         **kwargs
@@ -251,6 +252,9 @@ class EWAHBaseOperator(BaseOperator):
             (type(None), timedelta),
         ), _msg
 
+        if callable(cleaner_callables):
+            cleaner_callables = [cleaner_callables]
+
         self.source_conn_id = source_conn_id
         self.dwh_engine = dwh_engine
         self.dwh_conn_id = dwh_conn_id
@@ -283,6 +287,7 @@ class EWAHBaseOperator(BaseOperator):
         self.pickle_compression = pickle_compression
         self.default_values = default_values
         self.cleaner_class = cleaner_class
+        self.cleaner_callables = cleaner_callables
 
         self.uploader_class = uploader_class or get_uploader(self.dwh_engine)
 
@@ -324,6 +329,30 @@ class EWAHBaseOperator(BaseOperator):
         self._execution_time = datetime_utcnow_with_tz()
         self._context = context
 
+        cleaner_callables = self.cleaner_callables or []
+
+        if self.source_conn_id:
+            # resolve conn id here & delete the object to avoid usage elsewhere
+            self.source_conn = EWAHBaseHook.get_connection(self.source_conn_id)
+            self.source_hook = self.source_conn.get_hook()
+            hook_callables = self.source_hook.get_cleaner_callables()
+            if callable(hook_callables):
+                cleaner_callables.append(hook_callables)
+            elif hook_callables:
+                cleaner_callables += hook_callables
+        del self.source_conn_id
+
+        if self._CONN_TYPE:
+            assert (
+                self._CONN_TYPE == self.source_conn.conn_type
+            ), "Error - connection type must be {0}!".format(self._CONN_TYPE)
+
+        uploader_callables = self.uploader_class.get_cleaner_callables()
+        if callable(uploader_callables):
+            cleaner_callables.append(uploader_callables)
+        elif uploader_callables:
+            cleaner_callables += uploader_callables
+
         self.uploader = self.uploader_class(
             dwh_conn=EWAHBaseHook.get_connection(self.dwh_conn_id),
             cleaner=self.cleaner_class(
@@ -332,7 +361,7 @@ class EWAHBaseOperator(BaseOperator):
                 add_metadata=self.add_metadata,
                 rename_columns=self.rename_columns,
                 hash_columns=self.hash_columns,
-                additional_callables=self.uploader_class.cleaner_callables(),  # TBD: Make option available in operator
+                additional_callables=cleaner_callables,
             ),
             table_name=self.target_table_name,
             schema_name=self.target_schema_name,
@@ -350,17 +379,6 @@ class EWAHBaseOperator(BaseOperator):
             self.uploader.dwh_hook.execute(
                 "SET timezone TO '{0}'".format(self.default_timezone)
             )
-
-        if self.source_conn_id:
-            # resolve conn id here & delete the object to avoid usage elsewhere
-            self.source_conn = EWAHBaseHook.get_connection(self.source_conn_id)
-            self.source_hook = self.source_conn.get_hook()
-        del self.source_conn_id
-
-        if self._CONN_TYPE:
-            assert (
-                self._CONN_TYPE == self.source_conn.conn_type
-            ), "Error - connection type must be {0}!".format(self._CONN_TYPE)
 
         # Create a new copy of the target table.
         # This is so data is loaded into a new table and if data loading

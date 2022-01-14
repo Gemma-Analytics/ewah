@@ -72,7 +72,7 @@ class EWAHBigQueryUploader(EWAHBaseUploader):
         self.database_name = self.database_name or self.dwh_hook.conn.project
 
     @classmethod
-    def cleaner_callables(cls):
+    def get_cleaner_callables(cls):
         def bigquery_data_adjustments(row):
             key_changes = []
             for key, value in row.items():
