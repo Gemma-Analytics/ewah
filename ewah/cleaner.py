@@ -219,13 +219,20 @@ class EWAHCleaner(LoggingMixin):
                 value_type = type(value)
                 current_type_set = self.fields_definition.get(key)
                 if current_type_set:
-                    if not current_type_set == value_type:
+                    if (
+                        not current_type_set == value_type
+                        and not current_type_set == str
+                    ):
                         # TODO: make this flexible
                         # For now, default to text in case of conflict
                         self.fields_definition[key] = str
                         self.log.info(
-                            "WARNING! Data types are inconsistent. "
-                            "Affected: {0}".format(key)
+                            "\n\nWARNING! Data types are inconsistent.\n"
+                            "\tAffected field: {0}\n"
+                            "\tFirst type: {1}\n"
+                            "\tSecond type: {2}\n".format(
+                                key, str(current_type_set), str(value_type)
+                            )
                         )
                 else:
                     self.fields_definition[key] = value_type
