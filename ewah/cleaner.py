@@ -9,6 +9,7 @@ from hashlib import sha256
 
 # Refactor me
 from bson.json_util import dumps  # dumping mongob objects to string
+from bson.objectid import ObjectId
 from collections import OrderedDict
 from decimal import Decimal
 
@@ -33,6 +34,8 @@ class EWAHJSONEncoder(json.JSONEncoder):
 
         if isinstance(obj, Decimal):
             return float(obj)
+        if isinstance(obj, ObjectId):
+            return str(obj)
         # Let the base class default method raise the TypeError
         return super().default(obj)
 

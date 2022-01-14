@@ -3,6 +3,7 @@ from ewah.hooks.base import EWAHBaseHook
 from airflow.utils.file import TemporaryDirectory
 
 import os
+from bson.objectid import ObjectId
 from copy import deepcopy
 from pymongo import MongoClient
 from pymongo import ASCENDING as asc
@@ -72,6 +73,17 @@ class EWAHMongoDBHook(EWAHBaseHook):
             ),
         }
 
+    @classmethod
+    def get_cleaner_callables(cls):
+        # overwrite me for cleaner callables that are always called
+        def clean_data(row):
+            for key, value in row.items():
+                if isinstance(value, ObjectId):
+                    row[key] = str(value)
+            return row
+
+        return clean_data
+
     @property
     def mongoclient(self):
         if not hasattr(self, "_mc"):
@@ -103,28 +115,27 @@ class EWAHMongoDBHook(EWAHBaseHook):
                 if self.conn.tls:
                     conn_kwargs["tls"] = True
                 with NamedTemporaryFile(dir=tmp_dir) as ssl_cert:
-                    with NamedTemporaryFile(dir=tmp_dir) as ssl_private:
-                        if self.conn.ssl_cert:
-                            ssl_cert.write(self.conn.ssl_cert.encode())
-                            ssl_cert.seek(0)
-                            conn_kwargs["ssl_certfile"] = os.path.abspath(ssl_cert.name)
+                    if self.conn.ssl_cert:
+                        ssl_cert.write(self.conn.ssl_cert.encode())
                         if self.conn.ssl_private:
-                            ssl_private.write(self.conn.ssl_private.encode())
-                            ssl_private.seek(0)
-                            conn_kwargs["ssl_keyfile"] = os.path.abspath(
-                                ssl_private.name
-                            )
-                        if self.conn.ssl_password:
-                            conn_kwargs[
-                                "tlsCertificateKeyFilePassword"
-                            ] = self.conn.ssl_password
-                        if self.conn.tls_insecure:
-                            conn_kwargs["tlsInsecure"] = True
-                        if self.conn.auth_source:
-                            conn_kwargs["authSource"] = self.conn.auth_source
-                        if self.conn.auth_mechanism:
-                            conn_kwargs["authMechanism"] = self.conn.auth_mechanism
-                        self._mc = MongoClient(**conn_kwargs)
+                            # Concatenate into the same file
+                            ssl_cert.write(self.conn.ssl_private.encode())
+                        ssl_cert.seek(0)
+                        conn_kwargs["tlsCertificateKeyFile"] = os.path.abspath(
+                            ssl_cert.name
+                        )
+
+                    if self.conn.ssl_password:
+                        conn_kwargs[
+                            "tlsCertificateKeyFilePassword"
+                        ] = self.conn.ssl_password
+                    if self.conn.tls_insecure:
+                        conn_kwargs["tlsInsecure"] = True
+                    if self.conn.auth_source:
+                        conn_kwargs["authSource"] = self.conn.auth_source
+                    if self.conn.auth_mechanism:
+                        conn_kwargs["authMechanism"] = self.conn.auth_mechanism
+                    self._mc = MongoClient(**conn_kwargs)
 
         return self._mc
 
@@ -150,7 +161,7 @@ class EWAHMongoDBHook(EWAHBaseHook):
 
         data = []
         for document in cursor:
-            data += [document]
+            data.append(document)
             if len(data) >= batch_size:
                 yield data
                 data = []
