@@ -1,8 +1,8 @@
 ---
 
 base_config: # applied to all DAGs unless overwritten
-  dwh_engine: bigquery # postgres
-  dwh_conn_id: bq # dwh
+  dwh_engine: postgres # bigquery # postgres
+  dwh_conn_id: dwh # bq # dwh
   airflow_conn_id: airflow
   start_date: 2020-10-01 00:00:00+00:00
   schedule_interval: !!python/object/apply:datetime.timedelta
@@ -192,7 +192,7 @@ el_dags:
 
   # EL_GCS: !yml_from_file secret_dag_gcs.yml
 
-  EL_GSheets: !yml_from_file secret_dag_gsheets.yml
+  # EL_GSheets: !yml_from_file secret_dag_gsheets.yml
 
   EL_Hubspot:
     dag_strategy: fr
@@ -514,6 +514,14 @@ el_dags:
       tables:
         accounts:
           sheet_name: "SKR03 Accounts"
+        sf_invoice_data_invoices_test:
+          file_relative_path: "/sites/Finance/Freigegebene Dokumente/internal/_Ausgangsrechnungen/Invoice File.xlsx"
+          sheet_name: "Invoice Overview"
+          source_conn_id: sharepoint_finance
+        sf_invoice_data_invoice_linteitems_test:
+          file_relative_path: "/sites/Finance/Freigegebene Dokumente/internal/_Ausgangsrechnungen/Invoice File.xlsx"
+          sheet_name: "LineItem Overview"
+          source_conn_id: sharepoint_finance
 
   # EL_Shopify: tbd
 
