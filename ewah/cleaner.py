@@ -191,9 +191,11 @@ class EWAHCleaner(LoggingMixin):
 
     def clean_values(self, raw_row: dict):
         row = deepcopy(self.default_row)
-
-        while raw_row:
-            key, value = raw_row.popitem()
+        # Note: Destructive iteration using raw_row.popitem() causes a reversed order!
+        # --> create a list of tuples first and then destructively iterate over it.
+        key_value_pairs = list(raw_row.items())
+        while key_value_pairs:
+            key, value = key_value_pairs.pop(0)
             if not value is None:
                 if isinstance(value, str):
                     if value == "\0":
