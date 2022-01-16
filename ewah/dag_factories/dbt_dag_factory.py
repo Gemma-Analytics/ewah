@@ -87,25 +87,16 @@ def dbt_dags_factory(
 
     sensor_sql = """
         SELECT
-            -- only run if exactly equal to 0
+            -- only succeed if there is no other running DagRun
             CASE WHEN COUNT(*) = 0 THEN 1 ELSE 0 END
         FROM public.dag_run
         WHERE dag_id IN ('{0}', '{1}')
           AND state = 'running'
-          AND not (run_id = '{2}')
-          AND (( -- Avoid deadlocks and prioritize scheduled over manual triggers
-              run_type = 'scheduled'
-              AND data_interval_start < '{3}' -- data_interval_start
-            ) OR (
-              run_type = 'manual'
-              AND data_interval_start < '{4}' -- data_interval_end
-          ))
+          AND data_interval_end < '{2}' -- DagRun's data_interval_end
           -- Note: data_interval_end = data_interval_start if run_type = 'manual'
     """.format(
         dag_1._dag_id,
         dag_2._dag_id,
-        "{{ run_id }}",
-        "{{ data_interval_start }}",
         "{{ data_interval_end }}",
     )
 

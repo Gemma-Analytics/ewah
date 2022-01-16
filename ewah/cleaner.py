@@ -191,10 +191,13 @@ class EWAHCleaner(LoggingMixin):
 
     def clean_values(self, raw_row: dict):
         row = deepcopy(self.default_row)
-
-        while raw_row:
-            key, value = raw_row.popitem()
+        # Note: Destructive iteration using raw_row.popitem() causes a reversed order!
+        # --> create a list of tuples first and then destructively iterate over it.
+        key_value_pairs = list(raw_row.items())
+        while key_value_pairs:
+            key, value = key_value_pairs.pop(0)
             if not value is None:
+                value_type = None # May be set during the type change below
                 if isinstance(value, str):
                     if value == "\0":
                         # This is a null value -> treat as None
@@ -204,6 +207,10 @@ class EWAHCleaner(LoggingMixin):
                         # Thus, remove it
                         value = value.replace("\x00", "")
                 elif isinstance(value, (dict, OrderedDict, list)):
+                    if isinstance(value, OrderedDict):
+                        value_type = dict
+                    else:
+                        value_type = type(value)
                     # Logic copy-pasted from legacy - TODO: Refactor this!
                     try:
                         value = json.dumps(value, cls=self.json_encoder)
@@ -216,7 +223,7 @@ class EWAHCleaner(LoggingMixin):
                 row[key] = value
 
                 # Set the fields_definition for the key
-                value_type = type(value)
+                value_type = value_type or type(value) # set now if not done above
                 current_type_set = self.fields_definition.get(key)
                 if current_type_set:
                     if (
