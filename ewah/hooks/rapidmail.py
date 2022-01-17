@@ -12,7 +12,7 @@ class EWAHRapidmailHook(EWAHBaseHook):
     conn_name_attr = "ewah_rapidmail_conn_id"
     default_conn_name = "ewah_rapidmail_default"
     conn_type = "ewah_rapidmail"
-    hook_name = "EWAH Google Ads Connection"
+    hook_name = "EWAH Rapidmail Connection"
 
     URL = "https://apiv3.emailsys.net"
     ALLOWED_ENDPOINTS = (
