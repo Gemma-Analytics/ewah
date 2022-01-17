@@ -10,11 +10,6 @@ class EWAHConnection(Connection):
     """Extension of airflow's native Connection."""
 
     @classmethod
-    def get_cleaner_callables(cls):
-        # overwrite me for cleaner callables that are always called
-        return []
-
-    @classmethod
     def get_connection_from_secrets(cls, conn_id):
         """Save the calling hook class as provided when called."""
         conn = super().get_connection_from_secrets(conn_id)
@@ -111,6 +106,11 @@ class EWAHBaseHook(BaseHook):
             setattr(self, self.conn_name_attr, kwargs[self.conn_name_attr])
 
         return super().__init__()
+
+    @classmethod
+    def get_cleaner_callables(cls):
+        # overwrite me for cleaner callables that are always called
+        return []
 
     @classmethod
     def get_connection(cls, conn_id: str) -> EWAHConnection:
