@@ -99,6 +99,34 @@ el_dags:
             source_conn_id: "{{ conn_name }}"
         {% endfor %}
 
+  EL_Airflow_Subs:
+    dag_strategy: atomic
+    el_operator: airflow
+    target_schema_name: raw_airflow_subs
+    operator_config:
+      tables:
+        {% for conn_name in ["airflow_api"] %}
+          {{ conn_name }}_dags:
+            endpoint: dags
+            source_conn_id: "{{ conn_name }}"
+          {{ conn_name }}_task_instance:
+            endpoint: taskInstance
+            source_conn_id: "{{ conn_name }}"
+          {{ conn_name }}_dag_runs:
+            endpoint: dagRuns
+            extract_strategy: subsequent
+            source_conn_id: "{{ conn_name }}"
+          {{ conn_name }}_connections:
+            endpoint: connections
+            source_conn_id: "{{ conn_name }}"
+          {{ conn_name }}_variables:
+            endpoint: variables
+            source_conn_id: "{{ conn_name }}"
+          {{ conn_name }}_health:
+            endpoint: health
+            source_conn_id: "{{ conn_name }}"
+        {% endfor %}
+
   EL_BigQuery:
     dag_strategy: fr
     el_operator: bq

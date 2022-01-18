@@ -40,6 +40,7 @@ setuptools.setup(
         "psycopg2",
         "pymongo",
         "pymysql",
+        "python-dateutil",
         "pytz",
         "pyyaml",
         "recurly",

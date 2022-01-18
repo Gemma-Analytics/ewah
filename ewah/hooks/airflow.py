@@ -17,6 +17,7 @@ class EWAHAirflowHook(EWAHBaseHook):
     hook_name = "EWAH Airflow Connection"
 
     # Resolve some more complex endpoints
+    _ENDPOINT_DAGRUNS = "dags/~/dagRuns"
     _ENDPOINTS = {
         "dagRuns": "dags/~/dagRuns",
         "taskInstance": "dags/~/dagRuns/~/taskInstances",
@@ -55,7 +56,16 @@ class EWAHAirflowHook(EWAHBaseHook):
             ),
         }
 
-    def get_data_in_batches(self, endpoint, page_size=100, batch_size=10000):
+    def get_data_in_batches(
+        self, endpoint, page_size=100, batch_size=10000, data_from=None
+    ):
+        endpoint = self._ENDPOINTS.get(endpoint, endpoint)
+        params = {}
+        if data_from:
+            assert endpoint == self._ENDPOINT_DAGRUNS
+            # get DagRuns that ended since data_from
+            params["end_date_gte"] = data_from.isoformat()
+            params["order_by"] = "end_date"
         auth = requests.auth.HTTPBasicAuth(self.conn.login, self.conn.password)
         if self.conn.ssh_conn_id:
             ssh_hook = EWAHBaseHook.get_hook_from_conn_id(conn_id=self.conn.ssh_conn_id)
@@ -79,8 +89,9 @@ class EWAHAirflowHook(EWAHBaseHook):
             host = self.conn.host
             if not host.startswith("http"):
                 host = self.conn.protocol + "://" + host
-        url = self._BASE_URL.format(host, self._ENDPOINTS.get(endpoint, endpoint))
-        params = {"limit": page_size, "offset": 0}
+        url = self._BASE_URL.format(host, endpoint)
+        params["limit"] = page_size
+        params["offset"] = 0
         data = []
         i = 0
         while True:
