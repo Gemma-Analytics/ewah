@@ -503,6 +503,30 @@ el_dags:
         User: {}
         Lead: {}
 
+  EL_Sevdesk:
+    dag_strategy: atomic
+    el_operator: sevdesk
+    target_schema_name: raw_sevdesk
+    operator_config:
+      general_config:
+        source_conn_id: sevdesk
+      tables:
+        CheckAccount: {}
+        CheckAccountTransaction: {}
+        CommunicationWay: {}
+        Contact:
+          embed: category
+        Invoice: {}
+        invoice_pos:
+          endpoint: InvoicePos
+        Order: {}
+        order_pos:
+          endpoint: OrderPos
+        Part: {}
+        Voucher: {}
+        VoucherPos: {}
+
+
   EL_Sharepoint:
     dag_strategy: atomic
     el_operator: sharepoint
