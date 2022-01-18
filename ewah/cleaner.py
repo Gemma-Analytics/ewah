@@ -197,7 +197,7 @@ class EWAHCleaner(LoggingMixin):
         while key_value_pairs:
             key, value = key_value_pairs.pop(0)
             if not value is None:
-                value_type = None # May be set during the type change below
+                value_type = None  # May be set during the type change below
                 if isinstance(value, str):
                     if value == "\0":
                         # This is a null value -> treat as None
@@ -223,7 +223,7 @@ class EWAHCleaner(LoggingMixin):
                 row[key] = value
 
                 # Set the fields_definition for the key
-                value_type = value_type or type(value) # set now if not done above
+                value_type = value_type or type(value)  # set now if not done above
                 current_type_set = self.fields_definition.get(key)
                 if current_type_set:
                     if (
