@@ -17,7 +17,7 @@ class EWAHRecurlyHook(EWAHBaseHook):
     def get_ui_field_behaviour():
         return {
             "hidden_fields": ["port", "schema", "extra", "host", "login"],
-            "relabeling": {"password": "Baisc Auth API Key"},
+            "relabeling": {"password": "Basic Auth API Key"},
         }
 
     @property
