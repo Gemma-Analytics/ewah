@@ -129,7 +129,7 @@ class EWAHCleaner(LoggingMixin):
 
         if add_metadata:
             cleaning_steps.append(self._add_metadata)
-            self.add_metadata = add_metadata
+        self.add_metadata = add_metadata
 
         if additional_callables:
             if callable(additional_callables):
