@@ -99,6 +99,34 @@ el_dags:
             source_conn_id: "{{ conn_name }}"
         {% endfor %}
 
+  EL_Airflow_Subs:
+    dag_strategy: atomic
+    el_operator: airflow
+    target_schema_name: raw_airflow_subs
+    operator_config:
+      tables:
+        {% for conn_name in ["airflow_api"] %}
+          {{ conn_name }}_dags:
+            endpoint: dags
+            source_conn_id: "{{ conn_name }}"
+          {{ conn_name }}_task_instance:
+            endpoint: taskInstance
+            source_conn_id: "{{ conn_name }}"
+          {{ conn_name }}_dag_runs:
+            endpoint: dagRuns
+            extract_strategy: subsequent
+            source_conn_id: "{{ conn_name }}"
+          {{ conn_name }}_connections:
+            endpoint: connections
+            source_conn_id: "{{ conn_name }}"
+          {{ conn_name }}_variables:
+            endpoint: variables
+            source_conn_id: "{{ conn_name }}"
+          {{ conn_name }}_health:
+            endpoint: health
+            source_conn_id: "{{ conn_name }}"
+        {% endfor %}
+
   EL_BigQuery:
     dag_strategy: fr
     el_operator: bq
@@ -502,6 +530,30 @@ el_dags:
       tables:
         User: {}
         Lead: {}
+
+  EL_Sevdesk:
+    dag_strategy: atomic
+    el_operator: sevdesk
+    target_schema_name: raw_sevdesk
+    operator_config:
+      general_config:
+        source_conn_id: sevdesk
+      tables:
+        CheckAccount: {}
+        CheckAccountTransaction: {}
+        CommunicationWay: {}
+        Contact:
+          embed: category
+        Invoice: {}
+        invoice_pos:
+          endpoint: InvoicePos
+        Order: {}
+        order_pos:
+          endpoint: OrderPos
+        Part: {}
+        Voucher: {}
+        VoucherPos: {}
+
 
   EL_Sharepoint:
     dag_strategy: atomic
