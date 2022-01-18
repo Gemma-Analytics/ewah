@@ -32,7 +32,7 @@ class EWAHAircallHook(EWAHBaseHook):
             "hidden_fields": ["port", "schema", "extra", "host"],
             "relabeling": {
                 "login": "Basic Auth API ID",
-                "password": "Baisc Auth API Token",
+                "password": "Basic Auth API Token",
             },
         }
 
