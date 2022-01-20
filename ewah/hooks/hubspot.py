@@ -27,24 +27,100 @@ class EWAHHubspotHook(EWAHBaseHook):
     ASSOC_URL = "https://api.hubapi.com/crm/v3/associations/{fromObjectType}/{toObjectType}/batch/read"
     OWNERS_URL = "https://api.hubapi.com/crm/v3/owners/"
 
-    ACCEPTED_OBJECTS = [
-        "companies",
-        "contacts",
-        "deals",
-        "feedback_submissions",
-        "line_items",
-        "products",
-        "tickets",
-        "quotes",
-        "properties",
-        "owners",
-        "pipelines",
-        # special cases - see get_data_in_batches function
-        "engagement",
-        "engagements",
-        "activity",
-        "activities",
-    ]
+    # The value is a list of possible associations. Giving the "all" value for
+    # associations retrieves those listed associations.
+    ACCEPTED_OBJECTS = {
+        "companies": [
+            "contacts",
+            "deals",
+            "engagements",
+            "quotes",
+            "tickets",
+        ],
+        "contacts": [
+            "companies",
+            "deals",
+            "engagements",
+            "feedback_submissions",
+            "quotes",
+            "tickets",
+        ],
+        "deals": [
+            "companies",
+            "contacts",
+            "engagements",
+            "line_items",
+            "quotes",
+        ],
+        "feedback_submissions": [
+            "contacts",
+            "tickets",
+        ],
+        "line_items": [
+            "deals",
+            "tickets",
+        ],
+        "products": [],
+        "tickets": [
+            "contacts",
+            "deals",
+            "engagements",
+            "feedback_submissions",
+            "tickets",
+        ],
+        "quotes": [
+            "companies",
+            "contacts",
+            "deals",
+            "engagements",
+        ],
+        "properties": [],
+        "owners": [],
+        "pipelines": [],
+        "engagements": [
+            "companies",
+            "contacts",
+            "deals",
+            "tickets",
+            "quotes",
+        ],
+        # Engagements can also be pulled by engagement type now
+        "calls": [
+            "companies",
+            "contacts",
+            "deals",
+            "tickets",
+            "quotes",
+        ],
+        "emails": [
+            "companies",
+            "contacts",
+            "deals",
+            "tickets",
+            "quotes",
+        ],
+        "meetings": [
+            "companies",
+            "contacts",
+            "deals",
+            "tickets",
+            "quotes",
+        ],
+        "notes": [
+            "companies",
+            "contacts",
+            "deals",
+            "tickets",
+            "quotes",
+        ],
+        "tasks": [
+            "companies",
+            "contacts",
+            "deals",
+            "tickets",
+            "quotes",
+        ],
+    }
 
     @staticmethod
     def get_ui_field_behaviour():
@@ -93,54 +169,22 @@ class EWAHHubspotHook(EWAHBaseHook):
             sleep(60)
         return request
 
-    def get_engagements_in_batches(self, batch_size: int):
-        url = "https://api.hubapi.com/engagements/v1/engagements/paged"
-        limit = 250
-        params = {
-            "hapikey": self.conn.api_key,
-            "limit": limit,
-        }
-        data = []
-        i = 0
-        while True:
-            # paginate
-            i += 1
-            self.log.info("Getting page {0} of data...".format(str(i)))
-            request = self.retry_request(
-                url=url, params=params, expected_status_code=200, retries=3
-            )
-            assert request.status_code == 200, "\nStatus: {0}\nResponse: {1}".format(
-                request.status_code, request.text
-            )
-            response = request.json()
-            result = response.pop("results")
-            while result:
-                # column id is expected as primary key!
-                datum = result.pop(0)
-                datum["id"] = datum["engagement"]["id"]
-                data.append(datum)
-            if response.get("hasMore"):
-                params["offset"] = response["offset"]
-                if len(data) >= batch_size:
-                    yield data
-                    data = []
-            else:
-                break
-        if data:
-            yield data
-
     def get_data_in_batches(
         self,
         object: str,
         properties: Optional[List[str]] = None,
         exclude_properties: Optional[List[str]] = None,
         associations: Optional[List[str]] = None,
+        max_properties_per_call: int = 250,
         batch_size: int = 10000,
     ) -> List[Dict[str, Any]]:
 
         self.log.info("Loading data for CRM object {0}!".format(object))
         params_auth = {"hapikey": self.conn.api_key}
         params_object = {"hapikey": self.conn.api_key, "limit": 100}
+        if associations == "all":
+            # Resolve the "all" special keyword
+            associations = self.ACCEPTED_OBJECTS.get(object, [])
 
         if object in ("properties", "pipelines"):
             # Special case: not a normal object
@@ -152,7 +196,7 @@ class EWAHHubspotHook(EWAHBaseHook):
                 url_object_raw = self.PROPERTIES_URL
                 object_list = [  # engagements is OK! but only get them once
                     o
-                    for o in self.ACCEPTED_OBJECTS
+                    for o in self.ACCEPTED_OBJECTS.keys()
                     if not o
                     in (
                         "properties",
@@ -169,16 +213,6 @@ class EWAHHubspotHook(EWAHBaseHook):
 
             params_object["objectType"] = object_list.pop(0)
             url_object = url_object_raw.format(params_object["objectType"])
-        elif object in ("engagement", "engagements", "activity", "activities"):
-            # As of 2021-07-28, engagements are not part of the v3 of the API.
-            # Thus, they need special treatment.
-            # Also a special case and not a normal object.
-            assert not associations
-            assert not properties
-            assert not exclude_properties
-            for batch in self.get_engagements_in_batches(batch_size):
-                yield batch
-            return
         elif object == "owners":
             assert not associations
             assert not properties

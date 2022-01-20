@@ -234,6 +234,11 @@ el_dags:
         source_conn_id: hubspot
       tables:
         engagements: {}
+        calls: {}
+        emails: {}
+        meetings: {}
+        notes: {}
+        tasks: {}
         companies:
           associations:
             - deals
@@ -262,6 +267,46 @@ el_dags:
         quotes_table:
           object: quotes
         properties: {}
+        owners: {}
+
+  EL_Hubspot_all_assocs:
+    dag_strategy: fr
+    el_operator: hubspot
+    target_schema_name: raw_hubspot_assocs
+    operator_config:
+      general_config:
+        source_conn_id: hubspot
+        associations: all
+      tables:
+        engagements: {}
+        calls: {}
+        emails: {}
+        meetings: {}
+        notes: {}
+        tasks: {}
+        companies: {}
+        contacts:
+          properties:
+            - new_ip_address
+            - new_referer
+            - new_user_agent
+            - new_utm_campaign
+            - new_utm_content
+        deals:
+          properties:
+            - amount
+            - dealstage
+            - dealtype
+            - ignoreme
+          exclude_properties:
+            - ignoreme
+        # feedback_submissions: {}
+        line_items: {}
+        pipelines: {}
+        products: {}
+        tickets: {}
+        quotes: {}
+        # properties: {}
         owners: {}
 
   EL_Infigo:
