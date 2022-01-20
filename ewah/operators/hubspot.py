@@ -27,7 +27,7 @@ class EWAHHubspotOperator(EWAHBaseOperator):
         if object is None:
             object = kwargs.get("target_table_name")
         assert (
-            object in EWAHHubspotHook.ACCEPTED_OBJECTS
+            object in EWAHHubspotHook.ACCEPTED_OBJECTS.keys()
         ), "Object {0} is invalid!".format(object)
         if object == "properties":
             kwargs["primary_key"] = ["name", "object_type"]
@@ -39,12 +39,12 @@ class EWAHHubspotOperator(EWAHBaseOperator):
             properties = [properties]
         if isinstance(exclude_properties, str):
             exclude_properties = [exclude_properties]
-        if isinstance(associations, str):
+        if isinstance(associations, str) and not associations == "all":
             associations = [associations]
         nonetype = type(None)
         assert isinstance(properties, (list, nonetype))
         assert isinstance(exclude_properties, (list, nonetype))
-        assert isinstance(associations, (list, nonetype))
+        assert isinstance(associations, (list, nonetype)) or associations == "all"
         self.properties = properties
         self.exclude_properties = exclude_properties
         self.associations = associations
