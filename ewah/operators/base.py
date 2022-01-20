@@ -483,7 +483,8 @@ class EWAHBaseOperator(BaseOperator):
                     "__ewah_"
                     + hashlib.blake2b(
                         (
-                            temp_schema_name
+                            self.target_schema_name
+                            + self.target_schema_suffix
                             + "."
                             + self.target_table_name
                             + "."

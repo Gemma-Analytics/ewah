@@ -204,6 +204,9 @@ el_dags:
       tables:
         {% for currency in airflow_variables['currencies'].split(",") %}
           daily_fx_rates_usd_{{ currency|lower() }}:
+            index_columns:
+              - low
+              - high
             currency_pair:
               - USD
               - {{ currency|upper() }}
