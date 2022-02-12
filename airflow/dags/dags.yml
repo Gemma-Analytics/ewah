@@ -508,6 +508,24 @@ el_dags:
   #      product_prices:
   #        sql_select_statement: !text_from_file secret_sql_query.sql
 
+  EL_Postgres_3:
+    dag_strategy: fr
+    el_operator: postgres
+    target_schema_name: raw_test_dedupe
+    operator_config:
+      general_config:
+        source_conn_id: dwh
+        source_schema_name: public
+      tables:
+        sumting:
+          primary_key: id
+          deduplication_before_upload: True
+          sql_select_statement: |
+            select 1 as id, 123 as x
+            union all select 2, 4
+            union all select 1, 5
+            union all select 3, 6
+
   EL_Rapidmail:
     dag_strategy: atomic
     el_operator: rapidmail
