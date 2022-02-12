@@ -229,7 +229,7 @@ def dag_factory_idempotent(
         )
     else:
         execution_timeout = additional_task_args.get("execution_timeout")
-        execution_timeout_backfill = additional_task_args.pop(execution_timeout, None)
+        execution_timeout_backfill = additional_task_args.pop("execution_timeout", None)
 
     dags = (
         DAG(  # Current DAG

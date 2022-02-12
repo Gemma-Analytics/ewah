@@ -39,12 +39,16 @@ class EWAHBaseUploader(LoggingMixin):
         use_temp_pickling: bool = False,
         pickling_upload_chunk_size: int = 100000,
         pickle_compression: Optional[str] = None,
+        deduplication_before_upload: bool = False,
     ) -> None:
         assert pickle_compression is None or pickle_compression in (
             "gzip",
             "bz2",
             "lzma",
         )
+
+        if deduplication_before_upload:
+            assert primary_key, "Must set primary key if using deduplication_before_upload!"
 
         if use_temp_pickling:
             # Set a function to use for temporary pickle files
@@ -73,6 +77,7 @@ class EWAHBaseUploader(LoggingMixin):
         self.primary_key = primary_key
         self.use_temp_pickling = use_temp_pickling
         self.pickling_upload_chunk_size = pickling_upload_chunk_size
+        self.deduplication_before_upload = deduplication_before_upload
 
     @classmethod
     def get_cleaner_callables(cls):
@@ -144,6 +149,22 @@ class EWAHBaseUploader(LoggingMixin):
                 str(self.upload_call_count),
             )
         )
+
+        if self.deduplication_before_upload:
+            # Some endpoints can't help but return the same record multiple times.
+            # This is needed to deduplicate before uploading data.
+            # It should be avoided whenever possible, however.
+            self.log.info("Deduplicating data...")
+            temp_dict = {}
+            while data:
+                datum = data.pop(0)
+                id_tuple = ()
+                for key in self.primary_key:
+                    id_tuple += (datum.get(key),)
+                temp_dict[id_tuple] = datum
+            while temp_dict:
+                key, value = temp_dict.popitem()
+                data.append(value)
 
         if (self.upload_call_count > 1) or (
             not (self.load_strategy == EC.LS_INSERT_REPLACE)

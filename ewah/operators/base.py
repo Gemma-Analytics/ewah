@@ -152,6 +152,7 @@ class EWAHBaseOperator(BaseOperator):
         cleaner_class=EWAHCleaner,
         cleaner_callables=None,  # callables or list of callables to run during cleaning
         uploader_class=None,  # Future: deprecate dwh_engine and use this kwarg instead
+        deduplication_before_upload=False,
         *args,
         **kwargs
     ):
@@ -288,6 +289,7 @@ class EWAHBaseOperator(BaseOperator):
         self.default_values = default_values
         self.cleaner_class = cleaner_class
         self.cleaner_callables = cleaner_callables
+        self.deduplication_before_upload = deduplication_before_upload
 
         self.uploader_class = uploader_class or get_uploader(self.dwh_engine)
 
@@ -372,6 +374,7 @@ class EWAHBaseOperator(BaseOperator):
             use_temp_pickling=self.use_temp_pickling,
             pickling_upload_chunk_size=self.pickling_upload_chunk_size,
             pickle_compression=self.pickle_compression,
+            deduplication_before_upload=self.deduplication_before_upload,
         )
 
         # If applicable: set the session's default time zone
