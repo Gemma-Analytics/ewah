@@ -337,11 +337,13 @@ class EWAHBaseOperator(BaseOperator):
             # resolve conn id here & delete the object to avoid usage elsewhere
             self.source_conn = EWAHBaseHook.get_connection(self.source_conn_id)
             self.source_hook = self.source_conn.get_hook()
-            hook_callables = self.source_hook.get_cleaner_callables()
-            if callable(hook_callables):
-                cleaner_callables.append(hook_callables)
-            elif hook_callables:
-                cleaner_callables += hook_callables
+            if callable(getattr(self.source_hook, "get_cleaner_callables", None)):
+                hook_callables = self.source_hook.get_cleaner_callables()
+                if callable(hook_callables):
+                    cleaner_callables.append(hook_callables)
+                elif hook_callables:
+                    # Ought to be list of callables
+                    cleaner_callables += hook_callables
         del self.source_conn_id
 
         if self._CONN_TYPE:
