@@ -48,7 +48,9 @@ class EWAHBaseUploader(LoggingMixin):
         )
 
         if deduplication_before_upload:
-            assert primary_key, "Must set primary key if using deduplication_before_upload!"
+            assert (
+                primary_key
+            ), "Must set primary key if using deduplication_before_upload!"
 
         if use_temp_pickling:
             # Set a function to use for temporary pickle files

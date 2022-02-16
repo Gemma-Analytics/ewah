@@ -7,7 +7,6 @@ from airflow.models import BaseOperator
 
 from google.cloud.bigquery.table import TableReference
 from google.cloud.bigquery import (
-    SchemaField,
     Table,
     LoadJobConfig,
     SourceFormat,
@@ -476,7 +475,13 @@ class EWAHBigQueryUploader(EWAHBaseUploader):
                 merge_condition=merge_condition,
                 when_clauses=when_clauses,
             )
-            self.dwh_hook.execute(sql=sql)
+
+            self.log.info("Running:\n\n{0}".format(sql))
+            insert_query = conn.query(sql)
+            insert_query.result()  # Must call this to execute sql
+            self.log.info(
+                "Affected rows: {0}".format(insert_query.num_dml_affected_rows)
+            )
 
             self.log.info("Deleting temp table...")
             # delete temp table
