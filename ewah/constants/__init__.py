@@ -97,11 +97,13 @@ class EWAHConstants:
             str: "STRING",
             int: "INT64",
             float: "NUMERIC",
-            dict: "STRUCT",
-            list: "STRUCT",
-            tuple: "STRUCT",
-            set: "STRUCT",
-            frozenset: "STRUCT",
+            # Cannot use struct as data type because if there is any difference
+            # in the structure of the mapping types, BigQuery loading will fail
+            dict: "STRING", # "STRUCT",
+            list: "STRING", # "STRUCT",
+            tuple: "STRING", # "STRUCT",
+            set: "STRING", # "STRUCT",
+            frozenset: "STRING", # "STRUCT",
             bool: "BOOL",
             datetime: "TIMESTAMP",
             date: "DATE",

@@ -8,6 +8,7 @@ from airflow.models import BaseOperator
 from google.cloud.bigquery.table import TableReference
 from google.cloud.bigquery import (
     Table,
+    SchemaField,
     LoadJobConfig,
     SourceFormat,
     CopyJobConfig,
@@ -375,10 +376,15 @@ class EWAHBigQueryUploader(EWAHBaseUploader):
             project_id=project_id,
         )
 
-        # autodetect only works for json, csv
-        # Future: add clustering_fields kwargs
-        # job_config = LoadJobConfig(source_format=SourceFormat.JSON, autodetect=True)
-        job_config = LoadJobConfig(autodetect=True)
+        schema_definition = [
+            SchemaField(name=name, field_type=field["data_type"])
+            for name, field in columns_definition.items()
+        ]
+        # Must not use autodetect because it may differ between two uploads, and
+        # if temp table differs from destination table below in terms of schema,
+        # the insert will fail without error, and hence the data will be incomplete.
+        # This is pretty nuts but it is true.
+        job_config = LoadJobConfig(autodetect=False, schema=schema_definition)
 
         if (load_strategy == EC.LS_INSERT_REPLACE and upload_call_count == 1) or (
             not table_exists
