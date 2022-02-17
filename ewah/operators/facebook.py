@@ -109,8 +109,12 @@ class EWAHFBOperator(EWAHBaseOperator):
             self.extract_strategy == EC.ES_SUBSEQUENT
             and self.test_if_target_table_exists()
         ):
+            data_since = self.get_max_value_of_column("date_start")
+            if isinstance(data_since, str):
+                # Sometimes the date is saved as string
+                data_since = datetime.strptime(data_since, "%Y-%m-%d").date()
             data_since = (
-                self.get_max_value_of_column("date_start") - self.refresh_interval
+                data_since - self.refresh_interval
             )
         else:
             data_since = self.data_since
