@@ -376,20 +376,10 @@ class EWAHBigQueryUploader(EWAHBaseUploader):
             project_id=project_id,
         )
 
-        schema_definition = []
-        for name, field in columns_definition.items():
-            # TODO: Make the precision and scale of numeric customizable
-            # Must explicitly set scale and precision for numeric types since
-            # the defaults tend to be inappropriate
-            data_type = field["data_type"]
-            schema_kwargs = {"name": name, "field_type": data_type}
-            if data_type in ("NUMERIC", "DECIMAL"):
-                schema_kwargs["precision"] = 20
-                schema_kwargs["scale"] = 9
-            elif data_type in ("BIGNUMERIC", "BIGDECIMAL"):
-                schema_kwargs["precision"] = 19
-                schema_kwargs["scale"] = 19
-            schema_definition.append(SchemaField(**schema_kwargs))
+        schema_definition = [
+            SchemaField(name=name, field_type=field["data_type"])
+            for name, field in columns_definition.items()
+        ]
         # Must not use autodetect because it may differ between two uploads, and
         # if temp table differs from destination table below in terms of schema,
         # the insert will fail without error, and hence the data will be incomplete.

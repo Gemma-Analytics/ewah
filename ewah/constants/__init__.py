@@ -96,7 +96,7 @@ class EWAHConstants:
         DWH_ENGINE_BIGQUERY: {
             str: "STRING",
             int: "INT64",
-            float: "NUMERIC",
+            float: "STRING",  # Numeric data types can break loading due to precision
             # Cannot use struct as data type because if there is any difference
             # in the structure of the mapping types, BigQuery loading will fail
             dict: "STRING",  # "STRUCT",
