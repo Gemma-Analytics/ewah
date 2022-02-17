@@ -87,7 +87,10 @@ class EWAHGoogleAdsOperator(EWAHBaseOperator):
             self.extract_strategy == EC.ES_SUBSEQUENT
             and self.test_if_target_table_exists()
         ):
-            data_from = self.get_max_value_of_column(self.subsequent_field) - (
+            data_from = self.get_max_value_of_column(self.subsequent_field)
+            if isinstance(data_from, str):
+                data_from = datetime.strptime(data_from, "%Y-%m-%d").date()
+            data_from = data_from - (
                 self.load_data_from_relative or timedelta(days=0)
             )
             data_until = (self.data_until or datetime.now()).date()
