@@ -161,7 +161,7 @@ class EWAHdbtOperator(BaseOperator):
             if self.dbt_version.startswith("1"):
                 # Different pip behavior since dbt 1.0.0
                 cmd.append(
-                    "pip install --quiet --upgrade dbt-{0}=={1}".format(
+                    'pip install --quiet --upgrade "MarkupSafe<=2.0.1" "dbt-{0}=={1}"'.format(
                         {
                             EC.DWH_ENGINE_POSTGRES: "postgres",
                             EC.DWH_ENGINE_SNOWFLAKE: "snowflake",
@@ -172,7 +172,7 @@ class EWAHdbtOperator(BaseOperator):
                 )
             else:
                 cmd.append(
-                    "pip install --quiet --upgrade dbt=={0}".format(self.dbt_version)
+                    'pip install --quiet --upgrade "MarkupSafe<=2.0.1" "dbt=={0}"'.format(self.dbt_version)
                 )
             cmd.append("dbt --version")
             cmd.append("deactivate")
