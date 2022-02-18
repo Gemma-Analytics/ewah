@@ -163,6 +163,7 @@ class EWAHSnowflakeUploader(EWAHBaseUploader):
         database_name=None,
         primary_key=None,
     ):
+        primary_key = primary_key or []  # must be empty list, but don't init in kwargs
         database_name = database_name or self.dwh_hook.conn.database
         self.log.info("Preparing DWH Tables...")
         schema_name += schema_suffix
