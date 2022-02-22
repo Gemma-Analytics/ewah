@@ -90,7 +90,7 @@ class EWAHFBOperator(EWAHBaseOperator):
                     ).format(i_f, "\n\t".join(allowed_insight_fields))
                 )
 
-        assert isinstance(data_since, datetime), "data_from must be of type datetime!"
+        assert isinstance(data_since, datetime), "data_since must be of type datetime!"
 
         if kwargs.get("extract_strategy") == EC.ES_SUBSEQUENT:
             kwargs["subsequent_field"] = "date_start"
