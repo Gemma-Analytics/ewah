@@ -82,8 +82,8 @@ class EWAHConstants:
         },
         DWH_ENGINE_SNOWFLAKE: {
             str: "VARCHAR",
-            int: "NUMBER",
-            float: "NUMBER",
+            int: "INTEGER",
+            float: "FLOAT",
             dict: "OBJECT",
             list: "ARRAY",
             tuple: "ARRAY",
