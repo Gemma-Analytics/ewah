@@ -43,7 +43,7 @@ class EWAHdbtOperator(BaseOperator):
         git_conn_id=None,
         local_path=None,
         dbt_commands=["run"],  # string or list of strings - dbt commands
-        dbt_version="0.18.1",
+        dbt_version=None,
         subfolder=None,  # optional: supply if dbt project is in a subfolder
         threads=4,  # see https://docs.getdbt.com/dbt-cli/configure-your-profile/#understanding-threads
         schema_name="analytics",  # see https://docs.getdbt.com/dbt-cli/configure-your-profile/#understanding-target-schemas
@@ -60,7 +60,6 @@ class EWAHdbtOperator(BaseOperator):
 
         assert repo_type in ("git", "local")
         assert dbt_commands
-        assert dbt_version
         assert threads
         assert schema_name
 
@@ -152,32 +151,6 @@ class EWAHdbtOperator(BaseOperator):
                 )
             )
             venv.create(venv_folder, with_pip=True)
-
-            # install dbt into created venv
-            self.log.info("installing dbt=={0}".format(self.dbt_version))
-            cmd = []
-            cmd.append("source {0}/bin/activate".format(venv_folder))
-            cmd.append("pip install --quiet --upgrade pip setuptools")
-            if self.dbt_version.startswith("1"):
-                # Different pip behavior since dbt 1.0.0
-                cmd.append(
-                    'pip install --quiet --upgrade "MarkupSafe<=2.0.1" "dbt-{0}=={1}"'.format(
-                        {
-                            EC.DWH_ENGINE_POSTGRES: "postgres",
-                            EC.DWH_ENGINE_SNOWFLAKE: "snowflake",
-                            EC.DWH_ENGINE_BIGQUERY: "bigquery",
-                        }[self.dwh_engine],
-                        self.dbt_version,
-                    )
-                )
-            else:
-                cmd.append(
-                    'pip install --quiet --upgrade "MarkupSafe<=2.0.1" "dbt=={0}"'.format(self.dbt_version)
-                )
-            cmd.append("dbt --version")
-            cmd.append("deactivate")
-            assert run_cmd(cmd, env, self.log.info) == 0
-
             dbt_dir = repo_dir
             if self.subfolder:
                 if not self.subfolder[:1] == os.path.sep:
@@ -189,13 +162,23 @@ class EWAHdbtOperator(BaseOperator):
             dwh_hook.execute("SELECT 1 AS a -- Testing the connection")
             dwh_conn = dwh_hook.conn
 
-            # read profile name & create temporary profiles.yml
+            # read profile name and dbt version & create temporary profiles.yml
             project_yml_file = dbt_dir
             if not project_yml_file[-1:] == os.path.sep:
                 project_yml_file += os.path.sep
             project_yml_file += "dbt_project.yml"
             project_yml = yaml.load(open(project_yml_file, "r"), Loader=Loader)
             profile_name = project_yml["profile"]
+            dbt_version = self.dbt_version or profile_name.get("require-dbt-version")
+            del self.dbt_version  # Make sure it can't accidentally be used below
+            assert dbt_version, "Must supply dbt_version or set require-dbt-version!"
+            if isinstance(dbt_version, str):
+                if not dbt_version.startswith(("=", "<", ">")):
+                    dbt_version = "==" + dbt_version
+            elif isinstance(dbt_version, list):
+                dbt_version = ",".join(dbt_version)
+            else:
+                raise Exception("dbt_version must be a string or a list of strings!")
             self.log.info('Creating temp profile "{0}"'.format(profile_name))
             profiles_yml = {
                 "config": {
@@ -263,6 +246,35 @@ class EWAHdbtOperator(BaseOperator):
                     ] = dwh_conn.location
             else:
                 raise Exception("DWH Engine not implemented!")
+
+            # install dbt into created venv
+            cmd = []
+            cmd.append("source {0}/bin/activate".format(venv_folder))
+            cmd.append("pip install --quiet --upgrade pip setuptools")
+            if re.search("[^0-9\.]0(\.[0-9]+)?(\.[0-9]+)?$", dbt_version):
+                # regex checks whether the (last) version start with 0
+                # if true, version <1.0.0 required
+                cmd.append(
+                    'pip install --quiet --upgrade "MarkupSafe<=2.0.1" "dbt{0}"'.format(
+                        dbt_version
+                    )
+                )
+            else:
+                # Different pip behavior since dbt 1.0.0
+                cmd.append(
+                    'pip install --quiet --upgrade "MarkupSafe<=2.0.1" "dbt-{0}{1}"'.format(
+                        {
+                            EC.DWH_ENGINE_POSTGRES: "postgres",
+                            EC.DWH_ENGINE_SNOWFLAKE: "snowflake",
+                            EC.DWH_ENGINE_BIGQUERY: "bigquery",
+                        }[self.dwh_engine],
+                        dbt_version,
+                    )
+                )
+
+            cmd.append("dbt --version")
+            cmd.append("deactivate")
+            assert run_cmd(cmd, env, self.log.info) == 0
 
             # run commands with correct profile in the venv in the temp folder
             profiles_yml_name = tmp_dir + os.path.sep + "profiles.yml"

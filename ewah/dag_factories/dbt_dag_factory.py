@@ -17,7 +17,7 @@ def dbt_dags_factory(
     database_name=None,
     git_conn_id=None,  # if provided, expecting private SSH key in conn extra
     local_path=None,
-    dbt_version="0.18.1",
+    dbt_version=None,  # Defaults to require-dbt-version in dbt_project.yml
     subfolder=None,  # optional: supply if dbt project is in a subfolder
     threads=4,  # see https://docs.getdbt.com/dbt-cli/configure-your-profile/#understanding-threads
     schema_name="analytics",  # see https://docs.getdbt.com/dbt-cli/configure-your-profile/#understanding-target-schemas
@@ -176,7 +176,7 @@ def dbt_snapshot_dag(
     database_name=None,
     git_conn_id=None,
     local_path=None,
-    dbt_version="0.18.1",
+    dbt_version=None,
     subfolder=None,
     threads=4,
     schema_name="analytics",  # for the profiles.yml

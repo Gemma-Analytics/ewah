@@ -119,7 +119,7 @@ bq1, bq2 = dbt_dags_factory(
     project="gemma-287313",
     dataset="ewah_jaffle_shop",
     git_conn_id="github",
-    dbt_version="0.21.0",
+    dbt_version=[">=1.0.0", "<2.0.0"],
     schedule_interval=timedelta(hours=1),
     start_date=datetime(2020, 7, 22),
     metabase_conn_id="metabase",
