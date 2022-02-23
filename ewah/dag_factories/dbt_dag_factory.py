@@ -92,12 +92,15 @@ def dbt_dags_factory(
         FROM public.dag_run
         WHERE dag_id IN ('{0}', '{1}')
           AND state = 'running'
-          AND data_interval_end < '{2}' -- DagRun's data_interval_end
+          AND data_interval_start < '{2}' -- DagRun's data_interval_end
+          AND NOT (run_id = '{3}' AND dag_id = '{4}')
           -- Note: data_interval_end = data_interval_start if run_type = 'manual'
     """.format(
         dag_1._dag_id,
         dag_2._dag_id,
         "{{ data_interval_end }}",
+        "{{ run_id }}",
+        "{{ dag._dag_id }}",
     )
 
     snsr_1 = EWAHSqlSensor(
