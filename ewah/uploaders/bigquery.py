@@ -10,7 +10,6 @@ from google.cloud.bigquery import (
     Table,
     SchemaField,
     LoadJobConfig,
-    SourceFormat,
     CopyJobConfig,
 )
 
@@ -66,10 +65,23 @@ class EWAHBigQueryUploader(EWAHBaseUploader):
 
     _QUERY_TABLE = "SELECT * FROM `{project_id}.{schema_name}.{table_name}`"
 
-    def __init__(self, *args, **kwargs) -> None:
+    def __init__(
+        self,
+        *args,
+        partition_field=None,
+        partition_type=None,
+        require_partition_filter=False,
+        **kwargs,
+    ) -> None:
         super().__init__(EC.DWH_ENGINE_BIGQUERY, *args, **kwargs)
         # BigQuery project id aka database name may be set in connection
         self.database_name = self.database_name or self.dwh_hook.conn.project
+        if partition_type or partition_field or require_partition_filter:
+            assert (
+                partition_type and partition_field
+            ), "partition_type and partition_field must both be set if either is set or require_partition_filter is true!"
+        self.partition_field = partition_field
+        self.partition_type = partition_type
 
     @classmethod
     def get_cleaner_callables(cls):
@@ -398,6 +410,13 @@ class EWAHBigQueryUploader(EWAHBaseUploader):
                 )
             # create it anew
             table_obj = Table(".".join([project_id, new_schema_name, table_name]))
+            if self.partition_field:
+                table_obj.time_partitioning = bigquery.TimePartitioning(
+                    type_=self.partition_type,
+                    field=self.partition_field,
+                )
+                if self.require_partition_filter:
+                    table_obj.require_partition_filter = True
             job = conn.load_table_from_json(
                 json_rows=upload_data, destination=table_obj, job_config=job_config
             )
@@ -408,91 +427,9 @@ class EWAHBigQueryUploader(EWAHBaseUploader):
                 raise
             assert job.state == "DONE", "Invalid job state: {0}".format(job.state)
         else:
-            # table already exists, use `merge` statement to load data via temp table
-
-            tmp_table_name = table_name + "__tmp"
-            if self.test_if_table_exists(
-                table_name=tmp_table_name,
-                schema_name=new_schema_name,
-                project_id=project_id,
-            ):
-                # Delete temporary table if it exists from a previous run
-                conn.delete_table(
-                    conn.get_table(
-                        TableReference(dataset_ref=ds_new, table_id=tmp_table_name)
-                    )
-                )
-
-            # create a temp table with new data
-            self.log.info("Uploading data into a temp table...")
-            table_obj = Table(".".join([project_id, new_schema_name, tmp_table_name]))
-            job = conn.load_table_from_json(
-                json_rows=upload_data, destination=table_obj, job_config=job_config
-            )
-            try:
-                job.result()
-            except:
-                self.log.info("Errors occured - job errors: {0}".format(job.errors))
-                raise
-            assert job.state == "DONE", "Invalid job state: {0}".format(job.state)
-
-            # merge it into existing table
-            if load_strategy == EC.LS_UPSERT:
-                merge_condition = " AND ".join(
-                    ["TARGET.`{0}` = SOURCE.`{0}`".format(pk) for pk in primary_key]
-                )
-            elif load_strategy in (EC.LS_INSERT_ADD, EC.LS_INSERT_REPLACE):
-                # never matched
-                merge_condition = "FALSE"
-            else:
-                raise Exception("Not Implemented!")
-
-            when_clauses = """
-                WHEN MATCHED THEN
-                    UPDATE SET {set_columns}
-                WHEN NOT MATCHED THEN
-                    INSERT ({columns})
-                    VALUES ({columns})
-            """.format(
-                set_columns=",".join(
-                    [
-                        "`{0}` = SOURCE.`{0}`".format(field)
-                        for field in columns_definition.keys()
-                        if not field in (primary_key or [])
-                    ]
-                ),
-                columns=", ".join(
-                    ["`{0}`".format(field) for field in columns_definition.keys()]
-                ),
-            )
-
-            sql = """
-                MERGE INTO {target_name} AS TARGET
-                USING {source_name} AS SOURCE
-                ON {merge_condition}
-                {when_clauses}
-            """.format(
-                target_name="`{0}.{1}.{2}`".format(
-                    project_id, new_schema_name, table_name
-                ),
-                source_name="`{0}.{1}.{2}`".format(
-                    project_id, new_schema_name, tmp_table_name
-                ),
-                merge_condition=merge_condition,
-                when_clauses=when_clauses,
-            )
-
-            self.log.info("Running:\n\n{0}".format(sql))
-            insert_query = conn.query(sql)
-            insert_query.result()  # Must call this to execute sql
-            self.log.info(
-                "Affected rows: {0}".format(insert_query.num_dml_affected_rows)
-            )
-
-            self.log.info("Deleting temp table...")
-            # delete temp table
-            conn.delete_table(
-                conn.get_table(
-                    TableReference(dataset_ref=ds_new, table_id=tmp_table_name)
-                )
+            # table already exists, load data into the table
+            self.log.info("Uploading data now...")
+            table_obj = Table(".".join([project_id, new_schema_name, table_name]))
+            conn.insert_rows(
+                table=table_obj, rows=upload_data, selected_fields=schema_definition
             )
