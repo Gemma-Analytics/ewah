@@ -17,15 +17,23 @@ class EWAHPlentyMarketsOperator(EWAHBaseOperator):
 
     _CONN_TYPE = EWAHPlentyMarketsHook.conn_type
 
-    def __init__(self, resource=None, additional_api_call_params=None, *args, **kwargs):
+    def __init__(
+        self,
+        resource=None,
+        additional_api_call_params=None,
+        batch_size=10000,
+        *args,
+        **kwargs
+    ):
         kwargs["primary_key"] = kwargs.get("primary_key", "id")
         resource = resource or kwargs.get("target_table_name")
         if kwargs["extract_strategy"] == EC.ES_SUBSEQUENT:
             kwargs["subsequent_field"] = kwargs.get("subsequent_field", "updatedAt")
-            # currently, only the orders and accounts/contacts resource works with subsequent loading
-            assert any(["orders" in resource, "accounts/contacts" in resource])
+            assert (
+                EWAHPlentyMarketsHook.format_resource(resource)
+                in EWAHPlentyMarketsHook._INCREMENTAL_FIELDS.keys()
+            ), "{0} is not subsequent loadable!".format(resource)
         if kwargs["extract_strategy"] == EC.ES_INCREMENTAL:
-            # currently, only the orders resource works with incremental loading
             assert (
                 EWAHPlentyMarketsHook.format_resource(resource)
                 in EWAHPlentyMarketsHook._INCREMENTAL_FIELDS.keys()
@@ -35,6 +43,7 @@ class EWAHPlentyMarketsOperator(EWAHBaseOperator):
         assert isinstance(additional_api_call_params, (type(None), dict))
         self.resource = resource
         self.additional_api_call_params = additional_api_call_params
+        self.batch_size = batch_size
 
     def ewah_execute(self, context):
         if (
@@ -59,5 +68,6 @@ class EWAHPlentyMarketsOperator(EWAHBaseOperator):
             data_from=data_from,
             data_until=self.data_until,
             additional_params=self.additional_api_call_params,
+            batch_size=self.batch_size,
         ):
             self.upload_data(batch)

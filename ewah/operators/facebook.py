@@ -113,9 +113,7 @@ class EWAHFBOperator(EWAHBaseOperator):
             if isinstance(data_since, str):
                 # Sometimes the date is saved as string
                 data_since = datetime.strptime(data_since, "%Y-%m-%d").date()
-            data_since = (
-                data_since - self.refresh_interval
-            )
+            data_since = data_since - self.refresh_interval
         else:
             data_since = self.data_since
         for account_id in self.account_ids or []:

@@ -17,7 +17,7 @@ def dbt_dags_factory(
     database_name=None,
     git_conn_id=None,  # if provided, expecting private SSH key in conn extra
     local_path=None,
-    dbt_version="0.18.1",
+    dbt_version=None,  # Defaults to require-dbt-version in dbt_project.yml
     subfolder=None,  # optional: supply if dbt project is in a subfolder
     threads=4,  # see https://docs.getdbt.com/dbt-cli/configure-your-profile/#understanding-threads
     schema_name="analytics",  # see https://docs.getdbt.com/dbt-cli/configure-your-profile/#understanding-target-schemas
@@ -92,12 +92,15 @@ def dbt_dags_factory(
         FROM public.dag_run
         WHERE dag_id IN ('{0}', '{1}')
           AND state = 'running'
-          AND data_interval_end < '{2}' -- DagRun's data_interval_end
+          AND data_interval_start < '{2}' -- DagRun's data_interval_end
+          AND NOT (run_id = '{3}' AND dag_id = '{4}')
           -- Note: data_interval_end = data_interval_start if run_type = 'manual'
     """.format(
         dag_1._dag_id,
         dag_2._dag_id,
         "{{ data_interval_end }}",
+        "{{ run_id }}",
+        "{{ dag._dag_id }}",
     )
 
     snsr_1 = EWAHSqlSensor(
@@ -173,7 +176,7 @@ def dbt_snapshot_dag(
     database_name=None,
     git_conn_id=None,
     local_path=None,
-    dbt_version="0.18.1",
+    dbt_version=None,
     subfolder=None,
     threads=4,
     schema_name="analytics",  # for the profiles.yml

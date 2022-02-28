@@ -41,6 +41,8 @@ class EWAHPostgresUploader(EWAHBaseUploader):
         );
     """
 
+    CONSTRAINTS_SET = False
+
     def __init__(self, *args, **kwargs) -> None:
         super().__init__(EC.DWH_ENGINE_POSTGRES, *args, **kwargs)
 
@@ -173,8 +175,9 @@ class EWAHPostgresUploader(EWAHBaseUploader):
                     )
                 )
 
-        if primary_key:
+        if primary_key and not self.CONSTRAINTS_SET:
             # make sure there is a unique constraint for primary_key
+            self.CONSTRAINTS_SET = True  # Only set it once per DagRun, though
             self.dwh_hook.execute(
                 sql="""
                     ALTER TABLE "{schema_name}"."{table_name}"

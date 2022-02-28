@@ -121,8 +121,9 @@ def dag_factory_atomic(
                     "dwh_engine": dwh_engine,
                     "dwh_conn_id": dwh_conn_id,
                     "extract_strategy": table_config.get(  # Default to full refresh
-                        "extract_strategy", EC.ES_FULL_REFRESH
-                    ),
+                        "extract_strategy", None
+                    )
+                    or EC.ES_FULL_REFRESH,  # value can be given as None in table conf
                     "target_table_name": operator_config["tables"][table].get(
                         "target_table_name", table
                     ),
