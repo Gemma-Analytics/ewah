@@ -3,8 +3,6 @@ from ewah.hooks.shopify import EWAHShopifyHook
 from ewah.operators.base import EWAHBaseOperator
 from ewah.utils.python_utils import is_iterable_not_string
 
-from pytz import timezone
-
 
 class EWAHShopifyOperator(EWAHBaseOperator):
 
