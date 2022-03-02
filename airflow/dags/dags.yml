@@ -633,7 +633,20 @@ el_dags:
         accounts:
           sheet_name: "SKR03 Accounts"
 
-  # EL_Shopify: tbd
+  EL_Shopify:
+    dag_strategy: atomic
+    el_operator: shopify
+    target_schema_name: raw_shopify
+    operator_config:
+      general_config:
+        source_conn_id: shopify
+        extract_strategy: subsequent
+      tables:
+        products: {}
+        customers: {}
+        payouts: {}
+        balance_transactions: {}
+        disputes: {}
 
   EL_Stripe:
     dag_strategy: fr
