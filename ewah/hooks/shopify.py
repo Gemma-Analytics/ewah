@@ -1,5 +1,6 @@
 from ewah.hooks.base import EWAHBaseHook
 
+from pytz import timezone
 import requests
 import time
 import copy
