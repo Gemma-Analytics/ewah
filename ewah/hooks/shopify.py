@@ -47,6 +47,7 @@ class EWAHShopifyHook(EWAHBaseHook):
         "checkouts": {},  # Same as abandoned_checkouts
         "abandoned_checkouts": {
             "_object_url": "checkouts",
+            "_name_in_request_data": "checkouts",
         },
         "payouts": {
             "_timestamp_fields": ("date_min", "date_max", "date"),
