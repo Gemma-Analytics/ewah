@@ -43,6 +43,11 @@ class EWAHShopifyHook(EWAHBaseHook):
             "_timestamp_fields": ("created_at_min", "created_at_max", "created_at"),
         },
         "orders": {},
+        "draft_orders": {},
+        "checkouts": {},  # Same as abandoned_checkouts
+        "abandoned_checkouts": {
+            "_object_url": "checkouts",
+        },
         "payouts": {
             "_timestamp_fields": ("date_min", "date_max", "date"),
             "_datetime_format": "%Y-%m-%d",
@@ -248,7 +253,7 @@ class EWAHShopifyHook(EWAHBaseHook):
                     req_kwargs=kwargs_links,
                 )
 
-            if not object_metadata.get("_is_drop_and_replace", False):
+            if data and not object_metadata.get("_is_drop_and_replace", False):
                 for datum in data:
                     datum[timestamp_fields[2]] = dateutil.parser.parse(
                         datum[timestamp_fields[2]]

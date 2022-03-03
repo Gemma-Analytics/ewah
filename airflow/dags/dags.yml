@@ -645,8 +645,11 @@ el_dags:
         products: {}
         customers: {}
         payouts: {}
-        balance_transactions: {}
+        balance_transactions:
+          load_strategy: insert_replace
         disputes: {}
+        checkouts: {}
+        draft_orders: {}
 
   EL_Stripe:
     dag_strategy: fr
