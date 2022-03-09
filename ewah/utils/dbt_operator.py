@@ -169,7 +169,7 @@ class EWAHdbtOperator(BaseOperator):
             project_yml_file += "dbt_project.yml"
             project_yml = yaml.load(open(project_yml_file, "r"), Loader=Loader)
             profile_name = project_yml["profile"]
-            dbt_version = self.dbt_version or profile_name.get("require-dbt-version")
+            dbt_version = self.dbt_version or project_yml.get("require-dbt-version")
             del self.dbt_version  # Make sure it can't accidentally be used below
             assert dbt_version, "Must supply dbt_version or set require-dbt-version!"
             if isinstance(dbt_version, str):
