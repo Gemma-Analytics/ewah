@@ -154,13 +154,13 @@ def dbt_dags_factory(
 
     test_1 = EWAHdbtOperator(
         task_id="dbt_test",
-        dbt_commands="test",
+        dbt_commands=f"test {run_flags}",
         dag=dag_1,
         execution_timeout=execution_timeout,
         **dbt_kwargs,
     )
     test_2 = EWAHdbtOperator(
-        task_id="dbt_test", dbt_commands="test", dag=dag_2, **dbt_kwargs
+        task_id="dbt_test", dbt_commands=f"test {run_flags}", dag=dag_2, **dbt_kwargs
     )
 
     snsr_1 >> run_1 >> test_1
