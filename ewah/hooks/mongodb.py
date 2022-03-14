@@ -38,18 +38,28 @@ class EWAHMongoDBHook(EWAHBaseHook):
     @staticmethod
     def get_connection_form_widgets() -> dict:
         """Returns connection widgets to add to connection form"""
-        from flask_appbuilder.fieldwidgets import BS3TextFieldWidget
-        from wtforms import StringField, BooleanField, PasswordField
+        from flask_appbuilder.fieldwidgets import (
+            BS3TextFieldWidget,
+            BS3PasswordFieldWidget,
+        )
+        from wtforms import StringField, PasswordField
         from ewah.utils.widgets import EWAHTextAreaWidget
 
         return {
             "extra__ewah_mongodb__conn_style": StringField(
                 "Connection Style (one of: uri, credentials)",
                 default="uri",
+                widget=BS3TextFieldWidget(),
             ),
-            "extra__ewah_mongodb__tls": BooleanField("SSL / TLS?"),
-            "extra__ewah_mongodb__tls_insecure": BooleanField(
-                "TLS: Allow insecure connections? Aka 'tlsInsecure'"
+            "extra__ewah_mongodb__tls": StringField(
+                "SSL / TLS?",
+                default="no",
+                widget=BS3TextFieldWidget(),
+            ),
+            "extra__ewah_mongodb__tls_insecure": StringField(
+                "TLS: Allow insecure connections? Aka 'tlsInsecure'",
+                default="no",
+                widget=BS3TextFieldWidget(),
             ),
             "extra__ewah_mongodb__ssl_cert": StringField(
                 "SSL Certificate",
@@ -59,8 +69,9 @@ class EWAHMongoDBHook(EWAHBaseHook):
                 "SSL Private Key",
                 widget=EWAHTextAreaWidget(rows=12),
             ),
-            "extra__ewah_mongodb__ssl_password": PasswordField(
+            "extra__ewah_mongodb__ssl_password": StringField(
                 "SSL Certificate / Private Key Password",
+                widget=BS3PasswordFieldWidget(),
             ),
             "extra__ewah_mongodb__auth_source": StringField(
                 "Auth Source", widget=BS3TextFieldWidget()
@@ -112,7 +123,7 @@ class EWAHMongoDBHook(EWAHBaseHook):
                     conn_kwargs["password"] = self.conn.password
 
             with TemporaryDirectory() as tmp_dir:
-                if self.conn.tls:
+                if self.conn.tls.lower().startswith(("y", "t")):
                     conn_kwargs["tls"] = True
                 with NamedTemporaryFile(dir=tmp_dir) as ssl_cert:
                     if self.conn.ssl_cert:
@@ -129,7 +140,7 @@ class EWAHMongoDBHook(EWAHBaseHook):
                         conn_kwargs[
                             "tlsCertificateKeyFilePassword"
                         ] = self.conn.ssl_password
-                    if self.conn.tls_insecure:
+                    if self.conn.tls_insecure.lower().startswith(("y", "t")):
                         conn_kwargs["tlsInsecure"] = True
                     if self.conn.auth_source:
                         conn_kwargs["authSource"] = self.conn.auth_source

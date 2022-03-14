@@ -52,6 +52,7 @@ class EWAHAirflowHook(EWAHBaseHook):
             "extra__ewah_airflow__protocol": StringField(
                 # Note: must not use SelectField
                 "Connection protocol (if using SSH or not specified in URL; one of: http, https)",
+                widget=BS3TextFieldWidget(),
                 default="http",
             ),
         }

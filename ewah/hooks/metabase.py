@@ -35,11 +35,13 @@ class EWAHMetabaseHook(EWAHBaseHook):
     @staticmethod
     def get_connection_form_widgets() -> dict:
         """Returns connection widgets to add to connection form"""
-        from wtforms import StringField, BooleanField
+        from wtforms import StringField
+        from flask_appbuilder.fieldwidgets import BS3TextFieldWidget
 
         return {
             "extra__ewah_metabase__http_string": StringField(
                 "Use http instead of https?",
+                widget=BS3TextFieldWidget(),
             )
         }
 

@@ -37,13 +37,16 @@ class EWAHGoogleAdsHook(EWAHBaseHook):
     @staticmethod
     def get_connection_form_widgets() -> dict:
         """Returns connection widgets to add to connection form"""
-        # from flask_appbuilder.fieldwidgets import BS3TextFieldWidget
-        from ewah.utils.widgets import EWAHTextAreaWidget
-        from wtforms import PasswordField
+        from wtforms import StringField
+        from flask_appbuilder.fieldwidgets import BS3PasswordFieldWidget
 
         return {
-            "extra__ewah_google_ads__developer_token": PasswordField("Developer Token"),
-            "extra__ewah_google_ads__refresh_token": PasswordField("Refresh Token"),
+            "extra__ewah_google_ads__developer_token": StringField(
+                "Developer Token", widget=BS3PasswordFieldWidget()
+            ),
+            "extra__ewah_google_ads__refresh_token": StringField(
+                "Refresh Token", widget=BS3PasswordFieldWidget()
+            ),
         }
 
     @property
