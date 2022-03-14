@@ -10,11 +10,13 @@ from ewah.hooks.base import EWAHBaseHook
 import os
 import csv
 import pickle
+import pytz
 
 import snowflake.connector
 from tempfile import NamedTemporaryFile, TemporaryDirectory
 from airflow.models import BaseOperator
 from copy import deepcopy
+from datetime import datetime
 
 
 class SnowflakeOperator(BaseOperator):
@@ -73,6 +75,20 @@ class EWAHSnowflakeUploader(EWAHBaseUploader):
         super().__init__(EC.DWH_ENGINE_SNOWFLAKE, *args, **kwargs)
         # Snowflake database name may be set in the connection
         self.database_name = self.database_name or self.dwh_hook.conn.database
+
+    @classmethod
+    def get_cleaner_callables(cls):
+        def add_timezone(row):
+            # Snowflake uses Pacific Time as default time zone if it receives
+            # a timestamp without a time zone. Overwrite this default by adding
+            # UTC as time zone to every datetime that doesn't have a time zone.
+            for key, value in row.items():
+                if isinstance(value, datetime) and not value.tzinfo:
+                    # add UTC as timezone if there is no timezone for the datetime yet
+                    row[key] = value.replace(tzinfo=pytz.utc)
+            return row
+
+        return [add_timezone]
 
     @classmethod
     def get_schema_tasks(
