@@ -42,17 +42,20 @@ class EWAHPlentyMarketsHook(EWAHBaseHook):
     @staticmethod
     def get_connection_form_widgets() -> dict:
         """Returns connection widgets to add to connection form"""
-        from wtforms import BooleanField
+        from wtforms import StringField
+        from flask_appbuilder.fieldwidgets import BS3TextFieldWidget
 
         return {
-            "extra__ewah_plentymarkets__url_is_final": BooleanField(
-                "Is this the final endpoint?"
+            "extra__ewah_plentymarkets__url_is_final": StringField(
+                "Is this the final endpoint?",
+                default="no",
+                widget=BS3TextFieldWidget(),
             )
         }
 
     @property
     def endpoint(self):
-        if self.conn.url_is_final:
+        if self.conn.url_is_final.lower().startswith(("y", "t")):
             return self.conn.url
 
         # get the current endpoint with the correct backend hash

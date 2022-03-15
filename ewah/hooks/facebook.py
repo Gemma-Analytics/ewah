@@ -40,11 +40,12 @@ class EWAHFacebookHook(EWAHBaseHook):
     @staticmethod
     def get_connection_form_widgets() -> dict:
         """Returns connection widgets to add to connection form"""
-        from wtforms import PasswordField
+        from wtforms import StringField
+        from flask_appbuilder.fieldwidgets import BS3PasswordFieldWidget
 
         return {
-            "extra__ewah_facebook__access_token": PasswordField(
-                "Access Token",
+            "extra__ewah_facebook__access_token": StringField(
+                "Access Token", widget=BS3PasswordFieldWidget()
             ),
         }
 

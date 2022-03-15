@@ -401,6 +401,19 @@ el_dags:
   # EL_Oracle_FR: !yml_from_file secret_dag_oracle_fr.yml
   # EL_Oracle_FR_compress: !yml_from_file secret_dag_oracle_fr_compress.yml
 
+  EL_Personio:
+    dag_strategy: atomic
+    el_operator: personio
+    target_schema_name: raw_personio
+    operator_config:
+      general_config:
+        source_conn_id: personio
+      tables:
+        employees: {}
+        absences: {}
+        projects: {}
+        attendances: {}
+
   EL_Pipedrive:
     dag_strategy: fr
     el_operator: pipedrive
