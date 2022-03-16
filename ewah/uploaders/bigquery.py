@@ -71,6 +71,7 @@ class EWAHBigQueryUploader(EWAHBaseUploader):
         partition_field=None,
         partition_type=None,
         require_partition_filter=False,
+        insert_chunk_size=100,
         **kwargs,
     ) -> None:
         super().__init__(EC.DWH_ENGINE_BIGQUERY, *args, **kwargs)
@@ -82,6 +83,7 @@ class EWAHBigQueryUploader(EWAHBaseUploader):
             ), "partition_type and partition_field must both be set if either is set or require_partition_filter is true!"
         self.partition_field = partition_field
         self.partition_type = partition_type
+        self.insert_chunk_size = insert_chunk_size
 
     @classmethod
     def get_cleaner_callables(cls):
@@ -428,8 +430,32 @@ class EWAHBigQueryUploader(EWAHBaseUploader):
             assert job.state == "DONE", "Invalid job state: {0}".format(job.state)
         else:
             # table already exists, load data into the table
-            self.log.info("Uploading data now...")
-            table_obj = Table(".".join([project_id, new_schema_name, table_name]))
-            conn.insert_rows(
-                table=table_obj, rows=upload_data, selected_fields=schema_definition
-            )
+            table_string = ".".join([project_id, new_schema_name, table_name])
+            self.log.info("Uploading data now into {0}...".format(table_string))
+            table_obj = Table(table_string)
+            while upload_data:
+                # The insert_rows method doesn't like large sets of data.
+                # Instead, loop over the upload_data and upload small chunks of it.
+                loop_data = upload_data[: self.insert_chunk_size]
+                failed_tries = 0
+
+                try:
+                    conn.insert_rows(
+                        table=table_obj,
+                        rows=loop_data,
+                        selected_fields=schema_definition,
+                    )
+                    # Delete is on purpose not executed if the insert_rows fails
+                    # -> try to upload the same set of data in that case
+                    del upload_data[: self.insert_chunk_size]
+                except:
+                    # Sometimes, BigQuery needs a bit of time to "know" the table
+                    # actually exists if it was very recently created... try a few
+                    # times with a delay before raising an actual error.
+                    if failed_tries >= 5:
+                        raise
+                    else:
+                        self.log.info("There appears to have been an error...")
+                        self.log.info("Trying again!")
+                        failed_tries += 1
+                        sleep(10 * failed_tries)
