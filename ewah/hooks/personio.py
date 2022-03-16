@@ -2,8 +2,7 @@ from ewah.hooks.base import EWAHBaseHook
 
 import requests
 
-# from datetime import datetime
-# from cryptography.fernet import Fernet
+from datetime import datetime, date
 
 
 class EWAHPersonioHook(EWAHBaseHook):
@@ -63,7 +62,7 @@ class EWAHPersonioHook(EWAHBaseHook):
         assert token_data.get("success"), token_data
         return token_data["data"]["token"]
 
-    def get_data_in_batches(self, resource):
+    def get_data_in_batches(self, resource, data_from=None):
         self.validate_resource(resource)
         url = self.BASE_URL + self.ENDPOINTS[resource]
         headers = {
@@ -75,8 +74,21 @@ class EWAHPersonioHook(EWAHBaseHook):
             "offset": 0,
         }
         if resource == "attendances":
+            # These params are required. Just make them ridiculous.
             params["start_date"] = "1900-01-01"
             params["end_date"] = "2100-01-01"
+            if data_from:
+                if isinstance(data_from, (date, datetime)):
+                    params["updated_from"] = data_from.isoformat()
+                else:
+                    params["updated_from"] = data_from
+        else:
+            assert not data_from, "data_from is only valid for attendances!"
+        if resource in ["absences", "time-offs"]:
+            # It appears as if the "limit" parameter is used like a "page"
+            # parameter in Personio's API for absences. Hence, start with one,
+            # and incremental like a serial.
+            params["offset"] = 1
 
         while True:
             self.log.info("Requesting a page of data...")
@@ -96,26 +108,28 @@ class EWAHPersonioHook(EWAHBaseHook):
                 #     }
                 #     for datum in response_data["data"]
                 # ]
-                data = response_data["data"]
+                data = response_data.pop("data")
                 data_len = len(data)
+                if resource == "attendances":
+                    # get the updated_at timestamp out of the attributes
+                    for datum in data:
+                        datum["updated_at"] = datum["attributes"]["updated_at"]
                 yield data
             else:
+                print(response_data)
                 data_len = 0
-            if (
-                (  # reached the last page
-                    response_data.get("current_page")
-                    and (response_data["current_page"] == response_data["total_pages"])
-                )
-                or (  # no pagination, but limit and offset shows: we're done
-                    not response_data.get("current_page")
-                    and response_data.get("limit")
-                    and data_len < int(response_data["limit"])
-                )
-                or (  # there's no pagination, we're done
-                    not response_data.get("current_page")
-                    and not response_data.get("limit")
-                )
-            ):
+            if (  # don't use the page parameter - doesn't work properly!
+                response_data.get("limit") and data_len < int(response_data["limit"])
+            ) or (not response_data.get("limit")):
+                # If there's not limit parameter, then there's no pagination at all
                 # We're done here
                 break
-            params["offset"] = response_data["offset"] + response_data["limit"]
+            if resource in ["absences", "time-offs"]:
+                # As discussed above: in the case of absences/time-offs (same endpoint),
+                # the "offset" parameter appears to be used like a "page" parameter.
+                # This is a workaround to work with this buggy API behavior.
+                params["offset"] = params["offset"] + 1
+            else:
+                params["offset"] = int(response_data["offset"]) + int(
+                    response_data["limit"]
+                )
