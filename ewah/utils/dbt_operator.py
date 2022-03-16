@@ -32,6 +32,7 @@ class EWAHdbtOperator(BaseOperator):
         "seed",
         "docs generate",
         "docs serve",
+        "source freshness",
     ]
     # note: dbt deps is always executed first!
 
