@@ -97,6 +97,7 @@ dag9, dag10 = dbt_dags_factory(
     dataset="ewah_dbt_metabase",
     local_path="/opt/airflow/test_dbt_project",
     dbt_version="1.0.0",
+    run_flags="--models +my_second_dbt_model+",
     schedule_interval=timedelta(hours=1),
     start_date=datetime(2020, 7, 22),
     metabase_conn_id="metabase_2",

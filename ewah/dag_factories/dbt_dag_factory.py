@@ -152,9 +152,14 @@ def dbt_dags_factory(
         **dbt_kwargs,
     )
 
+    run_flags_freshness = (
+        run_flags.replace("--models", "--select")
+        .replace("--model", "--select")
+        .replace("-m ", "-s ")
+    )
     test_1 = EWAHdbtOperator(
         task_id="dbt_test",
-        dbt_commands=f"test {run_flags}",
+        dbt_commands=[f"test {run_flags}", f"source freshness {run_flags_freshness}"],
         dag=dag_1,
         execution_timeout=execution_timeout,
         **dbt_kwargs,

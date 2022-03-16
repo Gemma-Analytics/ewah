@@ -19,3 +19,18 @@ models:
         tests:
           - unique
           - not_null
+
+sources:
+  - name: freshness_tests
+    schema: ewah_dbt_metabase_schema
+    loaded_at_field: dt
+    freshness:
+      warn_after:
+        count: 1
+        period: minute
+      error_after:
+        count: 1
+        period: hour
+    tables:
+      - name: my_first_dbt_model
+      - name: my_second_dbt_model
