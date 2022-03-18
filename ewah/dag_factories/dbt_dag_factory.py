@@ -192,9 +192,18 @@ def dbt_snapshot_dag(
     default_args=None,
     dagrun_timeout_factor=None,
     task_timeout_factor=0.8,
+    project=None,  # BigQuery alias
+    dataset=None,  # BigQuery alias
+    run_flags=None,
 ):
+    run_flags = run_flags or ""
+
     # only PostgreSQL & Snowflake implemented as of now!
-    assert dwh_engine in (EC.DWH_ENGINE_POSTGRES, EC.DWH_ENGINE_SNOWFLAKE)
+    assert dwh_engine in (
+        EC.DWH_ENGINE_POSTGRES,
+        EC.DWH_ENGINE_SNOWFLAKE,
+        EC.DWH_ENGINE_BIGQUERY,
+    )
 
     if dagrun_timeout_factor:
         _msg = "dagrun_timeout_factor must be a number between 0 and 1!"
@@ -227,7 +236,7 @@ def dbt_snapshot_dag(
     task = EWAHdbtOperator(
         dag=dag,
         task_id="dbt_snapshot",
-        dbt_commands=["snapshot"],
+        dbt_commands=[f"snapshot {run_flags}"],
         repo_type=repo_type,
         dwh_engine=dwh_engine,
         dwh_conn_id=dwh_conn_id,
@@ -240,6 +249,8 @@ def dbt_snapshot_dag(
         schema_name=schema_name,
         keepalives_idle=keepalives_idle,
         execution_timeout=execution_timeout,
+        project=project,
+        dataset=dataset,
     )
 
     return dag
