@@ -99,25 +99,27 @@ class EWAHPersonioHook(EWAHBaseHook):
             response_data = response.json()
             assert response_data.get("success"), response_data
             if response_data.get("data"):
-                # Endpoints have differing ways of returning data... for now,
-                # keep it simple, and just push the data the way we receive it.
-                # data = [
-                #     {
-                #         key: value["value"] if isinstance(value, dict) else value
-                #         for key, value in datum["attributes"].items()
-                #     }
-                #     for datum in response_data["data"]
-                # ]
+                # Unpack attributes dict
+                # Format of dict differs across endpoints! Cover all of them
                 data = response_data.pop("data")
+                for datum in data:
+                    attributes = datum.pop("attributes", {})
+                    for attribute, value in attributes.items():
+                        if resource == "employees":
+                            value = value["value"]
+                        if (
+                            resource in ["absences", "time-offs"]
+                            and attribute == "employee"
+                        ):
+                            # Don't pull PII from absences, only employee ID!
+                            # If able, that data can be pulled from the employees
+                            # endpoint!
+                            value = value["attributes"]["id"]["value"]
+                        datum[attribute] = value
                 data_len = len(data)
-                if resource == "attendances":
-                    # get the updated_at timestamp out of the attributes
-                    for datum in data:
-                        datum["updated_at"] = datum["attributes"]["updated_at"]
                 yield data
             else:
-                print(response_data)
-                data_len = 0
+                break
             if (  # don't use the page parameter - doesn't work properly!
                 response_data.get("limit") and data_len < int(response_data["limit"])
             ) or (not response_data.get("limit")):
