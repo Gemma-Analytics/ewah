@@ -151,3 +151,23 @@ snapshot_dag = dbt_snapshot_dag(
         "owner": "Data Engineering",
     },
 )
+
+snapshot_dag_bq = dbt_snapshot_dag(
+    dag_name="dbt_bigquery_snapshots",
+    dwh_engine=EC.DWH_ENGINE_BIGQUERY,
+    dwh_conn_id="bigquery_dbt",
+    git_conn_id="github",
+    dbt_version=[">=1.0.0", "<2.0.0"],
+    schedule_interval=timedelta(hours=1),
+    project="gemma-287313",
+    dataset="ewah_jaffle_shop",
+    start_date=datetime(2020, 7, 22),
+    default_args={
+        "retries": 0,
+        "retry_delay": timedelta(minutes=5),
+        "email": ["email@email.com"],
+        "email_on_failure": True,
+        "email_on_retry": False,
+        "owner": "Data Engineering",
+    },
+)

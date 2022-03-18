@@ -63,7 +63,11 @@ class EWAHBrazeHook(EWAHBaseHook):
         )
         self.log.info("Loading objects from {0} ...".format(url))
         page = 0
-        params = {"page": page, "include_archived": True}
+        params = {
+            "page": page,
+            "include_archived": "true",  # This needs to be a string, not a bool!
+            # If this is a bool, the API will ignore the value and default to false
+        }
         if data_from:
             params["last_edit.time[gt]"] = data_from.isoformat()
             self.log.info("Loading data from {0}...".format(data_from.isoformat()))

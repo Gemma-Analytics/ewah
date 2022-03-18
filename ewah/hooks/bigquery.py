@@ -69,6 +69,9 @@ class EWAHBigQueryHook(EWAHSQLBaseHook):
             self.return_dict = return_dict
             self.latest_query = None
 
+        def close(self):
+            self.outer.log.info("Warning: BigQuery cursors cannot be closed!")
+
         def execute(self, sql, params=None, commit=True):
             if not commit:
                 self.outer.log.info("Warning: BigQuery always auto-commits!")
