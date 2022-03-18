@@ -65,7 +65,7 @@ class EWAHBrazeHook(EWAHBaseHook):
         page = 0
         params = {
             "page": page,
-            "include_archived": "true", # This need to be a string, not a bool!
+            "include_archived": "true",  # This needs to be a string, not a bool!
             # If this is a bool, the API will ignore the value and default to false
         }
         if data_from:
