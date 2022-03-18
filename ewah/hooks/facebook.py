@@ -23,7 +23,7 @@ class EWAHFacebookHook(EWAHBaseHook):
     conn_type = "ewah_facebook"
     hook_name = "EWAH Facebook Connection"
 
-    _DEFAULT_VERSION = "v12.0"
+    _DEFAULT_VERSION = "v13.0"
 
     @staticmethod
     def get_ui_field_behaviour():
