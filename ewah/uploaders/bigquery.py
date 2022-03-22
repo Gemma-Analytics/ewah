@@ -433,11 +433,11 @@ class EWAHBigQueryUploader(EWAHBaseUploader):
             table_string = ".".join([project_id, new_schema_name, table_name])
             self.log.info("Uploading data now into {0}...".format(table_string))
             table_obj = Table(table_string)
+            failed_tries = 0
             while upload_data:
                 # The insert_rows method doesn't like large sets of data.
                 # Instead, loop over the upload_data and upload small chunks of it.
                 loop_data = upload_data[: self.insert_chunk_size]
-                failed_tries = 0
 
                 try:
                     conn.insert_rows(
@@ -448,6 +448,7 @@ class EWAHBigQueryUploader(EWAHBaseUploader):
                     # Delete is on purpose not executed if the insert_rows fails
                     # -> try to upload the same set of data in that case
                     del upload_data[: self.insert_chunk_size]
+                    failed_tries = 0  # Reset if successful
                 except:
                     # Sometimes, BigQuery needs a bit of time to "know" the table
                     # actually exists if it was very recently created... try a few
