@@ -175,7 +175,6 @@ class EWAHCleaner(LoggingMixin):
 
     def _hash_value(self, value):
         # Overwrite function for any other desired hashing behavior
-        print("TEST: abc >" + str(self.salt) +"< ," + str(type(self.salt)))
         if value is None:
             return None
         return sha256((str(value) + str(self.salt or '')).encode()).hexdigest()
