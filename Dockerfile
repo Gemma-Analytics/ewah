@@ -78,9 +78,6 @@ ENV EWAH_IMAGE_TYPE='DEV'
 # Run support scripts on start-up
 ENV EWAH_RUN_DEV_SUPPORT_SCRIPTS='1'
 
-# Env for salt part of hashing
-ENV EWAH_HASH_SALT=''
-
 # FYI
 ENV EWAH_AIRFLOW_CONNS_YAML_PATH='You can set me as a path to a non-standard airflow connections yml file!'
 
