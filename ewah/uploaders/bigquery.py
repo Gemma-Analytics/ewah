@@ -337,25 +337,16 @@ class EWAHBigQueryUploader(EWAHBaseUploader):
                 table_new,
                 job_config=CopyJobConfig(write_disposition="WRITE_TRUNCATE"),
             )
-            sleep(1)
 
-            while True:
-                copy_job.result()
-                assert copy_job.state in (
-                    "RUNNING",
-                    "DONE",
-                ), "Unexpected job state: {0}".format(job.state)
-                if copy_job.state == "DONE":
-                    self.log.info(
-                        "Successfully copied {0}".format(
-                            copy_job.__dict__["_properties"]["configuration"]["copy"][
-                                "destinationTable"
-                            ]["tableId"]
-                        )
-                    )
-                    break
-                # Wait 5s, try again
-                sleep(5)
+            copy_job.result()  # Waits until the job is done
+            assert copy_job.state == "DONE", "Unexpected job state: {0}".format(job.state)
+            self.log.info(
+                "Successfully copied {0}!".format(
+                    copy_job.__dict__["_properties"]["configuration"]["copy"][
+                        "destinationTable"
+                    ]["tableId"]
+                )
+            )
 
     def _create_or_update_table(
         self,
