@@ -139,7 +139,7 @@ class EWAHBaseOperator(BaseOperator):
         index_columns=[],  # list of columns to create an index on. can be
         # an expression, must be quoted in list if quoting is required.
         hash_columns=None,  # str or list of str - columns to hash pre-upload
-        hash_salt=None, # string salt part for hashing
+        hash_salt=None,  # string salt part for hashing
         wait_for_seconds=120,  # seconds past data_interval_end to wait until
         # wait_for_seconds only applies for incremental loads
         add_metadata=True,

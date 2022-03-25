@@ -142,7 +142,7 @@ class EWAHCleaner(LoggingMixin):
         cleaning_steps.append(self.clean_values)
 
         self.cleaning_steps = cleaning_steps
-        self.hash_salt = hash_salt or ''
+        self.hash_salt = hash_salt or ""
         self.default_row = default_row or {}
         self.json_encoder = json_encoder
 
