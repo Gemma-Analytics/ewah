@@ -16,7 +16,7 @@ class EWAHBaseUploader(LoggingMixin):
     """Base class for all EWAH uploader classes aka Uploaders.
 
     Uploaders are classes that can receive data in a standardized format and upload
-    it to a target data storage. Each Uploader is uploads data to one type of target.
+    it to a target data storage. Each Uploader uploads data to one type of target.
     For instance, the EWAHPostgresUploader loads data to PostgreSQL databases.
 
     The base class contains the basic methods shared by all Uploaders for the purpose of
