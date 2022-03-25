@@ -143,7 +143,7 @@ class EWAHBigQueryUploader(EWAHBaseUploader):
             # delete dataset first if it already exists
             print("Deleting the dataset {0} if it already exists.".format(schema))
             conn.delete_dataset(schema, delete_contents=True, not_found_ok=True)
-            print("Creating the dataset {0}.".format(schema_full))
+            print("Creating the dataset {0}.".format(schema))
             conn.create_dataset(schema)
             print("Done!")
 
