@@ -59,7 +59,7 @@ class EWAHBigQueryUploader(EWAHBaseUploader):
         WHERE table_name = '{table_name}'
     """
     _QUERY_SCHEMA_CHANGES_ADD_COLUMN = """
-        ALTER TABLE `{project_id}.{schema_name}.{table_name}`
+        ALTER TABLE `{project_id}.{schema_name}{schema_suffix}.{table_name}`
         ADD COLUMN `{column_name}` {column_type};
     """
 

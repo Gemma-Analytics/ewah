@@ -266,7 +266,8 @@ class EWAHBaseUploader(LoggingMixin):
     def detect_and_apply_schema_changes(self):
         # Note: Don't commit any changes!
         params = {
-            "schema_name": self.schema_name + self.schema_suffix,
+            "schema_name": self.schema_name,
+            "schema_suffix": self.schema_suffix,
             "table_name": self.table_name,
         }
         if self.dwh_engine == EC.DWH_ENGINE_SNOWFLAKE:
