@@ -23,10 +23,6 @@ class EWAHPostgresUploader(EWAHBaseUploader):
         	AND cl.relname = %(table_name)s
         	AND f.attnum > 0;
     """
-    _QUERY_SCHEMA_CHANGES_DROP_COLUMN = """
-        ALTER TABLE "{schema_name}"."{table_name}"
-        DROP COLUMN IF EXISTS "{column_name}" CASCADE;
-    """
     _QUERY_SCHEMA_CHANGES_ADD_COLUMN = """
         ALTER TABLE "{schema_name}"."{table_name}"
         ADD COLUMN "{column_name}" {column_type};

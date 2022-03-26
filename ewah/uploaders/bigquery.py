@@ -18,6 +18,13 @@ from time import sleep
 from tempfile import TemporaryFile, TemporaryDirectory
 from datetime import datetime, date, timedelta
 
+from avro.datafile import DataFileWriter
+from avro.io import DatumWriter
+
+import avro.schema
+import json
+import os
+
 
 class BigqueryOperator(BaseOperator):
     "Operate to execute SQL on BigQuery"
@@ -49,6 +56,18 @@ class FakeDatasetRef:
     def __init__(self, dataset_id, project_id):
         self.dataset_id = dataset_id
         self.project = project_id
+
+
+def map_bq_data_type_to_avro(data_type):
+    return {
+        "STRING": "string",
+        "INT64": "long",
+        "BOOL": "boolean",
+        # "DATE": "", TODO: Properly deal with datetime types
+        # "TIMESTAMP": "",
+        "BYTES": "bytes",
+        "FLOAT64": "double",
+    }[data_type]
 
 
 class EWAHBigQueryUploader(EWAHBaseUploader):
@@ -84,6 +103,8 @@ class EWAHBigQueryUploader(EWAHBaseUploader):
         self.partition_field = partition_field
         self.partition_type = partition_type
         self.insert_chunk_size = insert_chunk_size
+
+        assert self.use_temp_pickling, "BigQuery operator only works with pickling!"
 
     @classmethod
     def get_cleaner_callables(cls):
@@ -143,7 +164,7 @@ class EWAHBigQueryUploader(EWAHBaseUploader):
             # delete dataset first if it already exists
             print("Deleting the dataset {0} if it already exists.".format(schema))
             conn.delete_dataset(schema, delete_contents=True, not_found_ok=True)
-            print("Creating the dataset {0}.".format(schema_full))
+            print("Creating the dataset {0}.".format(schema))
             conn.create_dataset(schema)
             print("Done!")
 
@@ -251,11 +272,7 @@ class EWAHBigQueryUploader(EWAHBaseUploader):
     def close(self):
         pass  # nothing to do
 
-    def commit(self):
-        pass  # nothing to do
-
     def test_if_table_exists(self, table_name, schema_name, project_id=None):
-
         if project_id:
             dataset_path = "{0}.{1}".format(project_id, schema_name)
         else:
@@ -337,25 +354,18 @@ class EWAHBigQueryUploader(EWAHBaseUploader):
                 table_new,
                 job_config=CopyJobConfig(write_disposition="WRITE_TRUNCATE"),
             )
-            sleep(1)
 
-            while True:
-                copy_job.result()
-                assert copy_job.state in (
-                    "RUNNING",
-                    "DONE",
-                ), "Unexpected job state: {0}".format(job.state)
-                if copy_job.state == "DONE":
-                    self.log.info(
-                        "Successfully copied {0}".format(
-                            copy_job.__dict__["_properties"]["configuration"]["copy"][
-                                "destinationTable"
-                            ]["tableId"]
-                        )
-                    )
-                    break
-                # Wait 5s, try again
-                sleep(5)
+            copy_job.result()  # Waits until the job is done
+            assert copy_job.state == "DONE", "Unexpected job state: {0}".format(
+                job.state
+            )
+            self.log.info(
+                "Successfully copied {0}!".format(
+                    copy_job.__dict__["_properties"]["configuration"]["copy"][
+                        "destinationTable"
+                    ]["tableId"]
+                )
+            )
 
     def _create_or_update_table(
         self,
@@ -369,58 +379,134 @@ class EWAHBigQueryUploader(EWAHBaseUploader):
         database_name=None,
         primary_key=None,
     ):
-        project_id = database_name or self.database_name
-        conn = self.dwh_hook.dbconn
+        # This method doesn't actually create or update a table. It just creates
+        # and populates a single .avro file which is used in the data upload.
+        # The actual upload happens when the commit() method is called.
+        if upload_call_count == 1:
+            # Create avro writer and file in temporary folder
+            self.avro_folder = TemporaryDirectory()
+            self.avro_file_name = self.avro_folder.name + os.sep + table_name + ".avro"
+            avro_schema = avro.schema.parse(
+                json.dumps(
+                    {
+                        "type": "record",
+                        "name": table_name,
+                        "namespace": table_name,
+                        "fields": [
+                            {
+                                "name": name,
+                                "type": [
+                                    "null",
+                                    map_bq_data_type_to_avro(field["data_type"]),
+                                ],
+                            }
+                            for name, field in columns_definition.items()
+                        ],
+                    }
+                )
+            )
+            # Create the avro_writer object to be used going forward
+            self.avro_writer = DataFileWriter(
+                open(self.avro_file_name, "wb"), DatumWriter(), avro_schema
+            )
+            # Save the relevant kwargs for later use in the commit() method
+            self.table_creation_config = {
+                "table_name": table_name,
+                "schema_name": schema_name,
+                "schema_suffix": schema_suffix,
+                "columns_definition": columns_definition,
+                "load_strategy": load_strategy,
+                "database_name": database_name,
+                "primary_key": primary_key,
+            }
+
+        self.log.info(
+            "BigQuery Uploader writes data into Avro file for later one-off upload!"
+        )
+        while data:
+            # Write records to .avro file
+            self.avro_writer.append(data.pop(0))
+
+    def commit(self):
+        # The commit is where the upload is actually done for BigQuery (special case).
+        # The _create_or_update_table method can be called multiple times;
+        # each time, data is appended to the .avro file. When "committing",
+        # this .avro file is uploaded and, depending on the load strategy, used.
+        if not hasattr(self, "avro_file_name"):
+            # There was no data ever uploaded
+            # Do nothing
+            self.log.info("Nothing to upload!")
+            return
+
+        # Clean up after yourself first
+        self.avro_writer.close()
+
+        # Fetch the relevant configuration
+        project_id = self.table_creation_config.get("database_name", self.database_name)
+        assert project_id, "Missing Project ID!"
+        load_strategy = self.table_creation_config["load_strategy"]
+        primary_key = self.table_creation_config["primary_key"]
+        schema_name = self.table_creation_config["schema_name"]
+        schema_suffix = self.table_creation_config["schema_suffix"]
+        table_name_final = self.table_creation_config["table_name"]
+        table_suffix = "__ewah_tmp"
+
+        columns_definition = self.table_creation_config["columns_definition"]
         new_schema_name = schema_name + schema_suffix
+
+        is_full_refresh = (
+            load_strategy == EC.LS_INSERT_REPLACE
+            or not self.test_if_table_exists(
+                table_name=table_name_final,
+                schema_name=new_schema_name,
+                project_id=project_id,
+            )
+        )
+
+        conn = self.dwh_hook.dbconn
         ds_new = conn.get_dataset(new_schema_name)
 
-        # ensure all fields exist, even if null
-        # otherwise, rarely-populated fields will cause data loading failure
-        upload_data = []
-        while data:
-            datum = data.pop(0)
-            upload_data.append(
-                {field: datum.get(field) for field in columns_definition.keys()}
-            )
+        # Create temp table with .avro file
+        if is_full_refresh:
+            # temp table is also the final table for full refresh!
+            table_name = table_name_final
+        else:
+            table_name = table_name_final + table_suffix
 
-        # create table if it does not yet exist / drop if it needs dropping
-        table_exists = self.test_if_table_exists(
+        # Drop temp table if it already exists
+        if self.test_if_table_exists(
             table_name=table_name,
             schema_name=new_schema_name,
             project_id=project_id,
-        )
-
-        schema_definition = [
-            SchemaField(name=name, field_type=field["data_type"])
-            for name, field in columns_definition.items()
-        ]
-        # Must not use autodetect because it may differ between two uploads, and
-        # if temp table differs from destination table below in terms of schema,
-        # the insert will fail without error, and hence the data will be incomplete.
-        # This is pretty nuts but it is true.
-        job_config = LoadJobConfig(autodetect=False, schema=schema_definition)
-
-        if (load_strategy == EC.LS_INSERT_REPLACE and upload_call_count == 1) or (
-            not table_exists
         ):
-            if table_exists:
-                # Drop table before re-creating it
-                conn.delete_table(
-                    conn.get_table(
-                        TableReference(dataset_ref=ds_new, table_id=table_name)
-                    )
-                )
-            # create it anew
-            table_obj = Table(".".join([project_id, new_schema_name, table_name]))
-            if self.partition_field:
-                table_obj.time_partitioning = bigquery.TimePartitioning(
-                    type_=self.partition_type,
-                    field=self.partition_field,
-                )
-                if self.require_partition_filter:
-                    table_obj.require_partition_filter = True
-            job = conn.load_table_from_json(
-                json_rows=upload_data, destination=table_obj, job_config=job_config
+            # Drop table before re-creating it
+            conn.delete_table(
+                conn.get_table(TableReference(dataset_ref=ds_new, table_id=table_name))
+            )
+        # Create temp table with .avro file
+        table_obj = Table(".".join([project_id, new_schema_name, table_name]))
+        if is_full_refresh and self.partition_field:
+            table_obj.time_partitioning = bigquery.TimePartitioning(
+                type_=self.partition_type,
+                field=self.partition_field,
+            )
+            if self.require_partition_filter:
+                table_obj.require_partition_filter = True
+        self.log.info("Uploading data into table now...")
+        with open(self.avro_file_name, "rb") as source_file:
+            job = conn.load_table_from_file(
+                file_obj=source_file,
+                destination=table_obj,
+                job_id_prefix="ewah_",
+                rewind=True,
+                job_config=LoadJobConfig(
+                    autodetect=False,
+                    source_format="AVRO",
+                    schema=[
+                        SchemaField(name=name, field_type=field["data_type"])
+                        for name, field in columns_definition.items()
+                    ],
+                ),
             )
             try:
                 job.result()
@@ -428,34 +514,60 @@ class EWAHBigQueryUploader(EWAHBaseUploader):
                 self.log.info("Errors occured - job errors: {0}".format(job.errors))
                 raise
             assert job.state == "DONE", "Invalid job state: {0}".format(job.state)
-        else:
-            # table already exists, load data into the table
-            table_string = ".".join([project_id, new_schema_name, table_name])
-            self.log.info("Uploading data now into {0}...".format(table_string))
-            table_obj = Table(table_string)
-            while upload_data:
-                # The insert_rows method doesn't like large sets of data.
-                # Instead, loop over the upload_data and upload small chunks of it.
-                loop_data = upload_data[: self.insert_chunk_size]
-                failed_tries = 0
 
-                try:
-                    conn.insert_rows(
-                        table=table_obj,
-                        rows=loop_data,
-                        selected_fields=schema_definition,
-                    )
-                    # Delete is on purpose not executed if the insert_rows fails
-                    # -> try to upload the same set of data in that case
-                    del upload_data[: self.insert_chunk_size]
-                except:
-                    # Sometimes, BigQuery needs a bit of time to "know" the table
-                    # actually exists if it was very recently created... try a few
-                    # times with a delay before raising an actual error.
-                    if failed_tries >= 5:
-                        raise
-                    else:
-                        self.log.info("There appears to have been an error...")
-                        self.log.info("Trying again!")
-                        failed_tries += 1
-                        sleep(10 * failed_tries)
+        if not is_full_refresh:
+            # Need to merge new rows into the existing table
+
+            fields_pk = set(primary_key)
+            fields_all = set(columns_definition.keys())
+            fields_non_pk = fields_all - fields_pk
+
+            if load_strategy == EC.LS_UPSERT:
+                assert fields_pk
+            elif load_strategy == EC.LS_INSERT_ADD:
+                fields_pk = []  # Ignore if set
+            else:
+                raise Exception("Not implemented!")
+
+            merge_statement = """
+                MERGE INTO `{target}` AS TARGET
+                USING `{source}` AS SOURCE
+                ON {condition}
+
+                WHEN MATCHED THEN
+                    UPDATE SET {update_fields}
+
+                WHEN NOT MATCHED THEN
+                    INSERT ({insert_fields})
+                    VALUES ({insert_fields})
+            """.format(
+                target=".".join([project_id, new_schema_name, table_name_final]),
+                source=".".join([project_id, new_schema_name, table_name]),
+                condition=" AND ".join(
+                    ["TARGET.`{0}` = SOURCE.`{0}`".format(field) for field in fields_pk]
+                )
+                or "FALSE",
+                insert_fields="`{0}`".format("`, `".join(fields_all)),
+                update_fields=", ".join(
+                    ["`{0}` = SOURCE.`{0}`".format(field) for field in fields_non_pk]
+                ),
+            )
+
+            self.log.info("Executing query:\n\n{0}\n\n".format(merge_statement))
+            job = conn.query(
+                query=merge_statement,
+                job_id_prefix="ewah_",
+            )
+            try:
+                job.result()
+            except:
+                self.log.info("Errors occured - job errors: {0}".format(job.errors))
+                raise
+            assert job.state == "DONE", "Invalid job state: {0}".format(job.state)
+
+            # Remove old temp table from dataset
+            conn.delete_table(
+                conn.get_table(TableReference(dataset_ref=ds_new, table_id=table_name))
+            )
+
+        self.log.info("Done!")

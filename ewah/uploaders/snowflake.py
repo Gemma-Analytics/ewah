@@ -54,12 +54,8 @@ class EWAHSnowflakeUploader(EWAHBaseUploader):
             AND table_name = %(table_name)s
         ORDER BY ordinal_position ASC;
     """
-    _QUERY_SCHEMA_CHANGES_DROP_COLUMN = """
-        ALTER TABLE "{database_name}"."{schema_name}"."{table_name}"
-        DROP COLUMN IF EXISTS "{column_name}" CASCADE;
-    """
     _QUERY_SCHEMA_CHANGES_ADD_COLUMN = """
-        ALTER TABLE "{database_name}"."{schema_name}"."{table_name}"
+        ALTER TABLE "{database_name}"."{schema_name}{schema_suffix}"."{table_name}"
         ADD COLUMN "{column_name}" {column_type};
     """
     _QUERY_TABLE = """
@@ -107,7 +103,7 @@ class EWAHSnowflakeUploader(EWAHBaseUploader):
         )
         sql_kickoff = """
             DROP SCHEMA IF EXISTS
-                "{database}"."{schema_name}{schema_suffix}" CASCADE;
+                "{database}"."{schema_name}" CASCADE;
             CREATE SCHEMA "{database}"."{schema_name}{schema_suffix}";
         """.format(
             database=target_database_name,
