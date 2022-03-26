@@ -518,8 +518,8 @@ class EWAHBigQueryUploader(EWAHBaseUploader):
         if not is_full_refresh:
             # Need to merge new rows into the existing table
 
-            fields_pk = set(primary_key)
-            fields_all = set(columns_definition.keys())
+            fields_pk = set(primary_key or [])
+            fields_all = set(columns_definition.keys() or [])
             fields_non_pk = fields_all - fields_pk
 
             if load_strategy == EC.LS_UPSERT:
