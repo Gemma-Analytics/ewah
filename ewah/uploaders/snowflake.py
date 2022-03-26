@@ -103,7 +103,7 @@ class EWAHSnowflakeUploader(EWAHBaseUploader):
         )
         sql_kickoff = """
             DROP SCHEMA IF EXISTS
-                "{database}"."{schema_name}{schema_suffix}" CASCADE;
+                "{database}"."{schema_name}" CASCADE;
             CREATE SCHEMA "{database}"."{schema_name}{schema_suffix}";
         """.format(
             database=target_database_name,

@@ -24,7 +24,7 @@ class EWAHPostgresUploader(EWAHBaseUploader):
         	AND f.attnum > 0;
     """
     _QUERY_SCHEMA_CHANGES_ADD_COLUMN = """
-        ALTER TABLE "{schema_name}{schema_suffix}"."{table_name}"
+        ALTER TABLE "{schema_name}"."{table_name}"
         ADD COLUMN "{column_name}" {column_type};
     """
     _QUERY_TABLE = 'SELECT * FROM "{schema_name}"."{table_name}"'
