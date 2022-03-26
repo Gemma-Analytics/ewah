@@ -107,6 +107,7 @@ class EWAHCleaner(LoggingMixin):
         add_metadata: bool = False,
         exclude_columns: Optional[List[str]] = None,
         hash_columns: Optional[List[str]] = None,
+        hash_salt: Optional[str] = None,
         rename_columns: Optional[Dict[str, str]] = None,
         additional_callables: Optional[Union[List[Callable], Callable]] = None,
         json_encoder: type = EWAHJSONEncoder,
@@ -141,6 +142,7 @@ class EWAHCleaner(LoggingMixin):
         cleaning_steps.append(self.clean_values)
 
         self.cleaning_steps = cleaning_steps
+        self.hash_salt = hash_salt or ""
         self.default_row = default_row or {}
         self.json_encoder = json_encoder
 
@@ -171,12 +173,11 @@ class EWAHCleaner(LoggingMixin):
             row[column] = self._hash_value(row.get(column))
         return row
 
-    @staticmethod
-    def _hash_value(value):
+    def _hash_value(self, value):
         # Overwrite function for any other desired hashing behavior
         if value is None:
             return None
-        return sha256(str(value).encode()).hexdigest()
+        return sha256((str(value) + str(self.hash_salt)).encode()).hexdigest()
 
     def clean_rows(
         self, rows: List[Dict[str, Any]], metadata: Optional[Dict[str, Any]] = None
