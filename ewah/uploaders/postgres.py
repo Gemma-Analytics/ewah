@@ -200,39 +200,43 @@ class EWAHPostgresUploader(EWAHBaseUploader):
             if not (column in (primary_key or [])):
                 set_columns += [column]
 
+        if load_strategy == EC.LS_INSERT_REPLACE:
+            # Ought not be a conflict - just insert
+            do_on_conflict = ""
+        elif load_strategy == EC.LS_INSERT_ADD:
+            # Ought not be a conflict - just insert
+            do_on_conflict = ""
+        elif load_strategy == EC.LS_UPSERT:
+            # Update records as appropriate
+            do_on_conflict = """
+                ON CONFLICT ("{primary_key}") DO UPDATE SET\n\t{sets}
+            """.format(
+                primary_key='", "'.join(primary_key),
+                sets="\n\t,".join(
+                    [
+                        '"{column}" = EXCLUDED."{column}"'.format(column=column)
+                        for column in set_columns
+                    ]
+                ),
+            )
+        else:
+            raise Exception("Not implemented!")
+
         cols_list = list(columns_definition.keys())
         sql = (
             """
             INSERT INTO "{schema_name}"."{table_name}"
             ("{column_names}") VALUES {placeholder}
-            ON CONFLICT {do_on_conflict};
+            {do_on_conflict};
         """.format(
-                **{
-                    "schema_name": schema_name,
-                    "table_name": table_name,
-                    "placeholder": "{placeholder}",
-                    "column_names": '", "'.join(cols_list),
-                    "do_on_conflict": "DO NOTHING"
-                    if not primary_key
-                    else """
-                ("{primary_key}") DO UPDATE SET\n\t{sets}
-            """.format(
-                        primary_key='", "'.join(primary_key),
-                        sets="\n\t,".join(
-                            [
-                                '"{column}" = EXCLUDED."{column}"'.format(column=column)
-                                for column in set_columns
-                            ]
-                        ),
-                    ),
-                }
+                schema_name=schema_name,
+                table_name=table_name,
+                placeholder="{placeholder}",
+                column_names='", "'.join(cols_list),
+                do_on_conflict=do_on_conflict,
             )
             .replace("%", "%%")
-            .format(
-                **{
-                    "placeholder": "%s",
-                }
-            )
+            .format(placeholder="%s")
         )
         self.log.info("Now Uploading! Using SQL:\n\n{0}".format(sql))
         # escape crappy column names by using aliases in the psycopg2 template

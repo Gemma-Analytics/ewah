@@ -393,6 +393,8 @@ el_dags:
   # EL_MongoDB_4: !yml_from_file secret_dag_mongodb_4.yml
   # EL_MongoDB_5: !yml_from_file secret_dag_mongodb_5.yml
 
+  EL_MSSQL: !yml_from_file secret_dag_mssql.yml
+
   # EL_MySQL_Atomic: !yml_from_file secret_dag_mysql_atomic.yml
   # EL_MySQL_Symfony: !yml_from_file secret_dag_mysql.yml
 
