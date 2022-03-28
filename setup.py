@@ -39,6 +39,7 @@ setuptools.setup(
         "openpyxl",
         "psycopg2",
         "pymongo",
+        "pymssql",
         "pymysql",
         "python-dateutil",
         "pytz",

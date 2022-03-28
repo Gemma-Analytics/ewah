@@ -33,6 +33,7 @@ class EWAHSQLBaseOperator(EWAHBaseOperator):
         source_database_name: Optional[str] = None,  # bigquery: project id
         sql_select_statement: Optional[str] = None,  # Alternative to specifying table
         timestamp_column: Optional[str] = None,
+        subsequent_delta: Optional[Union[timedelta, int]] = None,
         where_clauses: Optional[Union[str, List[str]]] = None,
         extra_params: Optional[dict] = None,
         batch_size: int = 100000,
@@ -71,6 +72,7 @@ class EWAHSQLBaseOperator(EWAHBaseOperator):
         self.timestamp_column = timestamp_column
         self.where_clauses = where_clauses
         self.batch_size = batch_size
+        self.subsequent_delta = subsequent_delta
 
     def ewah_execute(self, context):
         # called, potentially with a data_from and data_until
@@ -94,12 +96,14 @@ class EWAHSQLBaseOperator(EWAHBaseOperator):
         if self.subsequent_field and self.test_if_target_table_exists():
             where_clauses.append(
                 "{0} > {1}".format(
-                    self.subsequent_field, self._SQL_PARAMS.format("previous_max_value")
+                    "{0}{1}{0}".format(self._SQL_COLUMN_QUOTE, self.subsequent_field),
+                    self._SQL_PARAMS.format("previous_max_value"),
                 )
             )
-            params["previous_max_value"] = self.get_max_value_of_column(
-                self.subsequent_field
-            )
+            subsequent_value = self.get_max_value_of_column(self.subsequent_field)
+            if self.subsequent_delta:
+                subsequent_value -= self.subsequent_delta
+            params["previous_max_value"] = subsequent_value
 
         where_clauses = where_clauses or ["1 = 1"]
         sql = self.sql.format("\n  AND ".join(where_clauses))
