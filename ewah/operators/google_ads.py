@@ -95,18 +95,39 @@ class EWAHGoogleAdsOperator(EWAHBaseOperator):
         else:
             data_from = self.data_from.date()
             data_until = (self.data_until or datetime.now()).date()
-        if data_from and data_until:
+
+        if self.load_data_chunking_timedelta:
+            batch_from = data_from
+            while batch_from <= data_until:
+                batch_until = min(data_until, batch_from + self.load_data_chunking_timedelta)
+                conditions.append(
+                    "segments.date BETWEEN '{0}' AND '{1}'".format(
+                        batch_from.isoformat(),
+                        batch_until.isoformat(),
+                    )
+                )
+                self.upload_data(
+                    self.source_hook.get_data(
+                        client_id=self.client_id,
+                        fields=self.fields,
+                        resource=self.resource,
+                        conditions=conditions,
+                    )
+                )
+                del conditions[-1:]  # Re-added in next iteration
+                batch_from = batch_until + timedelta(days=1)
+        else:
             conditions.append(
                 "segments.date BETWEEN '{0}' AND '{1}'".format(
                     data_from.isoformat(),
                     data_until.isoformat(),
                 )
             )
-        self.upload_data(
-            self.source_hook.get_data(
-                client_id=self.client_id,
-                fields=self.fields,
-                resource=self.resource,
-                conditions=conditions,
+            self.upload_data(
+                self.source_hook.get_data(
+                    client_id=self.client_id,
+                    fields=self.fields,
+                    resource=self.resource,
+                    conditions=conditions,
+                )
             )
-        )
