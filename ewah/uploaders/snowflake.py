@@ -291,6 +291,10 @@ class EWAHSnowflakeUploader(EWAHBaseUploader):
                 )
         else:
             update_set_cols = []
+            if load_strategy == EC.LS_INSERT_ADD:
+                # Even if set, ignore primary key during insert!
+                primary_key = []
+
             for col in columns_definition.keys():
                 if not (col in primary_key):
                     update_set_cols += [col]
@@ -302,8 +306,8 @@ class EWAHSnowflakeUploader(EWAHBaseUploader):
                     ON {4}
                     WHEN MATCHED THEN UPDATE
                         SET {5}
-                    WHEN NOT MATCHED THEN INSERT
-                                ({6})
+                    WHEN NOT MATCHED THEN
+                        INSERT  ({6})
                         VALUES  ({7})
                     ;
                 DROP TABLE "{0}"."{1}"."{3}" CASCADE;
