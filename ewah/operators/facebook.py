@@ -20,7 +20,7 @@ class EWAHFBOperator(EWAHBaseOperator):
 
     _ACCEPTED_EXTRACT_STRATEGIES = {
         EC.ES_FULL_REFRESH: True,
-        EC.ES_INCREMENTAL: False,
+        EC.ES_INCREMENTAL: True,
         EC.ES_SUBSEQUENT: True,
     }
 
@@ -114,14 +114,20 @@ class EWAHFBOperator(EWAHBaseOperator):
                 # Sometimes the date is saved as string
                 data_since = datetime.strptime(data_since, "%Y-%m-%d").date()
             data_since = data_since - self.refresh_interval
+            data_until = datetime.now()
+        elif self.extract_strategy == EC.ES_INCREMENTAL:
+            data_since = self.data_from
+            data_until = self.data_until or datetime.now()
         else:
             data_since = self.data_since
+            data_until = datetime.now()
+
         for account_id in self.account_ids or []:
             for batch in self.source_hook.get_data_in_batches(
                 level=self.level,
                 fields=self.insight_fields,
                 data_from=data_since,
-                data_until=datetime.now(),
+                data_until=data_until,
                 account_id=account_id,
                 breakdowns=self.breakdowns,
             ):
