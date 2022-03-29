@@ -99,7 +99,9 @@ class EWAHGoogleAdsOperator(EWAHBaseOperator):
         if self.load_data_chunking_timedelta:
             batch_from = data_from
             while batch_from <= data_until:
-                batch_until = min(data_until, batch_from + self.load_data_chunking_timedelta)
+                batch_until = min(
+                    data_until, batch_from + self.load_data_chunking_timedelta
+                )
                 conditions.append(
                     "segments.date BETWEEN '{0}' AND '{1}'".format(
                         batch_from.isoformat(),
