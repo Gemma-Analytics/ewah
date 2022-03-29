@@ -322,6 +322,41 @@ el_dags:
         print_locations:
           resource: printlocations
 
+  EL_LinkedIn:
+    dag_strategy: atomic
+    el_operator: linkedin_ads
+    target_schema_name: raw_linkedin_ads
+    operator_config:
+      general_config:
+        reload_data_from: 2022-01-01 00:00:00+00:00
+        source_conn_id: linkedin
+      tables:
+        ads_test:
+          pivot: campaign
+          fields:
+            - externalWebsiteConversions
+            - dateRange
+            - impressions
+            - landingPageClicks
+            - costInLocalCurrency
+            - pivot
+            - pivotValue
+            - pivotValues
+
+  EL_LinkedIn_Objects:
+    dag_strategy: atomic
+    el_operator: linkedin
+    target_schema_name: raw_linkedin_objects
+    operator_config:
+      general_config:
+        source_conn_id: linkedin
+      tables:
+        Creatives: {}
+        Campaigns: {}
+        Accounts: {}
+        campaign_groups:
+          object_name: CampaignGroups
+
   EL_Mailchimp:
     dag_strategy: fr
     el_operator: mailchimp
