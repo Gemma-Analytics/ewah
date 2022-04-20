@@ -4,7 +4,7 @@ from ewah.operators.base import EWAHBaseOperator
 from ewah.constants import EWAHConstants as EC
 
 
-class EWAHRecurlyOperator(EWAHBaseOperator):
+class EWAHPersonioOperator(EWAHBaseOperator):
 
     _NAMES = ["personio"]
 
