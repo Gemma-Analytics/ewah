@@ -127,6 +127,18 @@ el_dags:
             source_conn_id: "{{ conn_name }}"
         {% endfor %}
 
+  EL_Amazon_Seller_Central:
+    dag_strategy: atomic
+    el_operator: amazon_seller_central
+    target_schema_name: raw_amazon_seller_central
+    operator_config:
+      general_config:
+        source_conn_id: seller_central
+        marketplace_region: DE
+        extract_strategy: subsequent
+      tables:
+        orders: {}
+
   EL_BigQuery:
     dag_strategy: fr
     el_operator: bq
