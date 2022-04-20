@@ -62,9 +62,6 @@ class EWAHAmazonSellerCentralHook(EWAHBaseHook):
             "extra__ewah_amazon_seller_central__aws_arn_role": StringField(
                 "AWS ARN - Role", widget=BS3TextFieldWidget()
             ),
-            # "extra__ewah_amazon_seller_central__aws_arn_user": StringField(
-            #     "AWS ARN - User", widget=BS3TextFieldWidget()
-            # ),
             "extra__ewah_amazon_seller_central__lwa_client_id": StringField(
                 "LoginWithAmazon (LWA) Client ID", widget=BS3TextFieldWidget()
             ),
