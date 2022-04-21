@@ -15,9 +15,20 @@ class EWAHAmazonSellerCentralOperator(EWAHBaseOperator):
         EC.ES_SUBSEQUENT: True,
     }
 
-    def __init__(self, marketplace_region, resource=None, *args, **kwargs):
+    def __init__(
+        self, marketplace_region, resource=None, sideloads=None, *args, **kwargs
+    ):
         self.resource = resource or kwargs["target_table_name"]
         self.marketplace_region = marketplace_region
+        if sideloads:
+            if isinstance(sideloads, str):
+                self.sideloads = [sideloads]
+            else:
+                assert isinstance(sideloads, list), "sideloads must be str or list!"
+                self.sideloads = sideloads
+        else:
+            self.sideloads = None
+
         assert EWAHAmazonSellerCentralHook.validate_marketplace_region(
             marketplace_region
         ), f"Marketplace Region {marketplace_region} is invalid!"
@@ -42,5 +53,6 @@ class EWAHAmazonSellerCentralOperator(EWAHBaseOperator):
             resource=self.resource,
             marketplace_region=self.marketplace_region,
             since_date=data_from,
+            sideloads=self.sideloads,
         ):
             self.upload_data(batch)

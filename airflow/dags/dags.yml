@@ -136,8 +136,11 @@ el_dags:
         source_conn_id: seller_central
         marketplace_region: DE
         extract_strategy: subsequent
+        reload_data_from: 2022-04-21 00:00:00+00:00
       tables:
-        orders: {}
+        orders:
+          sideloads:
+            - orderitems
 
   EL_BigQuery:
     dag_strategy: fr

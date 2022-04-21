@@ -25,8 +25,17 @@ class EWAHAmazonSellerCentralHook(EWAHBaseHook):
             "datetime_filter_param": "LastUpdatedAfter",
             "datetime_filter_field": "LastUpdateDate",
             "primary_key": "AmazonOrderId",
-        }
+            "payload_field": "Orders",
+            "sideloads": ["orderitems"],
+        },
+        "orderitems": {  # only for use as sideload
+            "path": "/orders/v0/orders/{id}/orderItems",
+            "default_rate": 0.0055,
+            "payload_field": "OrderItems",
+        },
     }
+
+    _THROTTLING_DICT = {}
 
     _ATTR_RELABEL = {}
 
@@ -181,14 +190,23 @@ class EWAHAmazonSellerCentralHook(EWAHBaseHook):
         return self.boto3_role_credentials.get("AccessKeyId")
 
     def make_api_call_and_return_payload(
-        self, resource, marketplace_region, since_date=None, next_token=None
+        self,
+        resource,
+        path,
+        marketplace_region,
+        since_date=None,
+        next_token=None,
+        logging=True,
     ):
-        if hasattr(self, "_next_call_after"):
-            # API uses token bucket-style requests throttling
-            self.log.info(
-                f"Waiting for next call until {self._next_call_after.isoformat()}..."
-            )
-            time.sleep(max(0, 1 + (self._next_call_after - pendulum.now()).seconds))
+
+        if self._THROTTLING_DICT.get(resource):
+            # APIs use token bucket-style requests throttling
+            next_call_after = self._THROTTLING_DICT[resource]
+            if logging:
+                self.log.info(
+                    f"Waiting for next call until {next_call_after.isoformat()}..."
+                )
+            time.sleep(max(0, 1 + (next_call_after - pendulum.now()).seconds))
 
         current_ts = pendulum.now("utc")  # as late as possible -> set after waiting
         amz_date = current_ts.strftime("%Y%m%dT%H%M%SZ")
@@ -198,10 +216,10 @@ class EWAHAmazonSellerCentralHook(EWAHBaseHook):
             marketplace_region
         )
         metadata = self._APIS[resource]
-        path = metadata["path"]
         if not path.startswith("/"):
             path = "/" + path
-        filter_field = metadata["datetime_filter_param"]
+        if since_date:
+            filter_field = metadata["datetime_filter_param"]
         url = "".join([endpoint, path])
         params = {
             "MarketplaceIds": marketplace_id,
@@ -214,7 +232,7 @@ class EWAHAmazonSellerCentralHook(EWAHBaseHook):
                 .isoformat()
                 .replace("+00:00", "Z")
             )
-            if not next_token:
+            if not next_token and logging:
                 self.log.info(f"Loading data from {params[filter_field]}...")
         if next_token:
             params["NextToken"] = next_token
@@ -299,7 +317,7 @@ class EWAHAmazonSellerCentralHook(EWAHBaseHook):
         response = requests.get(url, params=params, headers=headers)
         assert response.status_code == 200, response.text
 
-        self._next_call_after = pendulum.now().add(
+        self._THROTTLING_DICT[resource] = pendulum.now().add(
             seconds=(
                 1
                 + round(
@@ -315,16 +333,52 @@ class EWAHAmazonSellerCentralHook(EWAHBaseHook):
         )
         return response.json()["payload"]
 
-    def get_data_in_batches(self, resource, marketplace_region, since_date=None):
+    def get_data_in_batches(
+        self,
+        resource,
+        marketplace_region,
+        path=None,
+        since_date=None,
+        sideloads=None,
+        logging=True,
+    ):
         next_token = None
+        metadata = self._APIS[resource]
+        path = path or metadata["path"]
         while True:
-            self.log.info("Making new request...")
+            if logging:
+                self.log.info("Making new request...")
             response_payload = self.make_api_call_and_return_payload(
-                resource, marketplace_region, since_date, next_token
+                resource, path, marketplace_region, since_date, next_token, logging
             )
             next_token = response_payload.get("NextToken")
-            if response_payload.get(resource.title()):
-                yield response_payload[resource.title()]
+
+            data = response_payload.pop(metadata["payload_field"], None)
+            if data:
+                if sideloads:
+                    # sideloads are API calls that need to be made per row of original
+                    # result. E.g. orderitems for each order. This requires a loop
+                    # over each original row and one request for each row.
+                    for datum in data:
+                        id = datum[metadata["primary_key"]]
+                        for sideload in sideloads:
+                            if logging:
+                                self.log.info(
+                                    f"Loading sideload {sideload} for {len(data)} rows of {resource}."
+                                )
+                            # sideloads have no "since_date"
+                            sideload_data = []
+                            sideload_meta = self._APIS[sideload]
+                            for batch in self.get_data_in_batches(
+                                resource=sideload,
+                                path=sideload_meta["path"].format(id=id),
+                                marketplace_region=marketplace_region,
+                                logging=False,
+                            ):
+                                if batch:
+                                    sideload_data += batch
+                            datum["sideload_" + sideload] = sideload_data
+                yield data
             elif next_token:
                 raise Exception(
                     "No data was returned, but a NextToken -> something went wrong!"
