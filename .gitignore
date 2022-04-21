@@ -6,6 +6,7 @@ airflow/*
 !airflow/test_dbt_project
 secret_dag_*.yml
 secret_sql_*.sql
+snippets/*
 
 
 postgres-data/*
