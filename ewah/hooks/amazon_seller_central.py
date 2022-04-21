@@ -357,13 +357,13 @@ class EWAHAmazonSellerCentralHook(EWAHBaseHook):
                     # sideloads are API calls that need to be made per row of original
                     # result. E.g. orderitems for each order. This requires a loop
                     # over each original row and one request for each row.
+                    if logging:
+                        self.log.info(
+                            f"Loading sideloads ({(', '.join(sideloads))}) for {len(data)} rows of {resource}."
+                        )
                     for datum in data:
                         id = datum[metadata["primary_key"]]
                         for sideload in sideloads:
-                            if logging:
-                                self.log.info(
-                                    f"Loading sideload {sideload} for {len(data)} rows of {resource}."
-                                )
                             # sideloads have no "since_date"
                             sideload_data = []
                             sideload_meta = self._APIS[sideload]
