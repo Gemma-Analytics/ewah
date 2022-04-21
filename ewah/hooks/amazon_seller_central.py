@@ -325,6 +325,10 @@ class EWAHAmazonSellerCentralHook(EWAHBaseHook):
             next_token = response_payload.get("NextToken")
             if response_payload.get(resource.title()):
                 yield response_payload[resource.title()]
+            elif next_token:
+                raise Exception(
+                    "No data was returned, but a NextToken -> something went wrong!"
+                )
             if not next_token:
                 # We've reached the last page
                 break
