@@ -206,7 +206,8 @@ class EWAHAmazonSellerCentralHook(EWAHBaseHook):
                 self.log.info(
                     f"Waiting for next call until {next_call_after.isoformat()}..."
                 )
-            time.sleep(max(0, 1 + (next_call_after - pendulum.now()).seconds))
+            sleeptime = next_call_after - pendulum.now()
+            time.sleep(max(0, sleeptime.microseconds / 1000000 + sleeptime.seconds))
 
         current_ts = pendulum.now("utc")  # as late as possible -> set after waiting
         amz_date = current_ts.strftime("%Y%m%dT%H%M%SZ")
@@ -320,13 +321,10 @@ class EWAHAmazonSellerCentralHook(EWAHBaseHook):
         self._THROTTLING_DICT[resource] = pendulum.now().add(
             seconds=(
                 1
-                + round(
-                    1
-                    / float(
-                        response.headers.get(
-                            "x-amzn-RateLimit-Limit",
-                            metadata.get("default_rate", 0.0055),
-                        )
+                / float(
+                    response.headers.get(
+                        "x-amzn-RateLimit-Limit",
+                        metadata.get("default_rate", 0.0055),
                     )
                 )
             )
