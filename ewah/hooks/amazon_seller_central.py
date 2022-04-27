@@ -14,6 +14,7 @@ import boto3
 import requests
 import time
 import pytz
+import copy
 
 
 class EWAHAmazonSellerCentralHook(EWAHBaseHook):
@@ -22,7 +23,7 @@ class EWAHAmazonSellerCentralHook(EWAHBaseHook):
         "orders": {
             "path": "/orders/v0/orders",
             "default_rate": 0.0055,
-            "datetime_filter_param": "LastUpdatedAfter",
+            "datetime_filter_params": ["CreatedAfter", "LastUpdatedAfter"],
             "datetime_filter_field": "LastUpdateDate",
             "primary_key": "AmazonOrderId",
             "payload_field": "Orders",
@@ -158,14 +159,23 @@ class EWAHAmazonSellerCentralHook(EWAHBaseHook):
             response_data = response.json()
             self._access_token = response_data["access_token"]
             self._access_token_expires_at = requested_at.add(
-                seconds=response_data["expires_in"]
+                # add a 15% error margin to avoid expiration during a call
+                seconds=(response_data["expires_in"] * 0.85),
+            )
+            self.log.info(
+                "New Amazon oauth access token is valid until {0}...".format(
+                    self._access_token_expires_at.isoformat()
+                )
             )
         return self._access_token
 
     @property
     def boto3_role_credentials(self):
-        if not hasattr(self, "_boto3_role_credentials"):
-            self.log.info("Logging into AWS...")
+        if (
+            not hasattr(self, "_boto3_role_credentials")
+            or pendulum.now() > self._boto3_session_expires_at
+        ):
+            self.log.info("Logging in to AWS...")
             boto3_client = boto3.client(
                 "sts",
                 aws_access_key_id=self.conn.aws_access_key_id,
@@ -175,6 +185,15 @@ class EWAHAmazonSellerCentralHook(EWAHBaseHook):
                 RoleArn=self.conn.aws_arn_role, RoleSessionName="guid"
             )
             self._boto3_role_credentials = role["Credentials"]
+            # Add a 15% error margin to avoid expiration during a call
+            self._boto3_session_expires_at = pendulum.now() + 0.85 * (
+                role["Credentials"]["Expiration"] - pendulum.now()
+            )
+            self.log.info(
+                "Logged in to AWS! Login expires at: {0}".format(
+                    self._boto3_session_expires_at.isoformat()
+                )
+            )
         return self._boto3_role_credentials
 
     @property
@@ -195,8 +214,10 @@ class EWAHAmazonSellerCentralHook(EWAHBaseHook):
         path,
         marketplace_region,
         since_date=None,
+        since_type=None,
         next_token=None,
         logging=True,
+        additional_api_call_params=None,
     ):
 
         if self._THROTTLING_DICT.get(resource):
@@ -220,12 +241,19 @@ class EWAHAmazonSellerCentralHook(EWAHBaseHook):
         if not path.startswith("/"):
             path = "/" + path
         if since_date:
-            filter_field = metadata["datetime_filter_param"]
+            if since_type == "CreatedAfter":
+                filter_field = metadata["datetime_filter_params"][0]
+            elif since_type == "LastUpdatedAfter":
+                filter_field = metadata["datetime_filter_params"][1]
+            else:
+                raise Exception("This exception ought to have been caught earlier.")
+
         url = "".join([endpoint, path])
-        params = {
-            "MarketplaceIds": marketplace_id,
-            "MaxResultsPerPage": 100,
-        }
+
+        params = copy.deepcopy(additional_api_call_params or {})
+        params["MarketplaceIds"] = marketplace_id
+        params["MaxResultsPerPage"] = 100
+
         if since_date:
             params[filter_field] = (
                 since_date.replace(microsecond=0)
@@ -234,7 +262,10 @@ class EWAHAmazonSellerCentralHook(EWAHBaseHook):
                 .replace("+00:00", "Z")
             )
             if not next_token and logging:
-                self.log.info(f"Loading data from {params[filter_field]}...")
+                self.log.info(
+                    f"Loading data from {filter_field}: {params[filter_field]}..."
+                )
+
         if next_token:
             params["NextToken"] = next_token
 
@@ -337,17 +368,31 @@ class EWAHAmazonSellerCentralHook(EWAHBaseHook):
         marketplace_region,
         path=None,
         since_date=None,
+        since_type=None,
         sideloads=None,
         logging=True,
+        additional_api_call_params=None,
     ):
         next_token = None
         metadata = self._APIS[resource]
         path = path or metadata["path"]
+        if since_date:
+            assert since_type in ("CreatedAfter", "LastUpdatedAfter")
+        else:
+            assert since_type is None
+
         while True:
             if logging:
                 self.log.info("Making new request...")
             response_payload = self.make_api_call_and_return_payload(
-                resource, path, marketplace_region, since_date, next_token, logging
+                resource,
+                path,
+                marketplace_region,
+                since_date,
+                since_type,
+                next_token,
+                logging,
+                additional_api_call_params,
             )
             next_token = response_payload.get("NextToken")
 
@@ -359,7 +404,8 @@ class EWAHAmazonSellerCentralHook(EWAHBaseHook):
                     # over each original row and one request for each row.
                     if logging:
                         self.log.info(
-                            f"Loading sideloads ({(', '.join(sideloads))}) for {len(data)} rows of {resource}."
+                            f"Loading sideloads ({(', '.join(sideloads))}) for "
+                            f"{len(data)} rows of {resource}."
                         )
                     for datum in data:
                         id = datum[metadata["primary_key"]]
