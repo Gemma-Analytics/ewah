@@ -229,8 +229,6 @@ class EWAHBaseOperator(BaseOperator):
 
         if isinstance(include_columns, str):
             include_columns = [include_columns]
-            print("THIS IS THE KEY")
-            print(primary_key)
 
         if include_columns and primary_key:
             for col in primary_key:
