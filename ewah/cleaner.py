@@ -105,6 +105,7 @@ class EWAHCleaner(LoggingMixin):
         self,
         default_row: Optional[Dict[str, Any]] = None,
         add_metadata: bool = False,
+        include_columns: Optional[List[str]] = None,
         exclude_columns: Optional[List[str]] = None,
         hash_columns: Optional[List[str]] = None,
         hash_salt: Optional[str] = None,
@@ -116,6 +117,14 @@ class EWAHCleaner(LoggingMixin):
 
         cleaning_steps = []
 
+        if include_columns:
+            cleaning_steps.append(self._include_columns)
+            self.include_columns = include_columns
+
+        if include_columns and exclude_columns:
+            _msg = "Don't use include and exclude columns config at the same time!"
+            raise Exception(_msg)
+            
         if exclude_columns:
             cleaning_steps.append(self._exclude_columns)
             self.exclude_columns = exclude_columns
@@ -153,6 +162,13 @@ class EWAHCleaner(LoggingMixin):
             }
         else:
             self.fields_definition = {}
+
+    def _include_columns(self, row):
+        tmp_row = {}
+        for column in self.include_columns:
+            if column in row:
+                tmp_row[column] = row[column]
+        return tmp_row
 
     def _exclude_columns(self, row):
         for column in self.exclude_columns:
