@@ -25,6 +25,7 @@ setuptools.setup(
         "avro",
         "azure-storage-blob>=2.1.0",  # a temporay 2.0.0 bugfix
         "dbt-metabase",
+        "croniter",
         "cx_Oracle",
         "facebook_business",
         "google-ads>=16.0.0",
