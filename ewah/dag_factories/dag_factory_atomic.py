@@ -7,6 +7,7 @@ from ewah.uploaders import get_uploader
 
 from collections.abc import Iterable
 from copy import deepcopy
+from croniter import croniter
 from datetime import datetime, timedelta
 from typing import Optional, Type, Callable, List, Tuple, Union
 
@@ -24,7 +25,7 @@ def dag_factory_atomic(
     target_schema_suffix: str = "_next",
     target_database_name: Optional[str] = None,
     default_args: Optional[dict] = None,
-    schedule_interval: timedelta = timedelta(days=1),
+    schedule_interval: Union[str, timedelta] = timedelta(days=1),
     end_date: Optional[datetime] = None,
     read_right_users: Optional[Union[List[str], str]] = None,
     additional_dag_args: Optional[dict] = None,
@@ -52,24 +53,40 @@ def dag_factory_atomic(
         if not isinstance(read_right_users, Iterable):
             raise_exception("read_right_users must be an iterable or string!")
 
-    # fake catchup = True: between start_date and end_date is only one schedule_interval
-    # --> run the full refreshs every schedule_interval at the same time instead of
-    # having a drift in execution time!
-    if end_date:
-        end_date = min(end_date, datetime_utcnow_with_tz())
+    if isinstance(schedule_interval, str):
+        # Allow using cron-style schedule intervals
+        catchup = False
+        assert croniter.is_valid(
+            schedule_interval
+        ), "schedule_interval is neither timedelta nor not valid cron!"
     else:
-        end_date = datetime_utcnow_with_tz()
-    start_date += int((end_date - start_date) / schedule_interval) * schedule_interval
-    if start_date == end_date:
+        assert isinstance(
+            schedule_interval, timedelta
+        ), "schedule_interval must be cron-string or timedelta!"
+
+        catchup = True
+        # fake catchup = True: between start_date and end_date is one schedule_interval
+        # --> run the full refreshs every schedule_interval at the same time instead of
+        # having a drift in execution time!
+        if end_date:
+            end_date = min(end_date, datetime_utcnow_with_tz())
+        else:
+            end_date = datetime_utcnow_with_tz()
+
+        start_date += (
+            int((end_date - start_date) / schedule_interval) - 1
+        ) * schedule_interval
+
+        # case 1: end_date = start_date + schedule_interval
         # if the division result is a precise integer, that implies a definite end_date
         # --> adjust to get exactly one schedule_interval delta between start_date and
         # end_date to have one last run available (that should have run before end_date)
-        start_date -= schedule_interval
-    else:
+
+        # case 2: end_date > (start_date + schedule_interval)
         # Airflow executes after data_interval_end - start_date has to be
         # between exactly 1 and below 2 time schedule_interval before end_date!
         # end_date - 2*schedule_interval < start_date <= end_date - schedule_interval
-        start_date -= schedule_interval
+
         # Make sure only one execution every runs scheduled but manual triggers work!
         end_date = start_date + 2 * schedule_interval - timedelta(seconds=1)
 
@@ -89,7 +106,7 @@ def dag_factory_atomic(
 
     dag = DAG(
         dag_name,
-        catchup=True,  # See above
+        catchup=catchup,
         default_args=default_args,
         max_active_runs=1,
         schedule_interval=schedule_interval,
