@@ -135,6 +135,7 @@ class EWAHBaseOperator(BaseOperator):
         load_data_until_relative=None,  # optional timedelta for incremental
         load_data_chunking_timedelta=None,  # optional timedelta to chunk by
         primary_key=None,  # either string or list of strings
+        include_columns=None,  # list of columns to explicitly include
         exclude_columns=None,  # list of columns to exclude
         index_columns=[],  # list of columns to create an index on. can be
         # an expression, must be quoted in list if quoting is required.
@@ -220,11 +221,30 @@ class EWAHBaseOperator(BaseOperator):
         )
         assert self._ACCEPTED_EXTRACT_STRATEGIES.get(extract_strategy), _msg
 
+        if isinstance(primary_key, str):
+            primary_key = [primary_key]
+
         if isinstance(hash_columns, str):
             hash_columns = [hash_columns]
 
+        if isinstance(include_columns, str):
+            include_columns = [include_columns]
+
+        if include_columns and primary_key:
+            for col in primary_key:
+                if not col in include_columns:
+                    _msg = """
+                        Primary key {0} is not in the include_columns list.
+                        Make sure all primary keys are included.
+                        """.format(col)
+                    raise Exception(_msg)
+
         if exclude_columns and isinstance(exclude_columns, str):
             exclude_columns = [exclude_columns]
+
+        if include_columns and exclude_columns:
+            _msg = "Don't use include and exclude columns config at the same time!"
+            raise Exception(_msg)
 
         if not dwh_engine or not dwh_engine in EC.DWH_ENGINES:
             _msg = "Invalid DWH Engine: {0}\n\nAccepted Engines:\n\t{1}".format(
@@ -273,10 +293,9 @@ class EWAHBaseOperator(BaseOperator):
         self.load_data_until = load_data_until
         self.load_data_until_relative = load_data_until_relative
         self.load_data_chunking_timedelta = load_data_chunking_timedelta
-        if isinstance(primary_key, str):
-            primary_key = [primary_key]
         self.primary_key = primary_key  # may be used ...
         #   ... by a child class at execution!
+        self.include_columns = include_columns
         self.exclude_columns = exclude_columns
         self.index_columns = index_columns
         self.hash_columns = hash_columns
@@ -365,6 +384,7 @@ class EWAHBaseOperator(BaseOperator):
             dwh_conn=EWAHBaseHook.get_connection(self.dwh_conn_id),
             cleaner=self.cleaner_class(
                 default_row=self.default_values,
+                include_columns=self.include_columns,
                 exclude_columns=self.exclude_columns,
                 add_metadata=self.add_metadata,
                 rename_columns=self.rename_columns,
