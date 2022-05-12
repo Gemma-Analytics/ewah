@@ -124,7 +124,8 @@ class EWAHCleaner(LoggingMixin):
         if include_columns and exclude_columns:
             _msg = "Don't use include and exclude columns config at the same time!"
             raise Exception(_msg)
-        elif exclude_columns:
+            
+        if exclude_columns:
             cleaning_steps.append(self._exclude_columns)
             self.exclude_columns = exclude_columns
 
