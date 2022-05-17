@@ -236,7 +236,9 @@ class EWAHBaseOperator(BaseOperator):
                     _msg = """
                         Primary key {0} is not in the include_columns list.
                         Make sure all primary keys are included.
-                        """.format(col)
+                        """.format(
+                        col
+                    )
                     raise Exception(_msg)
 
         if exclude_columns and isinstance(exclude_columns, str):
