@@ -27,7 +27,6 @@ def dbt_dags_factory(
     dag_base_name="T_dbt_run",
     schedule_interval: Union[str, timedelta] = timedelta(hours=1),
     start_date=datetime(2019, 1, 1),
-    end_date=None,
     default_args=None,
     run_flags=None,  # e.g. --model tag:base
     project=None,  # BigQuery alias
@@ -51,6 +50,7 @@ def dbt_dags_factory(
             schedule_interval
         ), "schedule_interval is neither timedelta nor not valid cron!"
         catchup = False
+        end_date = None
     else:
         # if start_date is timezone offset-naive, assume utc and turn into offset-aware
         catchup = True
