@@ -496,6 +496,8 @@ el_dags:
           - 3600
         source_conn_id: plentymarkets
       tables:
+        invoices:
+          resource: "/rest/orders/documents/invoice"
         account_contacts:
           resource: "/rest/accounts/contacts"
         orders:
@@ -517,6 +519,12 @@ el_dags:
       tables:
         categories: {}
         items: {}
+        invoices:
+          resource: "/rest/orders/documents/invoice"
+          load_data_chunking_timedelta: !!python/object/apply:datetime.timedelta
+            - 7 # days
+          load_data_from: 2022-05-01 00:00:00+00:00
+          load_data_until: 2022-06-01 00:00:00+00:00
         item_variations:
           resource: "items/variations"
         tickets: {}
