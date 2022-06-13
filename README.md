@@ -6,8 +6,6 @@ Functions to create all DAGs required for ELT using only a simple config file.
 ## DWHs Implemented
 - Snowflake
 - PostgreSQL
-
-## DWHs Planned
 - Bigquery
 
 ## Operators

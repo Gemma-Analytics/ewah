@@ -32,7 +32,10 @@ class EWAHPlentyMarketsHook(EWAHBaseHook):
         "/rest/orders/documents/tillCount": ["updatedAtFrom", "updatedAtTo"],
         "/rest/orders/documents/posCouponReceipt": ["updatedAtFrom", "updatedAtTo"],
         "/rest/orders/documents/posInvoice": ["updatedAtFrom", "updatedAtTo"],
-        "/rest/orders/documents/posInvoiceCancellation": ["updatedAtFrom", "updatedAtTo"],
+        "/rest/orders/documents/posInvoiceCancellation": [
+            "updatedAtFrom",
+            "updatedAtTo",
+        ],
         "/rest/orders/documents/cancellation": ["updatedAtFrom", "updatedAtTo"],
         "/rest/orders/documents/zReport": ["updatedAtFrom", "updatedAtTo"],
         "/rest/orders/documents/invoiceExternal": ["updatedAtFrom", "updatedAtTo"],
@@ -44,7 +47,10 @@ class EWAHPlentyMarketsHook(EWAHBaseHook):
         "/rest/orders/documents/orderConfirmation": ["updatedAtFrom", "updatedAtTo"],
         "/rest/orders/documents/offer": ["updatedAtFrom", "updatedAtTo"],
         "/rest/orders/documents/dunningLetter": ["updatedAtFrom", "updatedAtTo"],
-        "/rest/orders/documents/reversalDunningLetter": ["updatedAtFrom", "updatedAtTo"],
+        "/rest/orders/documents/reversalDunningLetter": [
+            "updatedAtFrom",
+            "updatedAtTo",
+        ],
         "/rest/orders/documents/returnNote": ["updatedAtFrom", "updatedAtTo"],
         "/rest/orders/documents/successConfirmation": ["updatedAtFrom", "updatedAtTo"],
         "/rest/orders/documents/correction": ["updatedAtFrom", "updatedAtTo"],
