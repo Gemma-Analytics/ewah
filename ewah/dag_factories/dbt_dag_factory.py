@@ -27,6 +27,7 @@ def dbt_dags_factory(
     start_date=datetime(2019, 1, 1),
     default_args=None,
     run_flags=None,  # e.g. --model tag:base
+    seed_flags=None,
     project=None,  # BigQuery alias
     dataset=None,  # BigQuery alias
     dagrun_timeout_factor=None,  # doesn't apply to full refresh
@@ -34,6 +35,7 @@ def dbt_dags_factory(
     metabase_conn_id=None,  # push docs to Metabase after full refresh run if exists
 ):
     run_flags = run_flags or ""  # use empty string instead of None
+    seed_flags = seed_flags or ""
 
     # only PostgreSQL & Snowflake implemented as of now!
     assert dwh_engine in (
@@ -138,14 +140,17 @@ def dbt_dags_factory(
 
     run_1 = EWAHdbtOperator(
         task_id="dbt_run",
-        dbt_commands=["seed", f"run {run_flags}"],
+        dbt_commands=[f"seed {seed_flags}", f"run {run_flags}"],
         dag=dag_1,
         execution_timeout=execution_timeout,
         **dbt_kwargs,
     )
     run_2 = EWAHdbtOperator(
         task_id="dbt_run",
-        dbt_commands=["seed --full-refresh", f"run --full-refresh {run_flags}"],
+        dbt_commands=[
+            f"seed --full-refresh {seed_flags}",
+            f"run --full-refresh {run_flags}",
+        ],
         dag=dag_2,
         # If metabase_conn_id exists, push dbt docs to Metabase after full refresh run
         metabase_conn_id=metabase_conn_id,

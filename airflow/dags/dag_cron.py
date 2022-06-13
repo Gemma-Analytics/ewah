@@ -24,7 +24,7 @@ factory_kwargs = {
     "start_date": datetime(2022, 1, 1),
     "el_operator": EWAHHubspotOperator,
     "target_schema_suffix": "_NEXT",
-    "schedule_interval": '0 0 * * 1-5', #Runs every day during the week
+    "schedule_interval": "0 0 * * 1-5",  # Runs every day during the week
     "default_args": {
         "retries": 2,
         "retry_delay": timedelta(minutes=5),
