@@ -42,8 +42,12 @@ class EWAHShopifyHook(EWAHBaseHook):
         "events": {
             "_timestamp_fields": ("created_at_min", "created_at_max", "created_at"),
         },
+        "inventory_items": {},
+        "inventory_levels": {},
+        "marketing_events": {},
         "orders": {},
         "draft_orders": {},
+        "locations": {},
         "checkouts": {},  # Same as abandoned_checkouts
         "abandoned_checkouts": {
             "_object_url": "checkouts",
@@ -54,6 +58,7 @@ class EWAHShopifyHook(EWAHBaseHook):
             "_datetime_format": "%Y-%m-%d",
             "_object_url": "shopify_payments/payouts",
         },
+        "price_rules": {},
         "products": {},
         "tender_transactions": {
             "_timestamp_fields": (
@@ -73,6 +78,38 @@ class EWAHShopifyHook(EWAHBaseHook):
                 "password": "Access Token",
             },
         }
+
+    def get_inventory_levels(self, shop, version, req_kwargs):
+        # get location_ids and iterate them to retrieve inventory_levels
+        self.log.info("Requesting location_ids of locations...")
+        base_url = self._BASE_URL.format(
+            shop=shop,
+            version=version,
+            object="locations",
+        )
+
+        response = requests.get(base_url, **req_kwargs)
+        ids = [data["id"] for data in response.json().get("locations")]
+        location_ids = ",".join([str(id) for id in ids])
+
+        kwargs = copy.deepcopy(req_kwargs)
+
+        base_url = self._BASE_URL.format(
+            shop=shop,
+            version=version,
+            object="inventory_levels",
+        )
+
+        kwargs["params"] = {"location_ids": location_ids}
+        time.sleep(1)
+        response = requests.get(base_url, **kwargs)
+        assert response.status_code == 200, "Code {0}: {1}".format(
+            response.status_code, response.text
+        )
+
+        data = response.json().get("inventory_levels", [])
+
+        return data
 
     def add_get_transactions(self, data, shop, version, req_kwargs):
         # Adds transactions to orders
