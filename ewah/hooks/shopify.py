@@ -216,19 +216,19 @@ class EWAHShopifyHook(EWAHBaseHook):
         # for endpoints that need ids
         ids_list = []
         if shopify_object == "inventory_levels":
-            # call location ids
-            locations_url = self._BASE_URL.format(
-                shop=shop_id,
+            for chunk in self.get_data(
+                shopify_object="locations",
+                filter_fields={},
+                shop_id=shop_id,
                 version=version,
-                object="locations",
-            )
-            req_kwargs = {
-                "headers": headers,
-            }
-            response = requests.get(locations_url, **req_kwargs)
-            locations = response.json().get("locations")
-            ids_list = [data["id"] for data in locations]
-
+                data_from=None,
+                data_until=None,
+                add_transactions=False,
+                add_events=False,
+                add_inventoryitems=False,
+            ):
+                for location in chunk:
+                    ids_list.append(location["id"])
 
         kwargs_init = {
             "headers": headers,
