@@ -238,6 +238,7 @@ class EWAHShopifyHook(EWAHBaseHook):
 
         req_kwargs = kwargs_init
         is_first = True
+        finished_pagination = True
         while is_first or response.status_code == 200:
             if shopify_object == 'inventory_levels' and (
                 is_first or finished_pagination
