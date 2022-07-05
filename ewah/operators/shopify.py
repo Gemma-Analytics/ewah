@@ -20,7 +20,6 @@ class EWAHShopifyOperator(EWAHBaseOperator):
         shop_id=None,
         filter_fields=None,
         api_version=None,
-        get_inventory_levels=False,
         get_transactions_with_orders=False,
         get_events_with_orders=False,
         get_inventory_data_with_product_variants=False,
@@ -37,12 +36,6 @@ class EWAHShopifyOperator(EWAHBaseOperator):
 
         if get_events_with_orders and not shopify_object == "orders":
             raise Exception("events can only be pulled for orders!")
-
-        if (
-            get_inventory_levels
-            and not shopify_object == "inventory_levels"
-        ):
-            raise Exception("inventory_levels can only be pulled for inventory_levels!")
 
         if (
             get_inventory_data_with_product_variants

@@ -42,7 +42,6 @@ class EWAHShopifyHook(EWAHBaseHook):
         "events": {
             "_timestamp_fields": ("created_at_min", "created_at_max", "created_at"),
         },
-        "inventory_items": {},
         "inventory_levels": {},
         "marketing_events": {},
         "orders": {},
@@ -78,38 +77,6 @@ class EWAHShopifyHook(EWAHBaseHook):
                 "password": "Access Token",
             },
         }
-
-    def get_inventory_levels(self, shop, version, req_kwargs):
-        # get location_ids and iterate them to retrieve inventory_levels
-        self.log.info("Requesting location_ids of locations...")
-        base_url = self._BASE_URL.format(
-            shop=shop,
-            version=version,
-            object="locations",
-        )
-
-        response = requests.get(base_url, **req_kwargs)
-        ids = [data["id"] for data in response.json().get("locations")]
-        location_ids = ",".join([str(id) for id in ids])
-
-        kwargs = copy.deepcopy(req_kwargs)
-
-        base_url = self._BASE_URL.format(
-            shop=shop,
-            version=version,
-            object="inventory_levels",
-        )
-
-        kwargs["params"] = {"location_ids": location_ids}
-        time.sleep(1)
-        response = requests.get(base_url, **kwargs)
-        assert response.status_code == 200, "Code {0}: {1}".format(
-            response.status_code, response.text
-        )
-
-        data = response.json().get("inventory_levels", [])
-
-        return data
 
     def add_get_transactions(self, data, shop, version, req_kwargs):
         # Adds transactions to orders
@@ -245,22 +212,51 @@ class EWAHShopifyHook(EWAHBaseHook):
         headers = {
             "X-Shopify-Access-Token": self.conn.password,
         }
+
+        # for endpoints that need ids
+        ids_list = []
+        if shopify_object == "inventory_levels":
+            # call location ids
+            locations_url = self._BASE_URL.format(
+                shop=shop_id,
+                version=version,
+                object="locations",
+            )
+            req_kwargs = {
+                "headers": headers,
+            }
+            response = requests.get(locations_url, **req_kwargs)
+            locations = response.json().get("locations")
+            ids_list = [data["id"] for data in locations]
+
+
         kwargs_init = {
             "headers": headers,
             "params": params,
         }
         kwargs_links = {"headers": headers}
 
-        self.log.info(
-            "Requesting data from REST API - url: {0}, params: {1}".format(
-                url, str(params)
-            )
-        )
         req_kwargs = kwargs_init
         is_first = True
         while is_first or response.status_code == 200:
+            if shopify_object == 'inventory_levels' and (
+                is_first or finished_pagination
+            ):
+                # inventory_levels endpoint only takes 50 ids max at a time
+                location_ids = ",".join([str(id) for id in ids_list[:50]])
+                ids_list = ids_list[50:]
+                req_kwargs["params"]["location_ids"] = location_ids
+                # if there are more ids than the allowed limit we need to restart
+                # the request with new ids once the previous pagination is done
+                finished_pagination = False
+
+            self.log.info(
+                "Requesting data from REST API - url: {0}, params: {1}".format(
+                    url, str(req_kwargs)
+                )
+            )
             response = requests.get(url, **req_kwargs)
-            if is_first:
+            if is_first or not finished_pagination:
                 is_first = False
                 req_kwargs = kwargs_links
             data = response.json().get(
@@ -298,11 +294,22 @@ class EWAHShopifyHook(EWAHBaseHook):
                     )
             yield data
 
-            if response.headers.get("Link") and response.headers["Link"].endswith(
-                'el="next"'
+            if (
+                response.headers.get("Link")
+                and response.headers["Link"].endswith('el="next"')
             ):
                 self.log.info("Requesting next page of data...")
                 url = response.headers["Link"][1:-13]
+            elif ids_list and shopify_object == 'inventory_levels':
+                # after pagination complete we restart the requests while
+                # we still have ids in id_list
+                finished_pagination = True
+                url = self._BASE_URL.format(
+                    shop=shop_id,
+                    version=version,
+                    object="inventory_levels",
+                )
+                req_kwargs = kwargs_init
             else:
                 break
 
