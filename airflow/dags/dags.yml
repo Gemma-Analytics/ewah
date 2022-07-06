@@ -127,6 +127,28 @@ el_dags:
             source_conn_id: "{{ conn_name }}"
         {% endfor %}
 
+  EL_Amazon_Reporting:
+    dag_strategy: incremental
+    start_date: 2022-05-26 00:00:00+00:00
+    el_operator: amazon_reporting
+    target_schema_name: raw_sp_api_reporting
+    schedule_interval_future: !!python/object/apply:datetime.timedelta
+      - 1
+    operator_config:
+      general_config:
+        source_conn_id: seller_central
+        marketplace_region: DE
+        # load_data_from: 2022-05-27 00:00:00+00:00
+      tables:
+        report:
+          load_data_from_relative: !!python/object/apply:datetime.timedelta
+            - 7  # Reload the previous 7 days
+          report_name: sales_and_traffic
+          report_options:
+            asinGranularity: CHILD
+        orders:
+          report_name: orders
+
   EL_Amazon_Seller_Central:
     dag_strategy: atomic
     el_operator: amazon_seller_central
