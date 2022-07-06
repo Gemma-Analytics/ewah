@@ -236,6 +236,11 @@ class EWAHShopifyHook(EWAHBaseHook):
         }
         kwargs_links = {"headers": headers}
 
+        self.log.info(
+            "Requesting data from REST API - url: {0}, params: {1}".format(
+                url, str(params)
+            )
+        )
         req_kwargs = kwargs_init
         is_first = True
         finished_pagination = True
@@ -251,11 +256,6 @@ class EWAHShopifyHook(EWAHBaseHook):
                 # the request with new ids once the previous pagination is done
                 finished_pagination = False
 
-            self.log.info(
-                "Requesting data from REST API - url: {0}, params: {1}".format(
-                    url, str(req_kwargs)
-                )
-            )
             response = requests.get(url, **req_kwargs)
             if is_first or not finished_pagination:
                 is_first = False
