@@ -245,7 +245,7 @@ class EWAHShopifyHook(EWAHBaseHook):
         is_first = True
         finished_pagination = True
         while is_first or response.status_code == 200:
-            if shopify_object == 'inventory_levels' and (
+            if shopify_object == "inventory_levels" and (
                 is_first or finished_pagination
             ):
                 # inventory_levels endpoint only takes 50 ids max at a time
@@ -295,13 +295,12 @@ class EWAHShopifyHook(EWAHBaseHook):
                     )
             yield data
 
-            if (
-                response.headers.get("Link")
-                and response.headers["Link"].endswith('el="next"')
+            if response.headers.get("Link") and response.headers["Link"].endswith(
+                'el="next"'
             ):
                 self.log.info("Requesting next page of data...")
                 url = response.headers["Link"][1:-13]
-            elif ids_list and shopify_object == 'inventory_levels':
+            elif ids_list and shopify_object == "inventory_levels":
                 # after pagination complete we restart the requests while
                 # we still have ids in id_list
                 finished_pagination = True
