@@ -38,6 +38,8 @@ class EWAHAmazonSellerCentralHook(EWAHBaseHook):
                 "SalesChannel",
                 "IsBusinessOrder",
                 "IsIba",
+                "LastUpdatedDate",
+                "PurchaseDate",
             ],
         },
         "sales_and_traffic": {
@@ -537,8 +539,8 @@ class EWAHAmazonSellerCentralHook(EWAHBaseHook):
                     response[child.tag].append(simple_xml_to_json(child, depth + 1))
                 else:
                     # tag is a scalar, add it
-                    if (
-                        depth == 1
+                    if ( # depth == 1 is Message, 2 is Order
+                        depth == 3
                         and child.tag
                         in self._REPORT_METADATA["orders"]["known_scalars"]
                     ):
@@ -548,6 +550,7 @@ class EWAHAmazonSellerCentralHook(EWAHBaseHook):
                         response[child.tag].append(child.text)
             return response
 
+        data_string = None
         data_string = self.get_report_data(
             marketplace_region,
             report_name,
@@ -556,16 +559,21 @@ class EWAHAmazonSellerCentralHook(EWAHBaseHook):
             report_options,
         )
         if data_string:
+            self.log.info("Turning response XML into JSON...")
             raw_data = simple_xml_to_json(ET.fromstring(data_string))["Message"]
         else:
             # No data to provide
             raw_data = []
+
+        # Respect batch size kwarg and prettify data structure
         data = []
         i = 0
         while raw_data:
-            # Improve data format and respect batch size
             i += 1
-            data.append(raw_data.pop(0)["Order"])
+            # Due to the conversion logic, Message is a Dict of which we only want
+            # Order, and Order is a list that is always of size 1.
+            # We only want a list of Order as final result, though.
+            data.append(raw_data.pop(0)["Order"][0])
             if i == batch_size:
                 yield data
                 data = []
