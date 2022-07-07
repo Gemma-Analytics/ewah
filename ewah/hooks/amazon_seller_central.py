@@ -31,6 +31,16 @@ class EWAHAmazonSellerCentralHook(EWAHBaseHook):
             "method_name": "get_order_data_from_reporting_api",
             "primary_key": ["AmazonOrderID"],
             "subsequent_field": "LastUpdatedDate",
+            "known_scalars": [
+                "AmazonOrderID",
+                "MerchantOrderID",
+                "OrderStatus",
+                "SalesChannel",
+                "IsBusinessOrder",
+                "IsIba",
+                "LastUpdatedDate",
+                "PurchaseDate",
+            ],
         },
         "sales_and_traffic": {
             "report_type": "GET_SALES_AND_TRAFFIC_REPORT",
@@ -150,8 +160,26 @@ class EWAHAmazonSellerCentralHook(EWAHBaseHook):
         return string_to_date
 
     @classmethod
-    def validate_marketplace_region(cls, marketplace_region, raise_on_failure=False):
+    def validate_marketplace_region(
+        cls, marketplace_region, raise_on_failure=False, allow_lists=False
+    ):
         # Validate whether a region exists. Return boolean or raise exception.
+
+        # Optionally check all regions in a list of regions
+        if allow_lists and isinstance(marketplace_region, list):
+            for region in marketplace_region:
+                if not cls.validate_marketplace_region(
+                    region, raise_on_failure=raise_on_failure
+                ):
+                    return False
+            # If execution gets here, it validated all regions of the list successfully
+            return True
+
+        # Wrong data type, not valid by definition
+        elif not isinstance(marketplace_region, str):
+            return False
+
+        # Now validate!
         try:
             cls.get_marketplace_details_tuple(marketplace_region)
         except:
@@ -474,26 +502,55 @@ class EWAHAmazonSellerCentralHook(EWAHBaseHook):
         report_options=None,
         batch_size=10000,
     ):
-        def simple_xml_to_json(xml):
+        if (data_until - data_from) > timedelta(days=29):
+            # Special case: Order reports can't be fetched
+            # for a time period greater than 30 days.
+            # Loop over the entire period in steps of 29 days.
+            while data_from < data_until:
+                for batch in self.get_order_data_from_reporting_api(
+                    marketplace_region=marketplace_region,
+                    report_name=report_name,
+                    data_from=data_from,
+                    data_until=min(data_until, data_from + timedelta(days=29)),
+                    report_options=report_options,
+                    batch_size=batch_size,
+                ):
+                    yield batch
+                data_from += timedelta(days=29)
+            # we're done here after looping over the period
+            return
+
+        self.log.info(
+            "Fetching order data from {0} to {1}...".format(
+                data_from.isoformat(), data_until.isoformat()
+            )
+        )
+
+        def simple_xml_to_json(xml, depth=1):
             # Takes xml and turns it to a (nested) dictionary
             response = {}
             for child in list(xml):
+                if not response.get(child.tag):
+                    # Everything becomes a list in order to be consistent,
+                    # even if length is always 1 for some children
+                    response[child.tag] = []
                 if len(list(child)) > 0:
-                    if response.get(child.tag):
-                        if isinstance(response[child.tag], dict):
-                            # tag exists more than once
-                            # -> turn into a list of dicts
-                            response[child.tag] = [response[child.tag]]
-                        # tag exists and is already a list - append
-                        response[child.tag].append(simple_xml_to_json(child))
-                    else:
-                        # tag does not yet exist, add it
-                        response[child.tag] = simple_xml_to_json(child)
+                    # child is also an object
+                    response[child.tag].append(simple_xml_to_json(child, depth + 1))
                 else:
                     # tag is a scalar, add it
-                    response[child.tag] = child.text
+                    if ( # depth == 1 is Message, 2 is Order
+                        depth == 3
+                        and child.tag
+                        in self._REPORT_METADATA["orders"]["known_scalars"]
+                    ):
+                        # Special cases - these are never lists
+                        response[child.tag] = child.text
+                    else:
+                        response[child.tag].append(child.text)
             return response
 
+        data_string = None
         data_string = self.get_report_data(
             marketplace_region,
             report_name,
@@ -501,16 +558,22 @@ class EWAHAmazonSellerCentralHook(EWAHBaseHook):
             data_until,
             report_options,
         )
-        if not data_string:
+        if data_string:
+            self.log.info("Turning response XML into JSON...")
+            raw_data = simple_xml_to_json(ET.fromstring(data_string))["Message"]
+        else:
             # No data to provide
-            yield []
-        raw_data = simple_xml_to_json(ET.fromstring(data_string))["Message"]
+            raw_data = []
+
+        # Respect batch size kwarg and prettify data structure
         data = []
         i = 0
         while raw_data:
-            # Improve data format and respect batch size
             i += 1
-            data.append(raw_data.pop(0)["Order"])
+            # Due to the conversion logic, Message is a Dict of which we only want
+            # Order, and Order is a list that is always of size 1.
+            # We only want a list of Order as final result, though.
+            data.append(raw_data.pop(0)["Order"][0])
             if i == batch_size:
                 yield data
                 data = []
@@ -528,9 +591,19 @@ class EWAHAmazonSellerCentralHook(EWAHBaseHook):
         batch_size=10000,  # is ignored in this specific function
     ):
         delta_day = timedelta(days=1)
+        # Avoid a delay in the first iteration
+        started = datetime.now() - timedelta(minutes=1)
         while True:
-            # sales and traffic report needs to be requested individually per day
-            started = datetime.now()  # used at the end of the loop
+            # Sales and traffic report needs to be requested individually per day
+            # Delaying to avoid hitting API request rate limits
+            # --> Wait 1 minute between iterations
+            time.sleep(
+                max(
+                    0,
+                    (started + timedelta(seconds=60) - datetime.now()).total_seconds(),
+                )
+            )
+            started = datetime.now()  # used in the next iteration, if applicable
             data_from_dt = data_from
             if isinstance(data_from_dt, pendulum.DateTime):
                 # Uploader class doesn't like Pendulum (data_from_dt is added to data)
@@ -549,15 +622,6 @@ class EWAHAmazonSellerCentralHook(EWAHBaseHook):
             if data_from > data_until:
                 break
             self.log.info("Delaying execution for up to a minute...")
-            # Delaying to avoid hitting API request rate limits
-            # Wait until 1 minute after the start of the loop (hence the started var)
-            time.sleep(
-                max(
-                    0,
-                    (started + timedelta(seconds=60) - datetime.now()).total_seconds(),
-                )
-            )
-            started = datetime.now()
 
     def get_data_from_reporting_api_in_batches(
         self,
@@ -575,6 +639,32 @@ class EWAHAmazonSellerCentralHook(EWAHBaseHook):
             report_name,
         )
         assert report_name in self._REPORT_METADATA.keys(), error_msg
+
+        if isinstance(marketplace_region, list):
+            # Special case - multiple marketplace_regions!
+            # If we have a list of marketplace_regions, call self
+            # once per region and add the region to the data.
+            for region in marketplace_region:
+                for batch in self.get_data_from_reporting_api_in_batches(
+                    marketplace_region=region,
+                    report_name=report_name,
+                    data_from=data_from,
+                    data_until=data_until,
+                    report_options=report_options,
+                    batch_size=batch_size,
+                ):
+                    for datum in batch:
+                        datum["ewah_marketplace_region"] = region
+                    yield batch
+            return
+        elif not isinstance(marketplace_region, str):
+            raise Exception("'marketplace_region' must be string or list of strings!")
+
+        self.log.info(
+            f"Fetching report '{report_name}' for region '{marketplace_region}' "
+            f"between {data_from} and {data_until}.",
+        )
+
         method = getattr(self, self._REPORT_METADATA[report_name]["method_name"])
         data = []
         for batch in method(
