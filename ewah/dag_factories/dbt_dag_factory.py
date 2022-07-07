@@ -4,7 +4,9 @@ from ewah.constants import EWAHConstants as EC
 from ewah.utils.airflow_utils import EWAHSqlSensor, datetime_utcnow_with_tz
 from ewah.utils.dbt_operator import EWAHdbtOperator
 
+from croniter import croniter
 from datetime import datetime, timedelta
+from typing import Union
 
 import pytz
 
@@ -23,7 +25,7 @@ def dbt_dags_factory(
     schema_name="analytics",  # see https://docs.getdbt.com/dbt-cli/configure-your-profile/#understanding-target-schemas
     keepalives_idle=0,  # see https://docs.getdbt.com/reference/warehouse-profiles/postgres-profile/
     dag_base_name="T_dbt_run",
-    schedule_interval=timedelta(hours=1),
+    schedule_interval: Union[str, timedelta] = timedelta(hours=1),
     start_date=datetime(2019, 1, 1),
     default_args=None,
     run_flags=None,  # e.g. --model tag:base
@@ -44,24 +46,33 @@ def dbt_dags_factory(
         EC.DWH_ENGINE_BIGQUERY,
     )
 
-    # if start_date is timezone offset-naive, assume utc and turn into offset-aware
-    if not start_date.tzinfo:
-        start_date = start_date.replace(tzinfo=pytz.utc)
+    if isinstance(schedule_interval, str):
+        # Allow using cron-style schedule intervals
+        assert croniter.is_valid(
+            schedule_interval
+        ), "schedule_interval is neither timedelta nor not valid cron!"
+        catchup = False
+        end_date = None
+    else:
+        # if start_date is timezone offset-naive, assume utc and turn into offset-aware
+        catchup = True
+        if not start_date.tzinfo:
+            start_date = start_date.replace(tzinfo=pytz.utc)
 
-    start_date += (
-        int((datetime_utcnow_with_tz() - start_date) / schedule_interval) - 1
-    ) * schedule_interval
-    end_date = start_date + 2 * schedule_interval - timedelta(seconds=1)
+        start_date += (
+            int((datetime_utcnow_with_tz() - start_date) / schedule_interval) - 1
+        ) * schedule_interval
+        end_date = start_date + 2 * schedule_interval - timedelta(seconds=1)
 
     dag_kwargs = {
-        "catchup": True,
+        "catchup": catchup,
         "start_date": start_date,
         "end_date": end_date,
         "default_args": default_args,
         "max_active_runs": 1,
     }
 
-    if dagrun_timeout_factor:
+    if dagrun_timeout_factor and isinstance(schedule_interval, timedelta):
         _msg = "dagrun_timeout_factor must be a number between 0 and 1!"
         assert isinstance(dagrun_timeout_factor, (int, float)) and (
             0 < dagrun_timeout_factor <= 1
@@ -70,7 +81,7 @@ def dbt_dags_factory(
     else:
         dagrun_timeout = None
 
-    if task_timeout_factor:
+    if task_timeout_factor and isinstance(schedule_interval, timedelta):
         _msg = "task_timeout_factor must be a number between 0 and 1!"
         assert isinstance(task_timeout_factor, (int, float)) and (
             0 < task_timeout_factor <= 1
@@ -192,7 +203,7 @@ def dbt_snapshot_dag(
     schema_name="analytics",  # for the profiles.yml
     keepalives_idle=0,
     dag_name="T_dbt_snapshots",
-    schedule_interval=timedelta(hours=1),
+    schedule_interval: Union[str, timedelta] = timedelta(hours=1),
     start_date=None,
     default_args=None,
     dagrun_timeout_factor=None,
@@ -210,7 +221,7 @@ def dbt_snapshot_dag(
         EC.DWH_ENGINE_BIGQUERY,
     )
 
-    if dagrun_timeout_factor:
+    if dagrun_timeout_factor and isinstance(schedule_interval, timedelta):
         _msg = "dagrun_timeout_factor must be a number between 0 and 1!"
         assert isinstance(dagrun_timeout_factor, (int, float)) and (
             0 < dagrun_timeout_factor <= 1
@@ -219,7 +230,7 @@ def dbt_snapshot_dag(
     else:  # In case of 0 set to None
         dagrun_timeout = None
 
-    if task_timeout_factor:
+    if task_timeout_factor and isinstance(schedule_interval, timedelta):
         _msg = "dagrun_timeout_factor must be a number between 0 and 1!"
         assert isinstance(task_timeout_factor, (int, float)) and (
             0 < task_timeout_factor <= 1
