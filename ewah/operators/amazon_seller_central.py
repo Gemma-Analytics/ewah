@@ -24,7 +24,7 @@ class EWAHAmazonSellerCentralReportsAPIOperator(EWAHBaseOperator):
     ):
 
         assert EWAHAmazonSellerCentralHook.validate_marketplace_region(
-            marketplace_region
+            marketplace_region, allow_lists=True
         ), f"Marketplace Region {marketplace_region} is invalid!"
         assert (
             "load_data_from" in kwargs.keys() or "reload_data_from" in kwargs.keys()

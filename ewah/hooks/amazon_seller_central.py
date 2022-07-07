@@ -158,8 +158,26 @@ class EWAHAmazonSellerCentralHook(EWAHBaseHook):
         return string_to_date
 
     @classmethod
-    def validate_marketplace_region(cls, marketplace_region, raise_on_failure=False):
+    def validate_marketplace_region(
+        cls, marketplace_region, raise_on_failure=False, allow_lists=False
+    ):
         # Validate whether a region exists. Return boolean or raise exception.
+
+        # Optionally check all regions in a list of regions
+        if allow_lists and isinstance(marketplace_region, list):
+            for region in marketplace_region:
+                if not cls.validate_marketplace_region(
+                    region, raise_on_failure=raise_on_failure
+                ):
+                    return False
+            # If execution gets here, it validated all regions of the list successfully
+            return True
+
+        # Wrong data type, not valid by definition
+        elif not isinstance(marketplace_region, str):
+            return False
+
+        # Now validate!
         try:
             cls.get_marketplace_details_tuple(marketplace_region)
         except:
@@ -500,7 +518,11 @@ class EWAHAmazonSellerCentralHook(EWAHBaseHook):
             # we're done here after looping over the period
             return
 
-        self.log.info("Fetching order data from {0} to {1}...".format(data_from.isoformat(), data_until.isoformat()))
+        self.log.info(
+            "Fetching order data from {0} to {1}...".format(
+                data_from.isoformat(), data_until.isoformat()
+            )
+        )
 
         def simple_xml_to_json(xml, depth=1):
             # Takes xml and turns it to a (nested) dictionary
@@ -609,6 +631,32 @@ class EWAHAmazonSellerCentralHook(EWAHBaseHook):
             report_name,
         )
         assert report_name in self._REPORT_METADATA.keys(), error_msg
+
+        if isinstance(marketplace_region, list):
+            # Special case - multiple marketplace_regions!
+            # If we have a list of marketplace_regions, call self
+            # once per region and add the region to the data.
+            for region in marketplace_region:
+                for batch in self.get_data_from_reporting_api_in_batches(
+                    marketplace_region=region,
+                    report_name=report_name,
+                    data_from=data_from,
+                    data_until=data_until,
+                    report_options=report_options,
+                    batch_size=batch_size,
+                ):
+                    for datum in batch:
+                        datum["ewah_marketplace_region"] = region
+                    yield batch
+            return
+        elif not isinstance(marketplace_region, str):
+            raise Exception("'marketplace_region' must be string or list of strings!")
+
+        self.log.info(
+            f"Fetching report '{report_name}' for region '{marketplace_region}' "
+            f"between {data_from} and {data_until}.",
+        )
+
         method = getattr(self, self._REPORT_METADATA[report_name]["method_name"])
         data = []
         for batch in method(
