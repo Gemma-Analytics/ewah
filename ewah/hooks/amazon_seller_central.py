@@ -31,6 +31,14 @@ class EWAHAmazonSellerCentralHook(EWAHBaseHook):
             "method_name": "get_order_data_from_reporting_api",
             "primary_key": ["AmazonOrderID"],
             "subsequent_field": "LastUpdatedDate",
+            "known_scalars": [
+                "AmazonOrderID",
+                "MerchantOrderID",
+                "OrderStatus",
+                "SalesChannel",
+                "IsBusinessOrder",
+                "IsIba",
+            ],
         },
         "sales_and_traffic": {
             "report_type": "GET_SALES_AND_TRAFFIC_REPORT",
@@ -474,24 +482,28 @@ class EWAHAmazonSellerCentralHook(EWAHBaseHook):
         report_options=None,
         batch_size=10000,
     ):
-        def simple_xml_to_json(xml):
+        def simple_xml_to_json(xml, depth=1):
             # Takes xml and turns it to a (nested) dictionary
             response = {}
             for child in list(xml):
+                if not response.get(child.tag):
+                    # Everything becomes a list in order to be consistent,
+                    # even if length is always 1 for some children
+                    response[child.tag] = []
                 if len(list(child)) > 0:
-                    if response.get(child.tag):
-                        if isinstance(response[child.tag], dict):
-                            # tag exists more than once
-                            # -> turn into a list of dicts
-                            response[child.tag] = [response[child.tag]]
-                        # tag exists and is already a list - append
-                        response[child.tag].append(simple_xml_to_json(child))
-                    else:
-                        # tag does not yet exist, add it
-                        response[child.tag] = simple_xml_to_json(child)
+                    # child is also an object
+                    response[child.tag].append(simple_xml_to_json(child, depth + 1))
                 else:
                     # tag is a scalar, add it
-                    response[child.tag] = child.text
+                    if (
+                        depth == 1
+                        and child.tag
+                        in self._REPORT_METADATA["orders"]["known_scalars"]
+                    ):
+                        # Special cases - these are never lists
+                        response[child.tag] = child.text
+                    else:
+                        response[child.tag].append(child.text)
             return response
 
         data_string = self.get_report_data(
