@@ -539,7 +539,7 @@ class EWAHAmazonSellerCentralHook(EWAHBaseHook):
                     response[child.tag].append(simple_xml_to_json(child, depth + 1))
                 else:
                     # tag is a scalar, add it
-                    if ( # depth == 1 is Message, 2 is Order
+                    if (  # depth == 1 is Message, 2 is Order
                         depth == 3
                         and child.tag
                         in self._REPORT_METADATA["orders"]["known_scalars"]
@@ -591,25 +591,25 @@ class EWAHAmazonSellerCentralHook(EWAHBaseHook):
         batch_size=10000,  # is ignored in this specific function
     ):
         delta_day = timedelta(days=1)
-        # Avoid a delay in the first iteration
-        started = datetime.now() - timedelta(minutes=1)
+
+        # This report fetches data in full day periods
+        if isinstance(data_from, datetime):
+            data_from = data_from.date()
+        if isinstance(data_until, datetime):
+            data_until = data_until.date()
+
         while True:
             # Sales and traffic report needs to be requested individually per day
-            # Delaying to avoid hitting API request rate limits
-            # --> Wait 1 minute between iterations
-            time.sleep(
-                max(
-                    0,
-                    (started + timedelta(seconds=60) - datetime.now()).total_seconds(),
-                )
-            )
             started = datetime.now()  # used in the next iteration, if applicable
             data_from_dt = data_from
-            if isinstance(data_from_dt, pendulum.DateTime):
+            if isinstance(data_from_dt, pendulum.Date):
                 # Uploader class doesn't like Pendulum (data_from_dt is added to data)
-                data_from_dt = datetime.fromtimestamp(
-                    data_from_dt.timestamp(), pendulum.tz.UTC
+                data_from_dt = date(
+                    data_from_dt.year,
+                    data_from_dt.month,
+                    data_from_dt.day,
                 )
+
             data_raw = self.get_report_data(
                 marketplace_region, report_name, data_from, data_from, report_options
             )
@@ -618,10 +618,20 @@ class EWAHAmazonSellerCentralHook(EWAHBaseHook):
                 # add the requested day to all rows
                 datum["date"] = data_from_dt
             yield data
+
             data_from += delta_day
             if data_from > data_until:
                 break
+
             self.log.info("Delaying execution for up to a minute...")
+            # Delaying to avoid hitting API request rate limits
+            # --> Wait 1 minute between iterations
+            time.sleep(
+                max(
+                    0,
+                    (started + timedelta(seconds=60) - datetime.now()).total_seconds(),
+                )
+            )
 
     def get_data_from_reporting_api_in_batches(
         self,
