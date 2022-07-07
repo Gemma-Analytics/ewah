@@ -482,6 +482,26 @@ class EWAHAmazonSellerCentralHook(EWAHBaseHook):
         report_options=None,
         batch_size=10000,
     ):
+        if (data_until - data_from) > timedelta(days=29):
+            # Special case: Order reports can't be fetched
+            # for a time period greater than 30 days.
+            # Loop over the entire period in steps of 29 days.
+            while data_from < data_until:
+                for batch in self.get_order_data_from_reporting_api(
+                    marketplace_region=marketplace_region,
+                    report_name=report_name,
+                    data_from=data_from,
+                    data_until=min(data_until, data_from + timedelta(days=29)),
+                    report_options=report_options,
+                    batch_size=batch_size,
+                ):
+                    yield batch
+                data_from += timedelta(days=29)
+            # we're done here after looping over the period
+            return
+
+        self.log.info("Fetching order data from {0} to {1}...".format(data_from.isoformat(), data_until.isoformat()))
+
         def simple_xml_to_json(xml, depth=1):
             # Takes xml and turns it to a (nested) dictionary
             response = {}
@@ -541,9 +561,19 @@ class EWAHAmazonSellerCentralHook(EWAHBaseHook):
         batch_size=10000,  # is ignored in this specific function
     ):
         delta_day = timedelta(days=1)
+        # Avoid a delay in the first iteration
+        started = datetime.now() - timedelta(minutes=1)
         while True:
-            # sales and traffic report needs to be requested individually per day
-            started = datetime.now()  # used at the end of the loop
+            # Sales and traffic report needs to be requested individually per day
+            # Delaying to avoid hitting API request rate limits
+            # --> Wait 1 minute between iterations
+            time.sleep(
+                max(
+                    0,
+                    (started + timedelta(seconds=60) - datetime.now()).total_seconds(),
+                )
+            )
+            started = datetime.now()  # used in the next iteration, if applicable
             data_from_dt = data_from
             if isinstance(data_from_dt, pendulum.DateTime):
                 # Uploader class doesn't like Pendulum (data_from_dt is added to data)
@@ -562,15 +592,6 @@ class EWAHAmazonSellerCentralHook(EWAHBaseHook):
             if data_from > data_until:
                 break
             self.log.info("Delaying execution for up to a minute...")
-            # Delaying to avoid hitting API request rate limits
-            # Wait until 1 minute after the start of the loop (hence the started var)
-            time.sleep(
-                max(
-                    0,
-                    (started + timedelta(seconds=60) - datetime.now()).total_seconds(),
-                )
-            )
-            started = datetime.now()
 
     def get_data_from_reporting_api_in_batches(
         self,
