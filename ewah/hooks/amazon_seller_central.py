@@ -513,10 +513,11 @@ class EWAHAmazonSellerCentralHook(EWAHBaseHook):
             data_until,
             report_options,
         )
-        if not data_string:
+        if data_string:
+            raw_data = simple_xml_to_json(ET.fromstring(data_string))["Message"]
+        else:
             # No data to provide
-            yield []
-        raw_data = simple_xml_to_json(ET.fromstring(data_string))["Message"]
+            raw_data = []
         data = []
         i = 0
         while raw_data:
