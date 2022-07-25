@@ -6,6 +6,7 @@ from datetime import datetime, timedelta
 
 import pendulum
 import time
+import pytz
 
 
 class EWAHAmazonSellerCentralReportsAPIOperator(EWAHBaseOperator):
@@ -50,10 +51,10 @@ class EWAHAmazonSellerCentralReportsAPIOperator(EWAHBaseOperator):
             and self.test_if_target_table_exists()
         ):
             data_from = self.get_max_value_of_column(self.subsequent_field)
-            data_until = self.data_until or datetime.now()
+            data_until = self.data_until or datetime.utcnow().replace(tzinfo=pytz.utc)
         else:
             data_from = self.data_from
-            data_until = self.data_until or datetime.now()
+            data_until = self.data_until or datetime.utcnow().replace(tzinfo=pytz.utc)
 
         for batch in self.source_hook.get_data_from_reporting_api_in_batches(
             marketplace_region=self.marketplace_region,
