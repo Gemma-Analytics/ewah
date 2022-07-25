@@ -7,6 +7,7 @@ from ewah.hooks.base import EWAHBaseHook
 
 from datetime import datetime, date, timedelta
 from dateutil.parser import parse as parse_datetime
+from io import StringIO
 import xml.etree.ElementTree as ET
 import urllib.parse
 import pendulum
@@ -19,6 +20,7 @@ import pytz
 import copy
 import gzip
 import json
+import csv
 
 
 class EWAHAmazonSellerCentralHook(EWAHBaseHook):
@@ -55,6 +57,13 @@ class EWAHAmazonSellerCentralHook(EWAHBaseHook):
                 "date",
             ],
             "subsequent_field": "date",
+        },
+        "fba_returns": {
+            "report_type": "GET_FBA_FULFILLMENT_CUSTOMER_RETURNS_DATA",
+            "report_options": {},
+            "method_name": "get_fba_returns_data",
+            "primary_key": "license-plate-number",
+            "subsequent_field": "return-date",
         },
     }
 
@@ -366,6 +375,10 @@ class EWAHAmazonSellerCentralHook(EWAHBaseHook):
         data_until=None,
         report_options=None,
     ):
+        # This method calls the reporting API to fetch data on a report
+        # Use this method when writing the individual reports' fetching methods
+        # Returns the report content unaltered (only decompressed, if applicable)
+
         report_metadata = self._REPORT_METADATA[report_name]
         report_type = report_metadata["report_type"]
 
@@ -491,7 +504,7 @@ class EWAHAmazonSellerCentralHook(EWAHBaseHook):
         else:
             document_content = document_response.content
 
-        return document_content.decode()
+        return document_content
 
     def get_order_data_from_reporting_api(
         self,
@@ -557,7 +570,7 @@ class EWAHAmazonSellerCentralHook(EWAHBaseHook):
             data_from,
             data_until,
             report_options,
-        )
+        ).decode()
         if data_string:
             self.log.info("Turning response XML into JSON...")
             raw_data = simple_xml_to_json(ET.fromstring(data_string))["Message"]
@@ -612,7 +625,7 @@ class EWAHAmazonSellerCentralHook(EWAHBaseHook):
 
             data_raw = self.get_report_data(
                 marketplace_region, report_name, data_from, data_from, report_options
-            )
+            ).decode()
             data = json.loads(data_raw)["salesAndTrafficByAsin"]
             for datum in data:
                 # add the requested day to all rows
@@ -632,6 +645,55 @@ class EWAHAmazonSellerCentralHook(EWAHBaseHook):
                     (started + timedelta(seconds=60) - datetime.now()).total_seconds(),
                 )
             )
+
+    def get_fba_returns_data(
+        self,
+        marketplace_region,
+        report_name,
+        data_from,
+        data_until,
+        report_options=None,
+        batch_size=10000,
+    ):
+        self.log.info(
+            "Fetching FBA returns data from {0} to {1}...".format(
+                data_from.isoformat(), data_until.isoformat()
+            )
+        )
+
+        # This report fetches data in full day periods
+        if isinstance(data_from, datetime):
+            data_from = data_from.date()
+        if isinstance(data_until, datetime):
+            data_until = data_until.date()
+
+        # Return data from CSV in batches
+        data_io = StringIO(self.get_report_data(
+            marketplace_region,
+            report_name,
+            data_from,
+            data_until,
+            report_options,
+        ).decode())  # TODO: check if latin-1?
+        csv_reader = csv.DictReader(data_io, delimiter='\t')
+        data = []
+        i = 0
+        for row in csv_reader:
+            i += 1
+            data.append(row)
+            if i == batch_size:
+                yield data
+                i = 0
+                data = []
+        if data:
+            yield data
+
+
+        # temp notes
+        # not zipped
+        # isinstance(document_response.content, str) is false --> decode with latin-1
+        # not xml -> csv
+
 
     def get_data_from_reporting_api_in_batches(
         self,

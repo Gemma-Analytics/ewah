@@ -14,7 +14,8 @@ class EWAHAmazonSellerCentralReportsAPIOperator(EWAHBaseOperator):
     _NAMES = ["seller_central_reporting", "amazon_reporting"]
 
     _ACCEPTED_EXTRACT_STRATEGIES = {
-        EC.ES_FULL_REFRESH: False,
+        # Depends on individual report
+        EC.ES_FULL_REFRESH: True,
         EC.ES_INCREMENTAL: True,
         EC.ES_SUBSEQUENT: True,
     }
