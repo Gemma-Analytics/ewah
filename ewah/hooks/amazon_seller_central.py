@@ -61,12 +61,14 @@ class EWAHAmazonSellerCentralHook(EWAHBaseHook):
             "accepted_strategies": [EC.ES_INCREMENTAL, EC.ES_SUBSEQUENT],
         },
         "fba_returns": {
+            # This report does not have a primary key, hence cannot use incremental
+            # loading for it - must use full refresh every time
             "report_type": "GET_FBA_FULFILLMENT_CUSTOMER_RETURNS_DATA",
             "report_options": {},
             "method_name": "get_fba_returns_data",
-            "primary_key": "license-plate-number",
-            "subsequent_field": "return-date",
-            "accepted_strategies": [EC.ES_INCREMENTAL, EC.ES_SUBSEQUENT],
+            "primary_key": None,
+            "subsequent_field": None,
+            "accepted_strategies": [EC.ES_FULL_REFRESH],
         },
         "listings": {  # Full-refresh only
             "report_type": "GET_MERCHANT_LISTINGS_ALL_DATA",
@@ -154,8 +156,13 @@ class EWAHAmazonSellerCentralHook(EWAHBaseHook):
     def get_cleaner_callables(cls):
         def string_to_date(row):
             for key, value in row.items():
-                if key.lower().endswith("date"):
+                if key.lower().endswith("date") and not isinstance(
+                    value, (date, datetime)
+                ):
+                    # Cast all dates
                     row[key] = parse_datetime(value)
+            if row.get("parentAsin") and not row.get("childAsin"):
+                row["childAsin"] = 'n.a.'
             return row
 
         return string_to_date

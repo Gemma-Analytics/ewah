@@ -155,8 +155,6 @@ el_dags:
           marketplace_region:
             - DE
             # - NL
-        fba_returns:
-          report_name: fba_returns
 
   EL_BigQuery:
     dag_strategy: fr
