@@ -67,25 +67,6 @@ class EWAHAmazonSellerCentralHook(EWAHBaseHook):
         },
     }
 
-    _APIS = {
-        "orders": {
-            "path": "/orders/v0/orders",
-            "default_rate": 0.0055,
-            "datetime_filter_params": ["CreatedAfter", "LastUpdatedAfter"],
-            "datetime_filter_field": "LastUpdateDate",
-            "primary_key": "AmazonOrderId",
-            "payload_field": "Orders",
-            "sideloads": ["orderitems"],
-        },
-        "orderitems": {  # only for use as sideload
-            "path": "/orders/v0/orders/{id}/orderItems",
-            "default_rate": 0.0055,
-            "payload_field": "OrderItems",
-        },
-    }
-
-    _THROTTLING_DICT = {}
-
     _ATTR_RELABEL = {}
 
     conn_name_attr = "ewah_amazon_seller_central_conn_id"
@@ -162,7 +143,7 @@ class EWAHAmazonSellerCentralHook(EWAHBaseHook):
     def get_cleaner_callables(cls):
         def string_to_date(row):
             for key, value in row.items():
-                if key.endswith("Date"):
+                if key.lower().endswith("date"):
                     row[key] = parse_datetime(value)
             return row
 
@@ -668,14 +649,16 @@ class EWAHAmazonSellerCentralHook(EWAHBaseHook):
             data_until = data_until.date()
 
         # Return data from CSV in batches
-        data_io = StringIO(self.get_report_data(
-            marketplace_region,
-            report_name,
-            data_from,
-            data_until,
-            report_options,
-        ).decode())  # TODO: check if latin-1?
-        csv_reader = csv.DictReader(data_io, delimiter='\t')
+        data_io = StringIO(
+            self.get_report_data(
+                marketplace_region,
+                report_name,
+                data_from,
+                data_until,
+                report_options,
+            ).decode()
+        )  # TODO: check if latin-1?
+        csv_reader = csv.DictReader(data_io, delimiter="\t")
         data = []
         i = 0
         for row in csv_reader:
