@@ -4,9 +4,11 @@ in the process of building this EWAH connector. Check out Airbyte for more info!
 """
 
 from ewah.hooks.base import EWAHBaseHook
+from ewah.constants import EWAHConstants as EC
 
 from datetime import datetime, date, timedelta
 from dateutil.parser import parse as parse_datetime
+from io import StringIO
 import xml.etree.ElementTree as ET
 import urllib.parse
 import pendulum
@@ -19,9 +21,19 @@ import pytz
 import copy
 import gzip
 import json
+import csv
 
 
 class EWAHAmazonSellerCentralHook(EWAHBaseHook):
+    """
+    Implements the Amazon Seller Portal API (SP-API).
+
+    Currently, only the Reporting API is implemented.
+
+    Since the report types vary vastly in implementation, each report type
+    has its own method to properly load it. They are supported by common
+    methods for authentication and getting the raw report contents.
+    """
 
     # Allowed reports with the alias and various settings
     _REPORT_METADATA = {
@@ -31,16 +43,7 @@ class EWAHAmazonSellerCentralHook(EWAHBaseHook):
             "method_name": "get_order_data_from_reporting_api",
             "primary_key": ["AmazonOrderID"],
             "subsequent_field": "LastUpdatedDate",
-            "known_scalars": [
-                "AmazonOrderID",
-                "MerchantOrderID",
-                "OrderStatus",
-                "SalesChannel",
-                "IsBusinessOrder",
-                "IsIba",
-                "LastUpdatedDate",
-                "PurchaseDate",
-            ],
+            "accepted_strategies": [EC.ES_INCREMENTAL, EC.ES_SUBSEQUENT],
         },
         "sales_and_traffic": {
             "report_type": "GET_SALES_AND_TRAFFIC_REPORT",
@@ -55,27 +58,25 @@ class EWAHAmazonSellerCentralHook(EWAHBaseHook):
                 "date",
             ],
             "subsequent_field": "date",
+            "accepted_strategies": [EC.ES_INCREMENTAL, EC.ES_SUBSEQUENT],
+        },
+        "fba_returns": {
+            "report_type": "GET_FBA_FULFILLMENT_CUSTOMER_RETURNS_DATA",
+            "report_options": {},
+            "method_name": "get_fba_returns_data",
+            "primary_key": "license-plate-number",
+            "subsequent_field": "return-date",
+            "accepted_strategies": [EC.ES_INCREMENTAL, EC.ES_SUBSEQUENT],
+        },
+        "listings": {  # Full-refresh only
+            "report_type": "GET_MERCHANT_LISTINGS_ALL_DATA",
+            "report_options": {},
+            "method_name": "get_listings",
+            "primary_key": None,
+            "subsequent_field": None,
+            "accepted_strategies": [EC.ES_FULL_REFRESH],
         },
     }
-
-    _APIS = {
-        "orders": {
-            "path": "/orders/v0/orders",
-            "default_rate": 0.0055,
-            "datetime_filter_params": ["CreatedAfter", "LastUpdatedAfter"],
-            "datetime_filter_field": "LastUpdateDate",
-            "primary_key": "AmazonOrderId",
-            "payload_field": "Orders",
-            "sideloads": ["orderitems"],
-        },
-        "orderitems": {  # only for use as sideload
-            "path": "/orders/v0/orders/{id}/orderItems",
-            "default_rate": 0.0055,
-            "payload_field": "OrderItems",
-        },
-    }
-
-    _THROTTLING_DICT = {}
 
     _ATTR_RELABEL = {}
 
@@ -153,7 +154,7 @@ class EWAHAmazonSellerCentralHook(EWAHBaseHook):
     def get_cleaner_callables(cls):
         def string_to_date(row):
             for key, value in row.items():
-                if key.endswith("Date"):
+                if key.lower().endswith("date"):
                     row[key] = parse_datetime(value)
             return row
 
@@ -366,6 +367,10 @@ class EWAHAmazonSellerCentralHook(EWAHBaseHook):
         data_until=None,
         report_options=None,
     ):
+        # This method calls the reporting API to fetch data on a report
+        # Use this method when writing the individual reports' fetching methods
+        # Returns the report content unaltered (only decompressed, if applicable)
+
         report_metadata = self._REPORT_METADATA[report_name]
         report_type = report_metadata["report_type"]
 
@@ -491,7 +496,7 @@ class EWAHAmazonSellerCentralHook(EWAHBaseHook):
         else:
             document_content = document_response.content
 
-        return document_content.decode()
+        return document_content
 
     def get_order_data_from_reporting_api(
         self,
@@ -529,6 +534,16 @@ class EWAHAmazonSellerCentralHook(EWAHBaseHook):
         def simple_xml_to_json(xml, depth=1):
             # Takes xml and turns it to a (nested) dictionary
             response = {}
+            scalars = [
+                "AmazonOrderID",
+                "MerchantOrderID",
+                "OrderStatus",
+                "SalesChannel",
+                "IsBusinessOrder",
+                "IsIba",
+                "LastUpdatedDate",
+                "PurchaseDate",
+            ]
             for child in list(xml):
                 if not response.get(child.tag):
                     # Everything becomes a list in order to be consistent,
@@ -540,9 +555,7 @@ class EWAHAmazonSellerCentralHook(EWAHBaseHook):
                 else:
                     # tag is a scalar, add it
                     if (  # depth == 1 is Message, 2 is Order
-                        depth == 3
-                        and child.tag
-                        in self._REPORT_METADATA["orders"]["known_scalars"]
+                        depth == 3 and child.tag in scalars
                     ):
                         # Special cases - these are never lists
                         response[child.tag] = child.text
@@ -557,7 +570,7 @@ class EWAHAmazonSellerCentralHook(EWAHBaseHook):
             data_from,
             data_until,
             report_options,
-        )
+        ).decode()
         if data_string:
             self.log.info("Turning response XML into JSON...")
             raw_data = simple_xml_to_json(ET.fromstring(data_string))["Message"]
@@ -612,7 +625,7 @@ class EWAHAmazonSellerCentralHook(EWAHBaseHook):
 
             data_raw = self.get_report_data(
                 marketplace_region, report_name, data_from, data_from, report_options
-            )
+            ).decode()
             data = json.loads(data_raw)["salesAndTrafficByAsin"]
             for datum in data:
                 # add the requested day to all rows
@@ -632,6 +645,82 @@ class EWAHAmazonSellerCentralHook(EWAHBaseHook):
                     (started + timedelta(seconds=60) - datetime.now()).total_seconds(),
                 )
             )
+
+    def get_fba_returns_data(
+        self,
+        marketplace_region,
+        report_name,
+        data_from,
+        data_until,
+        report_options=None,
+        batch_size=10000,
+    ):
+        self.log.info(
+            "Fetching FBA returns data from {0} to {1}...".format(
+                data_from.isoformat(), data_until.isoformat()
+            )
+        )
+
+        # This report fetches data in full day periods
+        if isinstance(data_from, datetime):
+            data_from = data_from.date()
+        if isinstance(data_until, datetime):
+            data_until = data_until.date()
+
+        # Return data from CSV in batches
+        data_io = StringIO(
+            self.get_report_data(
+                marketplace_region,
+                report_name,
+                data_from,
+                data_until,
+                report_options,
+            ).decode()
+        )  # TODO: check if latin-1?
+        csv_reader = csv.DictReader(data_io, delimiter="\t")
+        data = []
+        i = 0
+        for row in csv_reader:
+            i += 1
+            data.append(row)
+            if i == batch_size:
+                yield data
+                i = 0
+                data = []
+        if data:
+            yield data
+
+    def get_listings(
+        self,
+        marketplace_region,
+        report_name,
+        data_from,
+        data_until,
+        report_options=None,
+        batch_size=10000,
+    ):
+        self.log.info("Fetching Listings. Ignoring datetimes if any.")
+        data_io = StringIO(
+            self.get_report_data(
+                marketplace_region,
+                report_name,
+                None,
+                None,
+                report_options,
+            ).decode("latin-1")
+        )
+        csv_reader = csv.DictReader(data_io, delimiter="\t")
+        data = []
+        i = 0
+        for row in csv_reader:
+            i += 1
+            data.append(row)
+            if i == batch_size:
+                yield data
+                i = 0
+                data = []
+        if data:
+            yield data
 
     def get_data_from_reporting_api_in_batches(
         self,
@@ -687,227 +776,3 @@ class EWAHAmazonSellerCentralHook(EWAHBaseHook):
         if data:
             # Last batch may otherwise not be yielded if below threshold of batch_size
             yield data
-
-    def make_api_call_and_return_payload(
-        self,
-        resource,
-        path,
-        marketplace_region,
-        since_date=None,
-        since_type=None,
-        next_token=None,
-        logging=True,
-        additional_api_call_params=None,
-    ):
-        # TODO: use generate_request_headers method in here
-
-        if self._THROTTLING_DICT.get(resource):
-            # APIs use token bucket-style requests throttling
-            next_call_after = self._THROTTLING_DICT[resource]
-            if logging:
-                self.log.info(
-                    f"Waiting for next call until {next_call_after.isoformat()}..."
-                )
-            sleeptime = next_call_after - pendulum.now()
-            time.sleep(max(0, sleeptime.microseconds / 1000000 + sleeptime.seconds))
-
-        current_ts = pendulum.now("utc")  # as late as possible -> set after waiting
-        amz_date = current_ts.strftime("%Y%m%dT%H%M%SZ")
-        datestamp = current_ts.strftime("%Y%m%d")
-
-        endpoint, marketplace_id, region = self.get_marketplace_details_tuple(
-            marketplace_region
-        )
-        metadata = self._APIS[resource]
-        if not path.startswith("/"):
-            path = "/" + path
-        if since_date:
-            if since_type == "CreatedAfter":
-                filter_field = metadata["datetime_filter_params"][0]
-            elif since_type == "LastUpdatedAfter":
-                filter_field = metadata["datetime_filter_params"][1]
-            else:
-                raise Exception("This exception ought to have been caught earlier.")
-
-        url = "".join([endpoint, path])
-
-        params = copy.deepcopy(additional_api_call_params or {})
-        params["MarketplaceIds"] = marketplace_id
-        params["MaxResultsPerPage"] = 100
-
-        if since_date:
-            params[filter_field] = (
-                since_date.replace(microsecond=0)
-                .astimezone(pytz.utc)
-                .isoformat()
-                .replace("+00:00", "Z")
-            )
-            if not next_token and logging:
-                self.log.info(
-                    f"Loading data from {filter_field}: {params[filter_field]}..."
-                )
-
-        if next_token:
-            params["NextToken"] = next_token
-
-        url_parsed = urllib.parse.urlparse(url)
-        uri = urllib.parse.quote(url_parsed.path)
-        host = url_parsed.hostname
-        service = "execute-api"
-
-        canonical_querystring = "&".join(
-            map(
-                lambda param: "=".join(param),
-                sorted(
-                    [
-                        [str(key), urllib.parse.quote_plus(str(value))]
-                        for key, value in params.items()
-                    ]
-                ),
-            )
-        )
-
-        headers_to_sign = {
-            "host": host,
-            "x-amz-date": amz_date,
-            "x-amz-security-token": self.aws_session_token,
-        }
-        ordered_headers = dict(sorted(headers_to_sign.items(), key=lambda h: h[0]))
-        canonical_headers = "".join(
-            map(lambda h: ":".join(h) + "\n", ordered_headers.items())
-        )
-        signed_headers = ";".join(ordered_headers.keys())
-        payload_hash = hashlib.sha256("".encode("utf-8")).hexdigest()
-        canonical_request = "\n".join(
-            [
-                "GET",
-                uri,
-                canonical_querystring,
-                canonical_headers,
-                signed_headers,
-                payload_hash,
-            ]
-        )
-
-        credential_scope = "/".join([datestamp, region, service, "aws4_request"])
-        string_to_sign = "\n".join(
-            [
-                "AWS4-HMAC-SHA256",
-                amz_date,
-                credential_scope,
-                hashlib.sha256(canonical_request.encode("utf-8")).hexdigest(),
-            ]
-        )
-
-        datestamp_signed = self._sign_msg(
-            ("AWS4" + self.aws_session_secret_access_key).encode("utf-8"), datestamp
-        )
-        region_signed = self._sign_msg(datestamp_signed, region)
-        service_signed = self._sign_msg(region_signed, service)
-        aws4_request_signed = self._sign_msg(service_signed, "aws4_request")
-        signature = hmac.new(
-            aws4_request_signed, string_to_sign.encode("utf-8"), hashlib.sha256
-        ).hexdigest()
-        authorization_header = (
-            "AWS4-HMAC-SHA256 Credential={}/{}, SignedHeaders={}, Signature={}".format(
-                self.aws_session_access_key_id,
-                credential_scope,
-                signed_headers,
-                signature,
-            )
-        )
-
-        headers = {
-            "content-type": "application/json",
-            "host": host,
-            "user-agent": "python-requests",
-            "x-amz-access-token": self.access_token,
-            "x-amz-date": amz_date,
-            "x-amz-security-token": self.aws_session_token,
-            "authorization": authorization_header,
-        }
-
-        response = requests.get(url, params=params, headers=headers)
-        assert response.status_code == 200, response.text
-
-        self._THROTTLING_DICT[resource] = pendulum.now().add(
-            seconds=(
-                1
-                / float(
-                    response.headers.get(
-                        "x-amzn-RateLimit-Limit",
-                        metadata.get("default_rate", 0.0055),
-                    )
-                )
-            )
-        )
-        return response.json()["payload"]
-
-    def get_data_in_batches(
-        self,
-        resource,
-        marketplace_region,
-        path=None,
-        since_date=None,
-        since_type=None,
-        sideloads=None,
-        logging=True,
-        additional_api_call_params=None,
-    ):
-        next_token = None
-        metadata = self._APIS[resource]
-        path = path or metadata["path"]
-        if since_date:
-            assert since_type in ("CreatedAfter", "LastUpdatedAfter")
-        else:
-            assert since_type is None
-
-        while True:
-            if logging:
-                self.log.info("Making new request...")
-            response_payload = self.make_api_call_and_return_payload(
-                resource,
-                path,
-                marketplace_region,
-                since_date,
-                since_type,
-                next_token,
-                logging,
-                additional_api_call_params,
-            )
-            next_token = response_payload.get("NextToken")
-
-            data = response_payload.pop(metadata["payload_field"], None)
-            if data:
-                if sideloads:
-                    # sideloads are API calls that need to be made per row of original
-                    # result. E.g. orderitems for each order. This requires a loop
-                    # over each original row and one request for each row.
-                    if logging:
-                        self.log.info(
-                            f"Loading sideloads ({(', '.join(sideloads))}) for "
-                            f"{len(data)} rows of {resource}."
-                        )
-                    for datum in data:
-                        id = datum[metadata["primary_key"]]
-                        for sideload in sideloads:
-                            # sideloads have no "since_date"
-                            sideload_data = []
-                            sideload_meta = self._APIS[sideload]
-                            for batch in self.get_data_in_batches(
-                                resource=sideload,
-                                path=sideload_meta["path"].format(id=id),
-                                marketplace_region=marketplace_region,
-                                logging=False,
-                            ):
-                                if batch:
-                                    sideload_data += batch
-                            datum["sideload_" + sideload] = sideload_data
-                yield data
-            elif next_token:
-                raise Exception(
-                    "No data was returned, but a NextToken -> something went wrong!"
-                )
-            if not next_token:
-                # We've reached the last page
-                break
