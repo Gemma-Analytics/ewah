@@ -688,13 +688,6 @@ class EWAHAmazonSellerCentralHook(EWAHBaseHook):
         if data:
             yield data
 
-
-        # temp notes
-        # not zipped
-        # isinstance(document_response.content, str) is false --> decode with latin-1
-        # not xml -> csv
-
-
     def get_data_from_reporting_api_in_batches(
         self,
         marketplace_region,
