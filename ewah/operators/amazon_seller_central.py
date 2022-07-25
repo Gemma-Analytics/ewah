@@ -14,10 +14,10 @@ class EWAHAmazonSellerCentralReportsAPIOperator(EWAHBaseOperator):
     _NAMES = ["seller_central_reporting", "amazon_reporting"]
 
     _ACCEPTED_EXTRACT_STRATEGIES = {
-        # Depends on individual report
-        EC.ES_FULL_REFRESH: True,
-        EC.ES_INCREMENTAL: True,
-        EC.ES_SUBSEQUENT: True,
+        # Depends on individual report, dict is updated during __init__
+        EC.ES_FULL_REFRESH: False,
+        EC.ES_INCREMENTAL: False,
+        EC.ES_SUBSEQUENT: False,
     }
 
     def __init__(
@@ -28,17 +28,15 @@ class EWAHAmazonSellerCentralReportsAPIOperator(EWAHBaseOperator):
             marketplace_region, allow_lists=True
         ), f"Marketplace Region {marketplace_region} is invalid!"
         assert (
-            "load_data_from" in kwargs.keys() or "reload_data_from" in kwargs.keys()
-        ), "must set load_data_from for this operator!"
-        assert (
             report_name in EWAHAmazonSellerCentralHook._REPORT_METADATA.keys()
         ), "Invalid report name!"
-        kwargs["primary_key"] = EWAHAmazonSellerCentralHook._REPORT_METADATA[
-            report_name
-        ]["primary_key"]
-        kwargs["subsequent_field"] = EWAHAmazonSellerCentralHook._REPORT_METADATA[
-            report_name
-        ]["subsequent_field"]
+        report_metadata = EWAHAmazonSellerCentralHook._REPORT_METADATA[report_name]
+        kwargs["primary_key"] = report_metadata["primary_key"]
+        kwargs["subsequent_field"] = report_metadata["subsequent_field"]
+
+        # Update accepted extract strategies based on individual report
+        for strategy in report_metadata.get("accepted_strategies", []):
+            self._ACCEPTED_EXTRACT_STRATEGIES[strategy] = True
 
         super().__init__(*args, **kwargs)
 

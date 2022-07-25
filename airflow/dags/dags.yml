@@ -129,15 +129,19 @@ el_dags:
 
   EL_Amazon_Reporting:
     dag_strategy: incremental
-    start_date: 2022-05-26 00:00:00+00:00
+    start_date: 2022-07-23 00:00:00+00:00
     el_operator: amazon_reporting
     target_schema_name: raw_sp_api_reporting
-    schedule_interval_future: !!python/object/apply:datetime.timedelta
+    schedule_interval_backfill: !!python/object/apply:datetime.timedelta
       - 1
+    schedule_interval_future: !!python/object/apply:datetime.timedelta
+      - 0
+      - 28800
     operator_config:
       general_config:
-        source_conn_id: seller_central
+        source_conn_id: seller_central_nl
         marketplace_region: DE
+        reload_data_from: 2022-07-22 00:00:00+00:00
         # load_data_from: 2022-05-27 00:00:00+00:00
       tables:
         report:

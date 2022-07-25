@@ -4,6 +4,7 @@ in the process of building this EWAH connector. Check out Airbyte for more info!
 """
 
 from ewah.hooks.base import EWAHBaseHook
+from ewah.constants import EWAHConstants as EC
 
 from datetime import datetime, date, timedelta
 from dateutil.parser import parse as parse_datetime
@@ -24,6 +25,15 @@ import csv
 
 
 class EWAHAmazonSellerCentralHook(EWAHBaseHook):
+    """
+    Implements the Amazon Seller Portal API (SP-API).
+
+    Currently, only the Reporting API is implemented.
+
+    Since the report types vary vastly in implementation, each report type
+    has its own method to properly load it. They are supported by common
+    methods for authentication and getting the raw report contents.
+    """
 
     # Allowed reports with the alias and various settings
     _REPORT_METADATA = {
@@ -33,16 +43,7 @@ class EWAHAmazonSellerCentralHook(EWAHBaseHook):
             "method_name": "get_order_data_from_reporting_api",
             "primary_key": ["AmazonOrderID"],
             "subsequent_field": "LastUpdatedDate",
-            "known_scalars": [
-                "AmazonOrderID",
-                "MerchantOrderID",
-                "OrderStatus",
-                "SalesChannel",
-                "IsBusinessOrder",
-                "IsIba",
-                "LastUpdatedDate",
-                "PurchaseDate",
-            ],
+            "accepted_strategies": [EC.ES_INCREMENTAL, EC.ES_SUBSEQUENT],
         },
         "sales_and_traffic": {
             "report_type": "GET_SALES_AND_TRAFFIC_REPORT",
@@ -57,6 +58,7 @@ class EWAHAmazonSellerCentralHook(EWAHBaseHook):
                 "date",
             ],
             "subsequent_field": "date",
+            "accepted_strategies": [EC.ES_INCREMENTAL, EC.ES_SUBSEQUENT],
         },
         "fba_returns": {
             "report_type": "GET_FBA_FULFILLMENT_CUSTOMER_RETURNS_DATA",
@@ -64,6 +66,15 @@ class EWAHAmazonSellerCentralHook(EWAHBaseHook):
             "method_name": "get_fba_returns_data",
             "primary_key": "license-plate-number",
             "subsequent_field": "return-date",
+            "accepted_strategies": [EC.ES_INCREMENTAL, EC.ES_SUBSEQUENT],
+        },
+        "listings": {  # Full-refresh only
+            "report_type": "GET_MERCHANT_LISTINGS_ALL_DATA",
+            "report_options": {},
+            "method_name": "get_listings",
+            "primary_key": None,
+            "subsequent_field": None,
+            "accepted_strategies": [EC.ES_FULL_REFRESH],
         },
     }
 
@@ -523,6 +534,16 @@ class EWAHAmazonSellerCentralHook(EWAHBaseHook):
         def simple_xml_to_json(xml, depth=1):
             # Takes xml and turns it to a (nested) dictionary
             response = {}
+            scalars = [
+                "AmazonOrderID",
+                "MerchantOrderID",
+                "OrderStatus",
+                "SalesChannel",
+                "IsBusinessOrder",
+                "IsIba",
+                "LastUpdatedDate",
+                "PurchaseDate",
+            ]
             for child in list(xml):
                 if not response.get(child.tag):
                     # Everything becomes a list in order to be consistent,
@@ -534,9 +555,7 @@ class EWAHAmazonSellerCentralHook(EWAHBaseHook):
                 else:
                     # tag is a scalar, add it
                     if (  # depth == 1 is Message, 2 is Order
-                        depth == 3
-                        and child.tag
-                        in self._REPORT_METADATA["orders"]["known_scalars"]
+                        depth == 3 and child.tag in scalars
                     ):
                         # Special cases - these are never lists
                         response[child.tag] = child.text
@@ -658,6 +677,38 @@ class EWAHAmazonSellerCentralHook(EWAHBaseHook):
                 report_options,
             ).decode()
         )  # TODO: check if latin-1?
+        csv_reader = csv.DictReader(data_io, delimiter="\t")
+        data = []
+        i = 0
+        for row in csv_reader:
+            i += 1
+            data.append(row)
+            if i == batch_size:
+                yield data
+                i = 0
+                data = []
+        if data:
+            yield data
+
+    def get_listings(
+        self,
+        marketplace_region,
+        report_name,
+        data_from,
+        data_until,
+        report_options=None,
+        batch_size=10000,
+    ):
+        self.log.info("Fetching Listings. Ignoring datetimes if any.")
+        data_io = StringIO(
+            self.get_report_data(
+                marketplace_region,
+                report_name,
+                None,
+                None,
+                report_options,
+            ).decode("latin-1")
+        )
         csv_reader = csv.DictReader(data_io, delimiter="\t")
         data = []
         i = 0
