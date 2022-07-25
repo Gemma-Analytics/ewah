@@ -37,6 +37,21 @@ dag_sp_api_fr = dag_factory_atomic(
             "listings": {
                 "report_name": "listings",
             },
+            "fba_returns": {
+                "report_name": "fba_returns",
+                "reload_data_from": datetime(2022, 1, 1, tzinfo=pytz.utc),
+            },
+            "orders": {
+                "report_name": "orders",
+                "reload_data_from": datetime(2022, 1, 1, tzinfo=pytz.utc),
+                "extract_strategy": "subsequent",
+            },
+            "sales_and_traffic": {
+                "report_name": "sales_and_traffic",
+                "reload_data_from": datetime(2022, 7, 22, tzinfo=pytz.utc),
+                "extract_strategy": "subsequent",
+                "source_conn_id": "seller_central_ne",
+            },
         },
     },
     **factory_kwargs
