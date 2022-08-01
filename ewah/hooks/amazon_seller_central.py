@@ -574,14 +574,14 @@ class EWAHAmazonSellerCentralHook(EWAHBaseHook):
                         response[child.tag].append(child.text)
             return response
 
-        data_string = None
-        data_string = self.get_report_data(
+        # Note: get_report_data may return None if there is no new data!
+        data_string = (self.get_report_data(
             marketplace_region,
             report_name,
             data_from,
             data_until,
             report_options,
-        ).decode()
+        ) or b"").decode()
         if data_string:
             self.log.info("Turning response XML into JSON...")
             raw_data = simple_xml_to_json(ET.fromstring(data_string))["Message"]
