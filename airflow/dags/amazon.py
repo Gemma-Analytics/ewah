@@ -29,26 +29,27 @@ dag_sp_api_fr = dag_factory_atomic(
     target_schema_name="raw_sp_api_reporting_fr",
     operator_config={
         "general_config": {
-            "source_conn_id": "seller_central_nl",
+            "source_conn_id": "seller_central_ne",
             "marketplace_region": "DE",
-            # "reload_data_from": datetime(2022, 7, 22, tzinfo=pytz.utc),
+            "reload_data_from": datetime(2022, 7, 28, tzinfo=pytz.utc),
         },
         "tables": {
             "listings": {
                 "report_name": "listings",
+                "ewah_options": {"add_bsr": True},
             },
             "fba_returns": {
                 "report_name": "fba_returns",
-                "reload_data_from": datetime(2022, 1, 1, tzinfo=pytz.utc),
+                # "reload_data_from": datetime(2022, 1, 1, tzinfo=pytz.utc),
             },
             "orders": {
                 "report_name": "orders",
-                "reload_data_from": datetime(2022, 1, 1, tzinfo=pytz.utc),
+                # "reload_data_from": datetime(2022, 1, 1, tzinfo=pytz.utc),
                 "extract_strategy": "subsequent",
             },
             "sales_and_traffic": {
                 "report_name": "sales_and_traffic",
-                "reload_data_from": datetime(2022, 7, 22, tzinfo=pytz.utc),
+                # "reload_data_from": datetime(2022, 7, 22, tzinfo=pytz.utc),
                 "extract_strategy": "subsequent",
                 "source_conn_id": "seller_central_ne",
             },
