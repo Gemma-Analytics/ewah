@@ -22,7 +22,13 @@ class EWAHAmazonSellerCentralReportsAPIOperator(EWAHBaseOperator):
     }
 
     def __init__(
-        self, marketplace_region, report_name, report_options=None, *args, **kwargs
+        self,
+        marketplace_region,
+        report_name,
+        report_options=None,
+        ewah_options=None,
+        *args,
+        **kwargs,
     ):
 
         assert EWAHAmazonSellerCentralHook.validate_marketplace_region(
@@ -44,6 +50,7 @@ class EWAHAmazonSellerCentralReportsAPIOperator(EWAHBaseOperator):
         self.marketplace_region = marketplace_region
         self.report_name = report_name
         self.report_options = report_options
+        self.ewah_options = ewah_options
 
     def ewah_execute(self, context):
         if (
@@ -62,5 +69,6 @@ class EWAHAmazonSellerCentralReportsAPIOperator(EWAHBaseOperator):
             data_from=data_from,
             data_until=data_until,
             report_options=self.report_options,
+            ewah_options=self.ewah_options,
         ):
             self.upload_data(batch)

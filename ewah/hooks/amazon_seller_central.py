@@ -77,6 +77,9 @@ class EWAHAmazonSellerCentralHook(EWAHBaseHook):
             "primary_key": None,
             "subsequent_field": None,
             "accepted_strategies": [EC.ES_FULL_REFRESH],
+            "ewah_options": {
+                "add_bsr": [True, False],
+            },
         },
     }
 
@@ -162,7 +165,7 @@ class EWAHAmazonSellerCentralHook(EWAHBaseHook):
                     # Cast all dates
                     row[key] = parse_datetime(value)
             if row.get("parentAsin") and not row.get("childAsin"):
-                row["childAsin"] = 'n.a.'
+                row["childAsin"] = "n.a."
             return row
 
         return string_to_date
@@ -403,16 +406,12 @@ class EWAHAmazonSellerCentralHook(EWAHBaseHook):
             body["reportOptions"] = report_options
 
         if data_from:
-            if isinstance(data_from, datetime):
-                data_from = data_from.date()
-            if isinstance(data_from, date):
+            if isinstance(data_from, (date, datetime)):
                 data_from = data_from.isoformat()
             body["dataStartTime"] = data_from
 
         if data_until:
-            if isinstance(data_until, datetime):
-                data_until = data_until.date()
-            if isinstance(data_until, date):
+            if isinstance(data_until, (date, datetime)):
                 data_until = data_until.isoformat()
             body["dataEndTime"] = data_until
 
@@ -512,6 +511,7 @@ class EWAHAmazonSellerCentralHook(EWAHBaseHook):
         data_from,
         data_until,
         report_options=None,
+        ewah_options=None,
         batch_size=10000,
     ):
         if (data_until - data_from) > timedelta(days=29):
@@ -570,14 +570,14 @@ class EWAHAmazonSellerCentralHook(EWAHBaseHook):
                         response[child.tag].append(child.text)
             return response
 
-        data_string = None
-        data_string = self.get_report_data(
+        # Note: get_report_data may return None if there is no new data!
+        data_string = (self.get_report_data(
             marketplace_region,
             report_name,
             data_from,
             data_until,
             report_options,
-        ).decode()
+        ) or b"").decode()
         if data_string:
             self.log.info("Turning response XML into JSON...")
             raw_data = simple_xml_to_json(ET.fromstring(data_string))["Message"]
@@ -608,6 +608,7 @@ class EWAHAmazonSellerCentralHook(EWAHBaseHook):
         data_from,
         data_until,
         report_options=None,
+        ewah_options=None,
         batch_size=10000,  # is ignored in this specific function
     ):
         delta_day = timedelta(days=1)
@@ -660,6 +661,7 @@ class EWAHAmazonSellerCentralHook(EWAHBaseHook):
         data_from,
         data_until,
         report_options=None,
+        ewah_options=None,
         batch_size=10000,
     ):
         self.log.info(
@@ -668,11 +670,11 @@ class EWAHAmazonSellerCentralHook(EWAHBaseHook):
             )
         )
 
-        # This report fetches data in full day periods
-        if isinstance(data_from, datetime):
-            data_from = data_from.date()
-        if isinstance(data_until, datetime):
-            data_until = data_until.date()
+        # Note: This report is only available as full refresh, however
+        # it still requires data_from (ideally, static) and data_until
+        # (ideally, current timestamp).
+        assert data_from, "Requires a minimum date parameter!"
+        # data_until is defaulted to current timestamp
 
         # Return data from CSV in batches
         data_io = StringIO(
@@ -680,7 +682,7 @@ class EWAHAmazonSellerCentralHook(EWAHBaseHook):
                 marketplace_region,
                 report_name,
                 data_from,
-                data_until,
+                data_until or datetime.utcnow().replace(tzinfo=pytz.utc),
                 report_options,
             ).decode()
         )  # TODO: check if latin-1?
@@ -704,6 +706,7 @@ class EWAHAmazonSellerCentralHook(EWAHBaseHook):
         data_from,
         data_until,
         report_options=None,
+        ewah_options=None,
         batch_size=10000,
     ):
         self.log.info("Fetching Listings. Ignoring datetimes if any.")
@@ -721,6 +724,12 @@ class EWAHAmazonSellerCentralHook(EWAHBaseHook):
         i = 0
         for row in csv_reader:
             i += 1
+            if ewah_options and ewah_options.get("add_bsr"):
+                # Make a request to add the BSR at this point
+                asin = row.get("asin1")
+                if asin:
+                    self.log.info("Fetching additional catalogue data for a listing...")
+                    row.update(self.get_listing_details(marketplace_region, asin) or {})
             data.append(row)
             if i == batch_size:
                 yield data
@@ -736,6 +745,7 @@ class EWAHAmazonSellerCentralHook(EWAHBaseHook):
         data_from=None,
         data_until=None,
         report_options=None,
+        ewah_options=None,
         batch_size=10000,
     ):
         error_msg = """Invalid report name {1}! Valid options:
@@ -757,6 +767,7 @@ class EWAHAmazonSellerCentralHook(EWAHBaseHook):
                     data_from=data_from,
                     data_until=data_until,
                     report_options=report_options,
+                    ewah_options=ewah_options,
                     batch_size=batch_size,
                 ):
                     for datum in batch:
@@ -774,7 +785,12 @@ class EWAHAmazonSellerCentralHook(EWAHBaseHook):
         method = getattr(self, self._REPORT_METADATA[report_name]["method_name"])
         data = []
         for batch in method(
-            marketplace_region, report_name, data_from, data_until, report_options
+            marketplace_region,
+            report_name,
+            data_from,
+            data_until,
+            report_options,
+            ewah_options,
         ):
             data += batch
             if len(data) >= batch_size:
@@ -783,3 +799,38 @@ class EWAHAmazonSellerCentralHook(EWAHBaseHook):
         if data:
             # Last batch may otherwise not be yielded if below threshold of batch_size
             yield data
+
+    def get_listing_details(self, marketplace_region, asin):
+        # For a single ASIN, retrieve catalogue data, e.g. BSRs
+        # Returns None or a dictionarty containing the "includedData"
+        url, marketplace_id, region = self.get_marketplace_details_tuple(
+            marketplace_region
+        )
+        url = "".join([url, "/catalog/2022-04-01/items/", asin])
+        params = {
+            "marketplaceIds": marketplace_id,
+            "includedData": ",".join(
+                [
+                    "salesRanks",
+                    "summaries",
+                    "relationships",
+                    "identifiers",
+                    "attributes",
+                    "dimensions",
+                ]
+            ),
+        }
+        response = requests.get(
+            url,
+            params=params,
+            headers=self.generate_request_headers(
+                url=url, method="GET", region=region, params=params
+            ),
+        )
+        if not response.status_code == 200:
+            if response.json()["errors"][0]["code"] == "NOT_FOUND":
+                # item wasn't found in marketplace, ignore error and return None
+                return
+            else:
+                raise Exception(f"Error {response.status_code}: {response.text}")
+        return {f"catalogue_{key}": value for key, value in response.json().items()}
