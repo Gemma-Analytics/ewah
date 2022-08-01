@@ -40,7 +40,7 @@ dag_sp_api_fr = dag_factory_atomic(
             },
             "fba_returns": {
                 "report_name": "fba_returns",
-                # "reload_data_from": datetime(2022, 1, 1, tzinfo=pytz.utc),
+                "reload_data_from": datetime(2022, 1, 1, tzinfo=pytz.utc),
             },
             "orders": {
                 "report_name": "orders",

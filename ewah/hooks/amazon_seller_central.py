@@ -406,16 +406,12 @@ class EWAHAmazonSellerCentralHook(EWAHBaseHook):
             body["reportOptions"] = report_options
 
         if data_from:
-            if isinstance(data_from, datetime):
-                data_from = data_from.date()
-            if isinstance(data_from, date):
+            if isinstance(data_from, (date, datetime)):
                 data_from = data_from.isoformat()
             body["dataStartTime"] = data_from
 
         if data_until:
-            if isinstance(data_until, datetime):
-                data_until = data_until.date()
-            if isinstance(data_until, date):
+            if isinstance(data_until, (date, datetime)):
                 data_until = data_until.isoformat()
             body["dataEndTime"] = data_until
 
@@ -674,11 +670,11 @@ class EWAHAmazonSellerCentralHook(EWAHBaseHook):
             )
         )
 
-        # This report fetches data in full day periods
-        if isinstance(data_from, datetime):
-            data_from = data_from.date()
-        if isinstance(data_until, datetime):
-            data_until = data_until.date()
+        # Note: This report is only available as full refresh, however
+        # it still requires data_from (ideally, static) and data_until
+        # (ideally, current timestamp).
+        assert data_from, "Requires a minimum date parameter!"
+        # data_until is defaulted to current timestamp
 
         # Return data from CSV in batches
         data_io = StringIO(
@@ -686,7 +682,7 @@ class EWAHAmazonSellerCentralHook(EWAHBaseHook):
                 marketplace_region,
                 report_name,
                 data_from,
-                data_until,
+                data_until or datetime.utcnow().replace(tzinfo=pytz.utc),
                 report_options,
             ).decode()
         )  # TODO: check if latin-1?
