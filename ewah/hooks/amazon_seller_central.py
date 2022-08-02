@@ -571,13 +571,16 @@ class EWAHAmazonSellerCentralHook(EWAHBaseHook):
             return response
 
         # Note: get_report_data may return None if there is no new data!
-        data_string = (self.get_report_data(
-            marketplace_region,
-            report_name,
-            data_from,
-            data_until,
-            report_options,
-        ) or b"").decode()
+        data_string = (
+            self.get_report_data(
+                marketplace_region,
+                report_name,
+                data_from,
+                data_until,
+                report_options,
+            )
+            or b""
+        ).decode()
         if data_string:
             self.log.info("Turning response XML into JSON...")
             raw_data = simple_xml_to_json(ET.fromstring(data_string))["Message"]
@@ -820,12 +823,22 @@ class EWAHAmazonSellerCentralHook(EWAHBaseHook):
                 ]
             ),
         }
+        requested_at = datetime.utcnow()
         response = requests.get(
             url,
             params=params,
             headers=self.generate_request_headers(
                 url=url, method="GET", region=region, params=params
             ),
+        )
+        # Respect endpoint response rate limit of 5 requests per second
+        time.sleep(
+            max(
+                0,
+                (
+                    requested_at + timedelta(seconds=1 / 5) - datetime.utcnow()
+                ).total_seconds(),
+            )
         )
         if not response.status_code == 200:
             if response.json()["errors"][0]["code"] == "NOT_FOUND":
