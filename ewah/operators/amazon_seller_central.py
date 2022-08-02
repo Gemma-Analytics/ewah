@@ -58,7 +58,7 @@ class EWAHAmazonSellerCentralReportsAPIOperator(EWAHBaseOperator):
             and self.test_if_target_table_exists()
         ):
             data_from = self.get_max_value_of_column(self.subsequent_field) - (
-                self.load_data_from_relative or timdelta(days=0)
+                self.load_data_from_relative or timedelta(days=0)
             )
             data_until = self.data_until or datetime.utcnow().replace(tzinfo=pytz.utc)
         else:
