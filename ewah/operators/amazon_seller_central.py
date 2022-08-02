@@ -57,7 +57,9 @@ class EWAHAmazonSellerCentralReportsAPIOperator(EWAHBaseOperator):
             self.extract_strategy == EC.ES_SUBSEQUENT
             and self.test_if_target_table_exists()
         ):
-            data_from = self.get_max_value_of_column(self.subsequent_field)
+            data_from = self.get_max_value_of_column(self.subsequent_field) - (
+                self.load_data_from_relative or timdelta(days=0)
+            )
             data_until = self.data_until or datetime.utcnow().replace(tzinfo=pytz.utc)
         else:
             data_from = self.data_from

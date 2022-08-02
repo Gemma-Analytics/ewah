@@ -823,12 +823,22 @@ class EWAHAmazonSellerCentralHook(EWAHBaseHook):
                 ]
             ),
         }
+        requested_at = datetime.utcnow()
         response = requests.get(
             url,
             params=params,
             headers=self.generate_request_headers(
                 url=url, method="GET", region=region, params=params
             ),
+        )
+        # Respect endpoint response rate limit of 5 requests per second
+        time.sleep(
+            max(
+                0,
+                (
+                    requested_at + timedelta(seconds=1 / 5) - datetime.utcnow()
+                ).total_seconds(),
+            )
         )
         if not response.status_code == 200:
             if response.json()["errors"][0]["code"] == "NOT_FOUND":
