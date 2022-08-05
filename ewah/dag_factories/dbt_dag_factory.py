@@ -35,6 +35,7 @@ def dbt_dags_factory(
     dagrun_timeout_factor=None,  # doesn't apply to full refresh
     task_timeout_factor=0.8,  # doesn't apply to full refresh
     metabase_conn_id=None,  # push docs to Metabase after full refresh run if exists
+    env_var_conn_ids=None,
 ):
     run_flags = run_flags or ""  # use empty string instead of None
     seed_flags = seed_flags or ""
@@ -147,6 +148,7 @@ def dbt_dags_factory(
         "database_name": database_name,
         "project": project,
         "dataset": dataset,
+        "env_var_conn_ids": env_var_conn_ids,
     }
 
     run_1 = EWAHdbtOperator(
@@ -211,6 +213,7 @@ def dbt_snapshot_dag(
     project=None,  # BigQuery alias
     dataset=None,  # BigQuery alias
     run_flags=None,
+    env_var_conn_ids=None,
 ):
     run_flags = run_flags or ""
 
@@ -267,6 +270,7 @@ def dbt_snapshot_dag(
         execution_timeout=execution_timeout,
         project=project,
         dataset=dataset,
+        env_var_conn_ids=env_var_conn_ids,
     )
 
     return dag
