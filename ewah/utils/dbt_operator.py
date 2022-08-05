@@ -53,6 +53,7 @@ class EWAHdbtOperator(BaseOperator):
         dataset=None,  # BigQuery alias for schema_name
         project=None,  # BigQuery alias for database_name
         metabase_conn_id=None,  # Push docs to Metabase if exists
+        env_var_conn_ids=None,  # Name of list of names of connections to use as env vars
         *args,
         **kwargs
     ):
@@ -108,6 +109,12 @@ class EWAHdbtOperator(BaseOperator):
         if not max([1 if "&" in cmd else 0 for cmd in dbt_commands]) == 0:
             raise Exception("Ampersand (&) is an invalid character in dbt_commands!")
 
+        assert isinstance(
+            env_var_conn_ids, (type(None), str, list)
+        ), "env_var_conn_ids must be a string or list of strings!"
+        if env_var_conn_ids and isinstance(env_var_conn_ids, str):
+            env_var_conn_ids = [env_var_conn_ids]
+
         super().__init__(*args, **kwargs)
 
         self.repo_type = repo_type
@@ -123,12 +130,20 @@ class EWAHdbtOperator(BaseOperator):
         self.keepalives_idle = keepalives_idle
         self.database_name = database_name
         self.metabase_conn_id = metabase_conn_id
+        self.env_var_conn_ids = env_var_conn_ids
 
     def execute(self, context):
 
         # env to be used in processes later
         env = os.environ.copy()
         env["PIP_USER"] = "no"
+
+        if self.env_var_conn_ids:
+            for env_var_conn_id in self.env_var_conn_ids:
+                # get name, secret via hook and add to environment
+                # note that the type doesn't matter; just takes login and password
+                hook = EWAHBaseHook.get_hook_from_conn_id(conn_id=env_var_conn_id)
+                env[hook.conn.login] = hook.conn.password
 
         # create a new temp folder, all action happens in here
         with TemporaryDirectory(prefix="__ewah_dbt_operator_") as tmp_dir:
