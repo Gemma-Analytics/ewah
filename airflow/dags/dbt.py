@@ -109,7 +109,7 @@ dag9, dag10 = dbt_dags_factory(
         "email_on_retry": False,
         "owner": "Data Engineering",
     },
-    env_var_conn_ids=['dbt-ev1', 'dbt-ev2'],
+    env_var_conn_ids=["dbt-ev1", "dbt-ev2"],
 )
 
 bq1, bq2 = dbt_dags_factory(
