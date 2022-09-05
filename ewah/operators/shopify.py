@@ -52,6 +52,14 @@ class EWAHShopifyOperator(EWAHBaseOperator):
             raise Exception("filter_fields must be a dictionary!")
 
         kwargs["primary_key"] = kwargs.get("primary_key", "id")
+        if (
+            shopify_object in ("checkouts", "abandoned_checkouts")
+            and kwargs["primary_key"] == "id"
+        ):
+            # Special case: for abandoned checkouts, the PK is "token" and not "id"
+            # The id refers to the checkout id, which can be abandoned multiple times
+            # Each abandonement has a unique token, but carries the same id
+            kwargs["primary_key"] = "token"
         if EWAHShopifyHook._OBJECTS[shopify_object].get("_is_drop_and_replace"):
             kwargs["extract_strategy"] = EC.ES_FULL_REFRESH
         if kwargs.get("extract_strategy") == EC.ES_SUBSEQUENT:
