@@ -831,12 +831,13 @@ class EWAHAmazonSellerCentralHook(EWAHBaseHook):
                 url=url, method="GET", region=region, params=params
             ),
         )
-        # Respect endpoint response rate limit of 5 requests per second
+        # Respect endpoint response rate limit of 2 requests per second
+        # Run 1 request per second, just to be sure in case of conflicts
         time.sleep(
             max(
                 0,
                 (
-                    requested_at + timedelta(seconds=1 / 5) - datetime.utcnow()
+                    requested_at + timedelta(seconds=1) - datetime.utcnow()
                 ).total_seconds(),
             )
         )
