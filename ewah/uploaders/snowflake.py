@@ -8,6 +8,7 @@ from ewah.constants import EWAHConstants as EC
 from ewah.hooks.base import EWAHBaseHook
 
 import os
+import sys
 import csv
 import pickle
 import pytz
@@ -213,6 +214,7 @@ class EWAHSnowflakeUploader(EWAHBaseUploader):
             ),
         )
         list_of_columns = [col[0].strip() for col in list_of_columns]
+        python_fix_required = sys.version_info.minor < 10  # See below for reason
 
         self.log.info("Writing data to a temporary .csv file")
         with TemporaryDirectory(prefix="uploadtosnowflake") as tmp_dir:
@@ -228,13 +230,28 @@ class EWAHSnowflakeUploader(EWAHBaseUploader):
                         delimiter=",",
                         quotechar='"',
                         quoting=csv.QUOTE_MINIMAL,
+                        lineterminator="\n",
+                        doublequote=False,
+                        escapechar="\\",
                     )
 
                     for _ in range(len(data)):
                         datum = data.pop(0)
                         # Make sure order of csv is the same as order of columns
                         csvwriter.writerow(
-                            [datum.get(col) for col in list_of_columns],
+                            [
+                                # csv has a bug, which is fixed in Python 3.10,
+                                # which leads to the escape character itself not
+                                # being escaped - Snowflake uploads will fail
+                                # if it is not escaped, hence strings with backslashes
+                                # need double-slashes to "manually" escape it.
+                                # Hotfix can be removed when upgrading to Python >= 3.10
+                                datum[col].replace("\\", "\\\\")
+                                if python_fix_required
+                                and isinstance(datum.get(col), str)
+                                else datum.get(col)
+                                for col in list_of_columns
+                            ],
                         )
 
                 # now stage and copy into snowflake!
@@ -243,9 +260,11 @@ class EWAHSnowflakeUploader(EWAHBaseUploader):
                     USE SCHEMA "{3}";
                     DROP FILE FORMAT IF EXISTS {1}_format;
                     CREATE FILE FORMAT {1}_format
-                        type = 'CSV'
-                        field_delimiter = ','
-                        field_optionally_enclosed_by = '"'
+                        TYPE = 'CSV'
+                        FIELD_DELIMITER = ','
+                        FIELD_OPTIONALLY_ENCLOSED_BY = '"'
+                        EMPTY_FIELD_AS_NULL = TRUE
+                        ESCAPE = '\\\\' -- four backslashes become one when executing
                     ;
                     DROP STAGE IF EXISTS {1}_stage;
                     CREATE STAGE {1}_stage
