@@ -230,9 +230,6 @@ class EWAHSnowflakeUploader(EWAHBaseUploader):
                         delimiter=",",
                         quotechar='"',
                         quoting=csv.QUOTE_MINIMAL,
-                        lineterminator="\n",
-                        doublequote=False,
-                        escapechar="\\",
                     )
 
                     for _ in range(len(data)):
@@ -263,8 +260,6 @@ class EWAHSnowflakeUploader(EWAHBaseUploader):
                         TYPE = 'CSV'
                         FIELD_DELIMITER = ','
                         FIELD_OPTIONALLY_ENCLOSED_BY = '"'
-                        EMPTY_FIELD_AS_NULL = TRUE
-                        ESCAPE = '\\\\' -- four backslashes become one when executing
                     ;
                     DROP STAGE IF EXISTS {1}_stage;
                     CREATE STAGE {1}_stage
