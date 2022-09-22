@@ -260,6 +260,7 @@ class EWAHSnowflakeUploader(EWAHBaseUploader):
                         TYPE = 'CSV'
                         FIELD_DELIMITER = ','
                         FIELD_OPTIONALLY_ENCLOSED_BY = '"'
+                        ESCAPE = '\\\\'
                     ;
                     DROP STAGE IF EXISTS {1}_stage;
                     CREATE STAGE {1}_stage
