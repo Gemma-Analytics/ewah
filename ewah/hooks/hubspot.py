@@ -136,8 +136,11 @@ class EWAHHubspotHook(EWAHBaseHook):
             return []
         request = requests.get(
             url=self.PROPERTIES_URL.format(object),
-            params={"hapikey": self.conn.api_key},
-            headers={"accept": "application/json"},
+            params={},
+            headers={
+                "accept": "application/json",
+                "authorization": "Bearer {0}".format(self.conn.api_key),
+            },
         )
         assert request.status_code == 200, request.text
         return [property["name"] for property in request.json()["results"]]
@@ -180,8 +183,7 @@ class EWAHHubspotHook(EWAHBaseHook):
     ) -> List[Dict[str, Any]]:
 
         self.log.info("Loading data for CRM object {0}!".format(object))
-        params_auth = {"hapikey": self.conn.api_key}
-        params_object = {"hapikey": self.conn.api_key, "limit": 100}
+        params_object = {"limit": 100}
         if associations == "all":
             # Resolve the "all" special keyword
             associations = self.ACCEPTED_OBJECTS.get(object, [])
@@ -250,7 +252,10 @@ class EWAHHubspotHook(EWAHBaseHook):
             request = self.retry_request(
                 url=url_object,
                 params=params_object,
-                headers={"accept": "application/json"},
+                headers={
+                    "accept": "application/json",
+                    "authorization": "Bearer {0}".format(self.conn.api_key),
+                },
                 expected_status_code=200,
                 retries=3,
             )
@@ -282,10 +287,10 @@ class EWAHHubspotHook(EWAHBaseHook):
                             fromObjectType=object,
                             toObjectType=association,
                         ),
-                        params=params_auth,
                         headers={
                             "accept": "application/json",
                             "content-type": "application/json",
+                            "authorization": "Bearer {0}".format(self.conn.api_key),
                         },
                         data=payload,
                     )
