@@ -38,7 +38,7 @@ setuptools.setup(
         "oauth2client",
         "Office365-REST-Python-Client",
         "openpyxl",
-        "protobuf==3.20.0",  # protobuf 4.x causes errors, package is dependency of google packages
+        "protobuf",
         "psycopg2",
         "pymongo",
         "pymssql",

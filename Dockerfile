@@ -91,6 +91,9 @@ ENV EWAH_AIRFLOW_USER_FIRSTNAME='ewah'
 ENV EWAH_AIRFLOW_USER_LASTNAME='ewah'
 ENV EWAH_AIRFLOW_USER_EMAIL='ewah@gemmaanalytics.com'
 
+# Workaround to make newer protobuf versions work
+ENV PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION=python
+
 ################################################################################
 ## Set a number of environment variables as EWAH defaults, can be overwritten ##
 ################################################################################
