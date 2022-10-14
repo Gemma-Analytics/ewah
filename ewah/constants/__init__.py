@@ -81,8 +81,8 @@ class EWAHConstants:
             timedelta: "interval",
         },
         DWH_ENGINE_SNOWFLAKE: {
-            str: "VARCHAR",
-            int: "INTEGER",
+            str: "TEXT",
+            int: "FLOAT",  # Temporary fix - need to implement dynamic data type changes
             float: "FLOAT",
             dict: "OBJECT",
             list: "ARRAY",
