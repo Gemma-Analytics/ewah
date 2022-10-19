@@ -49,7 +49,7 @@ class EWAHGSpreadOperator(EWAHBaseOperator):
                 column_identifier = column_identifier[:-1]
                 ident_dict.update({i: ord(letter) + 1 - ord("a")})
                 i += 1
-            return sum([v * (26 ** k) for k, v in ident_dict.items()])
+            return sum([v * (26**k) for k, v in ident_dict.items()])
         else:
             return column_identifier
 
