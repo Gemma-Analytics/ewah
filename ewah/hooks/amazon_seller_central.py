@@ -439,7 +439,7 @@ class EWAHAmazonSellerCentralHook(EWAHBaseHook):
         while tries < 10:
             tries += 1
             # Exponential increase of the time we are waiting
-            sleep_for = sleep_base * (2 ** tries)
+            sleep_for = sleep_base * (2**tries)
             self.log.info(f"Trying ({tries}/10) to fetch the document id...")
             response = requests.get(
                 url,

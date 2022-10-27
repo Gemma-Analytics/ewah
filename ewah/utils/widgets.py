@@ -9,7 +9,7 @@ class EWAHTextAreaWidget(widgets.TextArea):
         return super().__init__()
 
     def __call__(self, field, **kwargs):
-        kwargs["class"] = u"form-control"
+        kwargs["class"] = "form-control"
         kwargs["rows"] = kwargs.get("rows", self.rows)
         if field.label:
             kwargs["placeholder"] = field.label.text
