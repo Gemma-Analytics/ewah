@@ -40,6 +40,7 @@ setuptools.setup(
         "openpyxl",
         "protobuf",
         "psycopg2",
+        "pyairtable",
         "pymongo",
         "pymssql",
         "pymysql",
