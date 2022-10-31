@@ -20,4 +20,9 @@ class EWAHAirtableHook(EWAHBaseHook):
         }
 
     def get_table_data(self, base_id, table_id):
-        return Table(self.conn.api_key, base_id, table_id).all()
+        data = Table(self.conn.api_key, base_id, table_id).all()
+        for datum in data:
+            # All fields are contained in a dictionary
+            # -> Move it into the first level
+            datum.update(datum.pop("fields"))
+        return data
