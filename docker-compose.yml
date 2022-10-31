@@ -3,7 +3,7 @@ services:
 
   database:
     image: postgres
-    restart: always
+    restart: unless-stopped
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
@@ -19,7 +19,7 @@ services:
       context: .
       target: dev_build
     command: webserver
-    restart: always
+    restart: unless-stopped
     depends_on:
       - database
     volumes:
@@ -39,7 +39,7 @@ services:
       context: .
       target: dev_build
     command: scheduler
-    restart: always
+    restart: unless-stopped
     depends_on:
       - database
       - webserver
