@@ -163,7 +163,8 @@ class EWAHAmazonSellerCentralHook(EWAHBaseHook):
                     value, (date, datetime)
                 ):
                     # Cast all dates
-                    row[key] = parse_datetime(value)
+                    if value:  # Don't parse NoneType or empty string
+                        row[key] = parse_datetime(value)
             if row.get("parentAsin") and not row.get("childAsin"):
                 row["childAsin"] = "n.a."
             return row
