@@ -184,3 +184,74 @@ class EWAHAmazonAdsHook(EWAHBaseHook):
         report_data = json.loads(gzip.decompress(response.content).decode())
 
         return report_data
+
+    def get_report_dsp(
+        self,
+        account_id,
+        report_date_start,
+        report_date_end,
+        report_type,
+        metrics=None,
+        dimensions=None,
+    ):
+        self.log.info("Requesting report creation...")
+        url = "/".join(
+            [
+                self._ENDPOINTS_ADS_API[self.conn.region],
+                "accounts",
+                account_id,
+                "dsp",
+                "reports",
+            ]
+        )
+        headers = {
+            "User-Agent": "EWAH",
+            "Accept": "application/vnd.dspcreatereports.v3+json",
+            "Amazon-Advertising-API-ClientId": self.conn.lwa_client_id,
+            "Authorization": f"Bearer {self.access_token}",
+            "Content-Type": "application/json",
+        }
+        body = {
+            "startDate": report_date_start,
+            "endDate": report_date_end,
+            "format": "JSON",
+            "type": report_type,
+            "timeUnit": "DAILY",
+        }
+        if metrics:
+            body["metrics"] = metrics
+        if dimensions:
+            body["dimensions"] = dimensions
+
+        response = requests.post(url, headers=headers, json=body)
+        assert response.status_code == 202, response.text
+        report_id = response.json()["reportId"]
+
+        # Wait until report is ready
+        url = "/".join([url, report_id])
+        headers["Accept"] = "application/vnd.dspgetreports.v3+json"
+        # Loop for report status
+        wait_for = 1
+        while True:
+            self.log.info(f"Pinging report status at {url}")
+            response = requests.get(url, headers=headers)
+            assert response.status_code == 200, response.text
+            report_status = response.json()["status"]
+            if report_status == "SUCCESS":
+                break
+            if report_status == "FAILURE":
+                raise Exception(
+                    f"Report failure!\n\nFull status request response:"
+                    f"\n\n{response.text}\n\n"
+                )
+            if not report_status == "IN_PROGRESS":
+                raise Exception(f"Invalid report status: {report_status}")
+            self.log.info(f"In progress. Trying again in {wait_for}s...")
+            time.sleep(wait_for)
+            wait_for *= 2
+
+        url = response.json()["location"]
+        self.log.info("Downloading report...")
+        response = requests.get(url)
+        assert response.status_code == 200, response.text
+        return json.loads(response.content.decode())
