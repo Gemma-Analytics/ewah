@@ -196,7 +196,7 @@ class EWAHAmazonAdsHook(EWAHBaseHook):
         # profile_id - the account id to be used
         # ad_product - e.g. SPONSORED_PRODUCTS (sp), for now only sp
         # report_type - e.g. spCampaign, spAdvertisedProduct
-        # additional_params - contains configuration params for API v3 like groupBy, columns, filters, etc. 
+        # additional_params - contains configuration params for API v3 like groupBy, columns, filters, etc.
 
         self.log.info("Requesting report creation...")
         url = "/".join(
@@ -218,8 +218,8 @@ class EWAHAmazonAdsHook(EWAHBaseHook):
             "configuration": {
                 "adProduct": ad_product,
                 "reportTypeId": report_type,
-                "timeUnit":"DAILY",
-                "format":"GZIP_JSON",
+                "timeUnit": "DAILY",
+                "format": "GZIP_JSON",
                 **(additional_params),
             },
         }
@@ -232,7 +232,12 @@ class EWAHAmazonAdsHook(EWAHBaseHook):
         wait_for = 1
         while True:
             url = "/".join(
-                [self._ENDPOINTS_ADS_API[self.conn.region], "reporting", "reports", report_id]
+                [
+                    self._ENDPOINTS_ADS_API[self.conn.region],
+                    "reporting",
+                    "reports",
+                    report_id,
+                ]
             )
             self.log.info(f"Pinging report status at {url}")
             response = requests.get(url, headers=headers)
@@ -252,13 +257,13 @@ class EWAHAmazonAdsHook(EWAHBaseHook):
             wait_for *= 2
 
         # Download data
-        download_url = response.json()['url']
+        download_url = response.json()["url"]
         self.log.info(f"Downloading report from {download_url}")
         download = requests.get(download_url)
         report_data = json.loads(gzip.decompress(download.content).decode())
 
         return report_data
-    
+
     def get_report_dsp(
         self,
         account_id,
