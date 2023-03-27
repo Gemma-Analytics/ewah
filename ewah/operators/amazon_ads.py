@@ -21,12 +21,15 @@ class EWAHAmazonAdsOperator(EWAHBaseOperator):
         report_type,
         profile_id=None,  # Pulls all available profiles if none is given
         additional_params=None,
+        api_version="v2", # default as long as not all endpoints migrated
         *args,
         **kwargs,
     ):
         # TODO: make error more explicit
         # TODO: validate via hook
-        assert ads_type in ("sp", "sb", "sd", "hsa")
+        assert ads_type in ("sp", "sb", "sd", "hsa", "SPONSORED_PRODUCTS")
+
+        assert api_version in ("v2", "v3"), "only Amazon Ads v2 or v3 supported"
 
         if isinstance(profile_id, int):
             profile_id = str(profile_id)
@@ -40,6 +43,7 @@ class EWAHAmazonAdsOperator(EWAHBaseOperator):
         self.profile_id = profile_id
         self.ads_type = ads_type
         self.report_type = report_type
+        self.api_version = api_version
         self.additional_params = additional_params
 
     def ewah_execute(self, context):
@@ -60,13 +64,24 @@ class EWAHAmazonAdsOperator(EWAHBaseOperator):
                     continue
                 profile_id = profile["profileId"]
                 self.log.info(f"Requesting data for profile {profile_id}...")
-                report_data = self.source_hook.get_report(
-                    date=request_date,
-                    profile_id=profile_id,
-                    ads_type=self.ads_type,
-                    report_type=self.report_type,
-                    additional_params=self.additional_params,
-                )
+                # we have to keep v2 because most endpoints are not available yet in v3
+                if self.api_version == "v2":
+                    report_data = self.source_hook.get_report(
+                        date=request_date,
+                        profile_id=profile_id,
+                        ads_type=self.ads_type,
+                        report_type=self.report_type,
+                        additional_params=self.additional_params,
+                    )
+                # v3 is only covering SP (sponsored products) ad_products at the moment
+                if self.api_version == "v3":
+                    report_data = self.source_hook.get_report_v3(
+                        date=request_date,
+                        profile_id=profile_id,
+                        ad_product=self.ads_type,
+                        report_type=self.report_type,
+                        additional_params=self.additional_params,
+                    )
                 for datum in report_data:
                     datum["_report_date"] = request_date.isoformat()
                     datum["_profile_id"] = profile_id
