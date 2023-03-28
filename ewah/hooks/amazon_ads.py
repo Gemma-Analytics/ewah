@@ -185,6 +185,85 @@ class EWAHAmazonAdsHook(EWAHBaseHook):
 
         return report_data
 
+    def get_report_v3(
+        self,
+        date,
+        ad_product,
+        report_type,
+        profile_id,
+        additional_params=None,
+    ):
+        # profile_id - the account id to be used
+        # ad_product - e.g. SPONSORED_PRODUCTS (sp), for now only sp
+        # report_type - e.g. spCampaign, spAdvertisedProduct
+        # additional_params - contains configuration params for API v3 like groupBy, columns, filters, etc.
+
+        self.log.info("Requesting report creation...")
+        url = "/".join(
+            [
+                self._ENDPOINTS_ADS_API[self.conn.region],
+                "reporting",
+                "reports",
+            ]
+        )
+        headers = {
+            "Amazon-Advertising-API-ClientId": self.conn.lwa_client_id,
+            "Authorization": f"Bearer {self.access_token}",
+            "Amazon-Advertising-API-Scope": str(profile_id),
+            "Content-Type": "application/json",
+        }
+        params = {
+            "startDate": date.isoformat(),
+            "endDate": date.isoformat(),
+            "configuration": {
+                "adProduct": ad_product,
+                "reportTypeId": report_type,
+                "timeUnit": "DAILY",
+                "format": "GZIP_JSON",
+                **(additional_params),
+            },
+        }
+        self.log.info(f"Creating report at {url}")
+        response = requests.post(url, data=json.dumps(params), headers=headers)
+        assert response.status_code == 200, response.text
+        report_id = response.json()["reportId"]
+
+        # Loop for report status
+        wait_for = 1
+        while True:
+            url = "/".join(
+                [
+                    self._ENDPOINTS_ADS_API[self.conn.region],
+                    "reporting",
+                    "reports",
+                    report_id,
+                ]
+            )
+            self.log.info(f"Pinging report status at {url}")
+            response = requests.get(url, headers=headers)
+            assert response.status_code == 200, response.text
+            report_status = response.json()["status"]
+            if report_status == "COMPLETED":
+                break
+            if report_status == "FAILURE":
+                raise Exception(
+                    f"Report failure!\n\nFull status request response:"
+                    f"\n\n{response.text}\n\n"
+                )
+            if not report_status in ("PROCESSING", "PENDING"):
+                raise Exception(f"Invalid report status: {report_status}")
+            self.log.info(f"In progress. Trying again in {wait_for}s...")
+            time.sleep(wait_for)
+            wait_for *= 2
+
+        # Download data
+        download_url = response.json()["url"]
+        self.log.info(f"Downloading report from {download_url}")
+        download = requests.get(download_url)
+        report_data = json.loads(gzip.decompress(download.content).decode())
+
+        return report_data
+
     def get_report_dsp(
         self,
         account_id,
