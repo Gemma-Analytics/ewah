@@ -241,7 +241,7 @@ class EWAHBaseUploader(LoggingMixin):
 
     def close(self):
         self.dwh_hook.close()
-
+        
     def copy_table(self) -> None:
         """Copy the existing version of the table, including all data, if it exists."""
         test_kwargs = {"table_name": self.table_name, "schema_name": self.schema_name}

@@ -407,135 +407,138 @@ class EWAHBaseOperator(BaseOperator):
             **self.additional_uploader_kwargs,
         )
 
-        # If applicable: set the session's default time zone
-        if self.default_timezone:
-            self.uploader.dwh_hook.execute(
-                "SET timezone TO '{0}'".format(self.default_timezone)
-            )
+        try:
+            # If applicable: set the session's default time zone
+            if self.default_timezone:
+                self.uploader.dwh_hook.execute(
+                    "SET timezone TO '{0}'".format(self.default_timezone)
+                )
 
-        # Create a new copy of the target table.
-        # This is so data is loaded into a new table and if data loading
-        # fails, the original data is not corrupted. At a new try or re-run,
-        # the original table is just copied anew.
-        if not self.load_strategy == EC.LS_INSERT_REPLACE:
-            # insert_replace always drops and replaces the tables completely
-            self.uploader.copy_table()
+            # Create a new copy of the target table.
+            # This is so data is loaded into a new table and if data loading
+            # fails, the original data is not corrupted. At a new try or re-run,
+            # the original table is just copied anew.
+            if not self.load_strategy == EC.LS_INSERT_REPLACE:
+                # insert_replace always drops and replaces the tables completely
+                self.uploader.copy_table()
 
-        # set load_data_from and load_data_until as required
-        data_from = ada(self.load_data_from)
-        data_until = ada(self.load_data_until)
-        if self.extract_strategy == EC.ES_INCREMENTAL:
-            _tdz = timedelta(days=0)  # aka timedelta zero
-            _ed = context["data_interval_start"]
-            _ned = context["data_interval_end"]
+            # set load_data_from and load_data_until as required
+            data_from = ada(self.load_data_from)
+            data_until = ada(self.load_data_until)
+            if self.extract_strategy == EC.ES_INCREMENTAL:
+                _tdz = timedelta(days=0)  # aka timedelta zero
+                _ed = context["data_interval_start"]
+                _ned = context["data_interval_end"]
 
-            # normal incremental load
-            _ed -= self.load_data_from_relative or _tdz
-            data_from = min(_ed, data_from or _ed)
-            if not self.test_if_target_table_exists():
-                # Load data from scratch!
+                # normal incremental load
+                _ed -= self.load_data_from_relative or _tdz
+                data_from = min(_ed, data_from or _ed)
+                if not self.test_if_target_table_exists():
+                    # Load data from scratch!
+                    data_from = ada(self.reload_data_from) or data_from
+
+                _ned += self.load_data_until_relative or _tdz
+                data_until = max(_ned, data_until or _ned)
+
+            elif self.extract_strategy in (EC.ES_FULL_REFRESH, EC.ES_SUBSEQUENT):
+                # Values may still be set as static values
                 data_from = ada(self.reload_data_from) or data_from
 
-            _ned += self.load_data_until_relative or _tdz
-            data_until = max(_ned, data_until or _ned)
+            else:
+                _msg = "Must define load_data_from etc. behavior for load strategy!"
+                raise Exception(_msg)
 
-        elif self.extract_strategy in (EC.ES_FULL_REFRESH, EC.ES_SUBSEQUENT):
-            # Values may still be set as static values
-            data_from = ada(self.reload_data_from) or data_from
+            self.data_from = data_from
+            self.data_until = data_until
+            # del variables to make sure they are not used later on
+            del self.load_data_from
+            del self.reload_data_from
+            del self.load_data_until
+            del self.load_data_until_relative
+            if not self.extract_strategy == EC.ES_SUBSEQUENT:
+                # keep this param for subsequent loads
+                del self.load_data_from_relative
 
-        else:
-            _msg = "Must define load_data_from etc. behavior for load strategy!"
-            raise Exception(_msg)
-
-        self.data_from = data_from
-        self.data_until = data_until
-        # del variables to make sure they are not used later on
-        del self.load_data_from
-        del self.reload_data_from
-        del self.load_data_until
-        del self.load_data_until_relative
-        if not self.extract_strategy == EC.ES_SUBSEQUENT:
-            # keep this param for subsequent loads
-            del self.load_data_from_relative
-
-        # Have an option to wait until a short period (e.g. 2 minutes) past
-        # the incremental loading range timeframe to ensure that all data is
-        # loaded, useful e.g. if APIs lag or if server timestamps are not
-        # perfectly accurate.
-        # When a DAG is executed as soon as possible, some data sources
-        # may not immediately have up to date data from their API.
-        # E.g. querying all data until 12.30pm only gives all relevant data
-        # after 12.32pm due to some internal delays. In those cases, make
-        # sure the (incremental loading) DAGs don't execute too quickly.
-        if self.wait_for_seconds and self.extract_strategy == EC.ES_INCREMENTAL:
-            wait_until = context.get("data_interval_end")
-            if wait_until:
-                wait_until += timedelta(seconds=self.wait_for_seconds)
-                self.log.info(
-                    "Awaiting execution until {0}...".format(
-                        str(wait_until),
+            # Have an option to wait until a short period (e.g. 2 minutes) past
+            # the incremental loading range timeframe to ensure that all data is
+            # loaded, useful e.g. if APIs lag or if server timestamps are not
+            # perfectly accurate.
+            # When a DAG is executed as soon as possible, some data sources
+            # may not immediately have up to date data from their API.
+            # E.g. querying all data until 12.30pm only gives all relevant data
+            # after 12.32pm due to some internal delays. In those cases, make
+            # sure the (incremental loading) DAGs don't execute too quickly.
+            if self.wait_for_seconds and self.extract_strategy == EC.ES_INCREMENTAL:
+                wait_until = context.get("data_interval_end")
+                if wait_until:
+                    wait_until += timedelta(seconds=self.wait_for_seconds)
+                    self.log.info(
+                        "Awaiting execution until {0}...".format(
+                            str(wait_until),
+                        )
                     )
-                )
-            while wait_until and datetime_utcnow_with_tz() < wait_until:
-                # Only sleep a maximum of 5s at a time
-                wait_for_timedelta = wait_until - datetime_utcnow_with_tz()
-                time.sleep(max(0, min(wait_for_timedelta.total_seconds(), 5)))
+                while wait_until and datetime_utcnow_with_tz() < wait_until:
+                    # Only sleep a maximum of 5s at a time
+                    wait_for_timedelta = wait_until - datetime_utcnow_with_tz()
+                    time.sleep(max(0, min(wait_for_timedelta.total_seconds(), 5)))
 
-        # execute operator
-        if self.load_data_chunking_timedelta and data_from and data_until:
-            # Chunking to avoid OOM
-            assert data_until > data_from
-            assert self.load_data_chunking_timedelta > timedelta(days=0)
-            while self.data_from < data_until:
-                self.data_until = min(
-                    self.data_from + self.load_data_chunking_timedelta, data_until
-                )
-                self.log.info(
-                    "Now loading from {0} to {1}...".format(
-                        str(self.data_from), str(self.data_until)
+            # execute operator
+            if self.load_data_chunking_timedelta and data_from and data_until:
+                # Chunking to avoid OOM
+                assert data_until > data_from
+                assert self.load_data_chunking_timedelta > timedelta(days=0)
+                while self.data_from < data_until:
+                    self.data_until = min(
+                        self.data_from + self.load_data_chunking_timedelta, data_until
                     )
-                )
+                    self.log.info(
+                        "Now loading from {0} to {1}...".format(
+                            str(self.data_from), str(self.data_until)
+                        )
+                    )
+                    self.ewah_execute(context)
+                    self.data_from += self.load_data_chunking_timedelta
+            else:
                 self.ewah_execute(context)
-                self.data_from += self.load_data_chunking_timedelta
-        else:
-            self.ewah_execute(context)
 
-        # Run final scripts
-        # TODO: Include indexes into uploader and then remove this step
-        self.uploader.finalize_upload()
+            # Run final scripts
+            # TODO: Include indexes into uploader and then remove this step
+            self.uploader.finalize_upload()
 
-        # if PostgreSQL and arg given: create indices
-        for column in self.index_columns:
-            assert self.dwh_engine == EC.DWH_ENGINE_POSTGRES
-            # Use hashlib to create a unique 63 character string as index
-            # name to avoid breaching index name length limits & accidental
-            # duplicates / missing indices due to name truncation leading to
-            # identical index names.
-            self.uploader.dwh_hook.execute(
-                self._INDEX_QUERY.format(
-                    "__ewah_"
-                    + hashlib.blake2b(
-                        (
-                            self.target_schema_name
-                            + self.target_schema_suffix
-                            + "."
-                            + self.target_table_name
-                            + "."
-                            + column
-                        ).encode(),
-                        digest_size=28,
-                    ).hexdigest(),
-                    self.target_schema_name + self.target_schema_suffix,
-                    self.target_table_name,
-                    column,
+            # if PostgreSQL and arg given: create indices
+            for column in self.index_columns:
+                assert self.dwh_engine == EC.DWH_ENGINE_POSTGRES
+                # Use hashlib to create a unique 63 character string as index
+                # name to avoid breaching index name length limits & accidental
+                # duplicates / missing indices due to name truncation leading to
+                # identical index names.
+                self.uploader.dwh_hook.execute(
+                    self._INDEX_QUERY.format(
+                        "__ewah_"
+                        + hashlib.blake2b(
+                            (
+                                self.target_schema_name
+                                + self.target_schema_suffix
+                                + "."
+                                + self.target_table_name
+                                + "."
+                                + column
+                            ).encode(),
+                            digest_size=28,
+                        ).hexdigest(),
+                        self.target_schema_name + self.target_schema_suffix,
+                        self.target_table_name,
+                        column,
+                    )
                 )
-            )
 
-        # commit only at the end, so that no data may be committed before an
-        # error occurs.
-        self.log.info("Now committing changes!")
-        self.uploader.commit()
-        self.uploader.close()
+            # commit only at the end, so that no data may be committed before an
+            # error occurs.
+            self.log.info("Now committing changes!")
+            self.uploader.commit()
+        finally:
+            self.uploader.close()
+            del self.uploader
 
     def test_if_target_table_exists(self):
         # TODO: move this function to uploader
