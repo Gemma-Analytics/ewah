@@ -703,6 +703,85 @@ tables_set_2 = {
     },
 }
 
+# API version 3 table setting examples:
+# Extra params like api_version (v3 has to be set implicit), groupBy, columns (instead of metrics).
+# Many matrics (here: columns) are renamed from v2 to v3.
+# Supported endpoints for now: sp (sponsored_products) - only! No creativeType = video either.
+tables_set_3 = {
+    "sp_advertised_product_report": {
+        "primary_key": ["adId", "_report_date", "_profile_id"],
+        # Primary key could also be either "sku" or "asin" or both
+        "api_version": "v3",
+        "ads_type": "SPONSORED_PRODUCTS",  # v3 has different labels
+        "report_type": "spAdvertisedProduct",
+        "additional_params": {
+            "groupBy": ["advertiser"],
+            "columns": [
+                "adGroupId",
+                "adGroupName",
+                "adId",
+                "advertisedAsin",
+                "purchases14d",
+                "purchasesSameSku14d",
+                "purchases7d",
+                "purchasesSameSku7d",
+                "sales14d",
+                "attributedSalesSameSku14d",
+                "sales7d",
+                "attributedSalesSameSku7d",
+                "unitsSoldClicks14d",
+                "unitsSoldSameSku14d",
+                "unitsSoldClicks7d",
+                "unitsSoldSameSku7d",
+                "campaignBudgetAmount",
+                "campaignBudgetType",
+                "campaignId",
+                "campaignName",
+                "campaignStatus",
+                "clicks",
+                "cost",
+                "campaignBudgetCurrencyCode",
+                "impressions",
+                "advertisedSku",
+            ],
+        },
+    },
+    "sp_campaign_report": {
+        "primary_key": ["campaignId", "_report_date", "_profile_id"],
+        "api_version": "v3",
+        "ads_type": "SPONSORED_PRODUCTS",  # v3 has different labels
+        "report_type": "spCampaigns",
+        "additional_params": {
+            "groupBy": ["campaign"],
+            "columns": [
+                "campaignApplicableBudgetRuleId",
+                "campaignApplicableBudgetRuleName",
+                "purchases14d",
+                "purchasesSameSku14d",
+                "purchases7d",
+                "purchasesSameSku7d",
+                "sales14d",
+                "attributedSalesSameSku14d",
+                "sales7d",
+                "attributedSalesSameSku7d",
+                "unitsSoldClicks14d",
+                "unitsSoldSameSku14d",
+                "unitsSoldClicks7d",
+                "unitsSoldSameSku7d",
+                "campaignBudgetAmount",
+                "campaignBudgetType",
+                "campaignId",
+                "campaignName",
+                "campaignRuleBasedBudgetAmount",
+                "campaignStatus",
+                "clicks",
+                "cost",
+                "campaignBudgetCurrencyCode",
+                "impressions",
+            ],
+        },
+    },
+}
 dag1, dag2, dag3 = dag_factory_idempotent(
     dag_name="Snow_EL_Amazon_Ads",
     el_operator=EWAHAmazonAdsOperator,
