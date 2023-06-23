@@ -497,8 +497,13 @@ class EWAHAmazonSellerCentralHook(EWAHBaseHook):
         # Fetch the report Part 3: Download the document
         self.log.info(f"Got document URL. Now downloading document.")
         document_response = requests.get(document_url, allow_redirects=True)
+        # Fix check (might be temporarily): 
+        # The compressionAlgorithm parameter is not reliable at the moment.
+        # Its set, but the content is not always zipped, which we check here.
+        is_zipped = document_response.content.startswith(b'\x1f\x8b')
+
         assert document_response.status_code == 200, document_response.text
-        if is_gzip:
+        if is_zipped:
             document_content = gzip.decompress(document_response.content)
         else:
             document_content = document_response.content
