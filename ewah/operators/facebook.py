@@ -34,11 +34,25 @@ class EWAHFBOperator(EWAHBaseOperator):
         data_since,
         account_ids=None,
         refresh_interval=timedelta(days=7),
+        maximum_fetch_interval=None,
         breakdowns=None,
         *args,
         **kwargs
     ):
+        if isinstance(maximum_fetch_interval, int):
+            maximum_fetch_interval = timedelta(days=maximum_fetch_interval)
+        
+        if maximum_fetch_interval:
+            if not isinstance(maximum_fetch_interval, timedelta):
+                raise Exception("maximum_fetch_interval must be integer or timedelta!")
+                
+            if maximum_fetch_interval <= timedelta(days=0):
+                raise Exception("maximum_fetch_interval must be positive!")
 
+            if not (maximum_fetch_interval / timedelta(days=1)).is_integer():
+                raise Exception("maximum_fetch_interval must be a whole number/days!")
+            
+            
         if isinstance(refresh_interval, int):
             refresh_interval = timedelta(days=refresh_interval)
         elif not isinstance(refresh_interval, timedelta):
@@ -103,6 +117,7 @@ class EWAHFBOperator(EWAHBaseOperator):
         self.level = level
         self.breakdowns = breakdowns
         self.refresh_interval = refresh_interval
+        self.maximum_fetch_interval = maximum_fetch_interval
 
     def ewah_execute(self, context):
         if (
@@ -122,13 +137,27 @@ class EWAHFBOperator(EWAHBaseOperator):
             data_since = self.data_since
             data_until = datetime.now()
 
-        for account_id in self.account_ids or []:
-            for batch in self.source_hook.get_data_in_batches(
-                level=self.level,
-                fields=self.insight_fields,
-                data_from=data_since,
-                data_until=data_until,
-                account_id=account_id,
-                breakdowns=self.breakdowns,
-            ):
-                self.upload_data(batch)
+        if not self.maximum_fetch_interval:
+            self.maximum_fetch_interval = (data_until - data_since) + timedelta(days=1)
+
+        if isinstance(data_since, datetime):
+            data_since = data_since.date()
+        if isinstance(data_until, datetime):
+            data_until = data_until.date()
+        
+        while data_since <= data_until:
+            # Iterate in smaller time steps
+            batch_until = min(
+                data_until, data_since + self.maximum_fetch_interval - timedelta(days=1)
+            )
+            for account_id in self.account_ids or []:
+                for batch in self.source_hook.get_data_in_batches(
+                    level=self.level,
+                    fields=self.insight_fields,
+                    data_from=data_since,
+                    data_until=batch_until,
+                    account_id=account_id,
+                    breakdowns=self.breakdowns,
+                ):
+                    self.upload_data(batch)
+            data_since = batch_until + timedelta(days=1)
