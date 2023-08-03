@@ -188,6 +188,15 @@ class EWAHPlentyMarketsHook(EWAHBaseHook):
             resource = "/rest/{0}".format(resource)
         return resource
 
+    @staticmethod
+    def request_wrapper(url, params, headers, method="get", payload=None):
+        if method == "get":       
+            r = requests.get(url, headers=headers, params=params)
+        if method == "post":       
+            r = requests.post(url, headers=headers, params=params, json=payload)
+        r.raise_for_status()
+        return r
+
     def get_data_in_batches(
         self,
         resource,
@@ -195,6 +204,8 @@ class EWAHPlentyMarketsHook(EWAHBaseHook):
         data_until=None,
         batch_size=10000,
         additional_params=None,
+        request_method=None,
+        post_request_payload=None,
     ):
         params = {
             "itemsPerPage": 250,  # Maximum
@@ -222,7 +233,7 @@ class EWAHPlentyMarketsHook(EWAHBaseHook):
                 "Authorization": "Bearer {0}".format(self.token),
             }
             self.log.info("Requesting new page of data...")
-            data_request = requests.get(url, params=params, headers=headers)
+            data_request = self.request_wrapper(url, params=params, headers=headers, method=request_method, payload=post_request_payload)
             assert data_request.status_code in (200, 401), "Status {0}: {1}".format(
                 data_request.status_code, data_request.text
             )
@@ -238,7 +249,7 @@ class EWAHPlentyMarketsHook(EWAHBaseHook):
                             url = self.endpoint + resource
                         else:
                             url = self.endpoint + "/rest/{0}".format(resource)
-                        data_request = requests.get(url, params=params, headers=headers)
+                        data_request = self.request_wrapper(url, params=params, headers=headers, method=request_method, payload=post_request_payload)
                 except:
                     pass  # assert below will take care of any error
             assert data_request.status_code == 200, "Status {0}: {1}".format(
