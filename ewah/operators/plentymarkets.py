@@ -74,6 +74,6 @@ class EWAHPlentyMarketsOperator(EWAHBaseOperator):
             additional_params=self.additional_api_call_params,
             batch_size=self.batch_size,
             request_method=self.request_method,
-            post_request_payload = self.post_request_payload,
+            post_request_payload=self.post_request_payload,
         ):
             self.upload_data(batch)

@@ -190,11 +190,13 @@ class EWAHPlentyMarketsHook(EWAHBaseHook):
 
     @staticmethod
     def request_wrapper(url, params, headers, method="get", payload=None):
-        if method == "get":       
+        if method == "get":
             r = requests.get(url, headers=headers, params=params)
-        if method == "post":       
+        elif method == "post":
             r = requests.post(url, headers=headers, params=params, json=payload)
-        r.raise_for_status()
+        else:
+            raise ValueError("Invalid method. Supported methods are 'get' and 'post'")
+
         return r
 
     def get_data_in_batches(
@@ -233,7 +235,13 @@ class EWAHPlentyMarketsHook(EWAHBaseHook):
                 "Authorization": "Bearer {0}".format(self.token),
             }
             self.log.info("Requesting new page of data...")
-            data_request = self.request_wrapper(url, params=params, headers=headers, method=request_method, payload=post_request_payload)
+            data_request = self.request_wrapper(
+                url,
+                params=params,
+                headers=headers,
+                method=request_method,
+                payload=post_request_payload,
+            )
             assert data_request.status_code in (200, 401), "Status {0}: {1}".format(
                 data_request.status_code, data_request.text
             )
@@ -249,7 +257,13 @@ class EWAHPlentyMarketsHook(EWAHBaseHook):
                             url = self.endpoint + resource
                         else:
                             url = self.endpoint + "/rest/{0}".format(resource)
-                        data_request = self.request_wrapper(url, params=params, headers=headers, method=request_method, payload=post_request_payload)
+                        data_request = self.request_wrapper(
+                            url,
+                            params=params,
+                            headers=headers,
+                            method=request_method,
+                            payload=post_request_payload,
+                        )
                 except:
                     pass  # assert below will take care of any error
             assert data_request.status_code == 200, "Status {0}: {1}".format(
