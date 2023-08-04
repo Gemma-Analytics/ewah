@@ -22,6 +22,8 @@ class EWAHPlentyMarketsOperator(EWAHBaseOperator):
         resource=None,
         additional_api_call_params=None,
         batch_size=10000,
+        request_method="get",
+        post_request_payload=None,
         *args,
         **kwargs
     ):
@@ -44,6 +46,8 @@ class EWAHPlentyMarketsOperator(EWAHBaseOperator):
         self.resource = resource
         self.additional_api_call_params = additional_api_call_params
         self.batch_size = batch_size
+        self.request_method = request_method
+        self.post_request_payload = post_request_payload
 
     def ewah_execute(self, context):
         if (
@@ -69,5 +73,7 @@ class EWAHPlentyMarketsOperator(EWAHBaseOperator):
             data_until=self.data_until,
             additional_params=self.additional_api_call_params,
             batch_size=self.batch_size,
+            request_method=self.request_method,
+            post_request_payload=self.post_request_payload,
         ):
             self.upload_data(batch)
