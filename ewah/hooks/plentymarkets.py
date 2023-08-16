@@ -59,6 +59,7 @@ class EWAHPlentyMarketsHook(EWAHBaseHook):
         "/rest/orders/documents/proFormaInvoice": ["updatedAtFrom", "updatedAtTo"],
         "/rest/orders/documents/reorder": ["updatedAtFrom", "updatedAtTo"],
         "/rest/orders/documents/uploaded": ["updatedAtFrom", "updatedAtTo"],
+        "/rest/audit-log/search": ["versionFrom", "versionTo"],
     }
 
     @staticmethod
@@ -220,12 +221,18 @@ class EWAHPlentyMarketsHook(EWAHBaseHook):
         url = self.endpoint + resource
 
         if data_from:
-            params[self._INCREMENTAL_FIELDS[resource][0]] = data_from.isoformat()
+            if request_method == "get":
+                params[self._INCREMENTAL_FIELDS[resource][0]] = data_from.isoformat()
+            elif request_method == "post":
+                post_request_payload[
+                    self._INCREMENTAL_FIELDS[resource][0]
+                ] = data_from.isoformat()
         if data_until:
-            if resource == "/rest/accounts/contacts":
-                # inconsistent API implementation - ignores data for last day otherwise
-                data_until += timedelta(days=1)
-            params[self._INCREMENTAL_FIELDS[resource][1]] = data_until.isoformat()
+            if request_method == "get":
+                if resource == "/rest/accounts/contacts":
+                    # inconsistent API implementation - ignores data for last day otherwise
+                    data_until += timedelta(days=1)
+                params[self._INCREMENTAL_FIELDS[resource][1]] = data_until.isoformat()
 
         data = []
         while True:
