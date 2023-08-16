@@ -233,6 +233,10 @@ class EWAHPlentyMarketsHook(EWAHBaseHook):
                     # inconsistent API implementation - ignores data for last day otherwise
                     data_until += timedelta(days=1)
                 params[self._INCREMENTAL_FIELDS[resource][1]] = data_until.isoformat()
+            elif request_method == "post":
+                post_request_payload[
+                    self._INCREMENTAL_FIELDS[resource][1]
+                ] = data_until.isoformat()
 
         data = []
         while True:
