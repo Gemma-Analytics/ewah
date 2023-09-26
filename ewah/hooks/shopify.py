@@ -16,7 +16,7 @@ class EWAHShopifyHook(EWAHBaseHook):
     conn_type = "ewah_shopify"
     hook_name = "EWAH Shopify Connection"
 
-    DEFAULT_API_VERSION = "2022-01"
+    DEFAULT_API_VERSION = "2023-07"
     _BASE_URL = "https://{shop}.myshopify.com/admin/api/{version}/{object}.json"
 
     _DEFAULT_TIMESTAMP_FIELDS = ("updated_at_min", "updated_at_max", "updated_at")
