@@ -58,10 +58,10 @@ class EWAHPostgresHook(EWAHSQLBaseHook):
         )
 
     def _get_cursor(self):
-        return self.dbconn.cursor()
+        return self.dbconn.cursor("ewah")
 
     def _get_dictcursor(self):
-        return self.dbconn.cursor(cursor_factory=RealDictCursor)
+        return self.dbconn.cursor("ewah", cursor_factory=RealDictCursor)
 
     def execute(
         self, sql: str, params: Optional[dict] = None, commit: bool = False, cursor=None
