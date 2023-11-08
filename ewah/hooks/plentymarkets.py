@@ -237,10 +237,10 @@ class EWAHPlentyMarketsHook(EWAHBaseHook):
                     params[
                         self._INCREMENTAL_FIELDS[resource][0]
                     ] = data_from.isoformat()
-            elif request_method == "post":
-                post_request_payload[
-                    self._INCREMENTAL_FIELDS[resource][0]
-                ] = data_from.isoformat()
+                elif request_method == "post":
+                    post_request_payload[
+                        self._INCREMENTAL_FIELDS[resource][0]
+                    ] = data_from.isoformat()
             if data_until:
                 if request_method == "get":
                     if resource == "/rest/accounts/contacts":
