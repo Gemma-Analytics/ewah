@@ -24,6 +24,8 @@ class EWAHPlentyMarketsHook(EWAHBaseHook):
 
     _INCREMENTAL_FIELDS = {
         "/rest/orders": ["updatedAtFrom", "updatedAtTo"],
+        "/rest/orders/search": ["updatedAt", "updatedAt"],
+        # Only added so EWAH does not fail to find incremental fields for this endpoint
         "/rest/orders/status-history": ["createdAtFrom", "createdAtTo"],
         "/rest/accounts/contacts": ["updatedAtAfter", "updatedAtBefore"],
         # TODO - refactor this hook to not need this dict to begin with
@@ -220,23 +222,37 @@ class EWAHPlentyMarketsHook(EWAHBaseHook):
         resource = self.format_resource(resource)
         url = self.endpoint + resource
 
-        if data_from:
-            if request_method == "get":
-                params[self._INCREMENTAL_FIELDS[resource][0]] = data_from.isoformat()
+        if resource == "/rest/orders/search":
+            if data_from and data_until:
+                params[
+                    "updatedAt"
+                ] = f"between:{data_from.isoformat()},{data_until.isoformat()}"
+            elif data_from:
+                params["updatedAt"] = f"gte:{data_from.isoformat()}"
+            elif data_until:
+                params["updatedAt"] = f"lte:{data_until.isoformat()}"
+        else:
+            if data_from:
+                if request_method == "get":
+                    params[
+                        self._INCREMENTAL_FIELDS[resource][0]
+                    ] = data_from.isoformat()
             elif request_method == "post":
                 post_request_payload[
                     self._INCREMENTAL_FIELDS[resource][0]
                 ] = data_from.isoformat()
-        if data_until:
-            if request_method == "get":
-                if resource == "/rest/accounts/contacts":
-                    # inconsistent API implementation - ignores data for last day otherwise
-                    data_until += timedelta(days=1)
-                params[self._INCREMENTAL_FIELDS[resource][1]] = data_until.isoformat()
-            elif request_method == "post":
-                post_request_payload[
-                    self._INCREMENTAL_FIELDS[resource][1]
-                ] = data_until.isoformat()
+            if data_until:
+                if request_method == "get":
+                    if resource == "/rest/accounts/contacts":
+                        # inconsistent API implementation - ignores data for last day otherwise
+                        data_until += timedelta(days=1)
+                    params[
+                        self._INCREMENTAL_FIELDS[resource][1]
+                    ] = data_until.isoformat()
+                elif request_method == "post":
+                    post_request_payload[
+                        self._INCREMENTAL_FIELDS[resource][1]
+                    ] = data_until.isoformat()
 
         data = []
         while True:
