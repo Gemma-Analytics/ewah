@@ -6,7 +6,6 @@ from typing import Optional, List, Union, Dict, Any
 
 
 class EWAHPostgresHook(EWAHSQLBaseHook):
-
     _DEFAULT_PORT = 5432
 
     _ATTR_RELABEL: dict = {
@@ -40,6 +39,10 @@ class EWAHPostgresHook(EWAHSQLBaseHook):
         from wtforms import StringField
 
         return {
+            "extra__ewah_postgres__serverside": StringField(
+                "Use service side cursor? (y/n, default: n)",
+                widget=BS3TextFieldWidget(),
+            ),
             f"extra__ewah_postgres__ssh_conn_id": StringField(
                 "SSH Connection ID (optional)",
                 widget=BS3TextFieldWidget(),
@@ -58,10 +61,16 @@ class EWAHPostgresHook(EWAHSQLBaseHook):
         )
 
     def _get_cursor(self):
-        return self.dbconn.cursor("ewah")
+        if hasattr(self.conn, "serverside") and self.conn.serverside and self.conn.serverside.lower().startswith('y'):
+            return self.dbconn.cursor("ewah")
+        else:
+            return self.dbconn.cursor()
 
     def _get_dictcursor(self):
-        return self.dbconn.cursor("ewah", cursor_factory=RealDictCursor)
+        if hasattr(self.conn, "serverside") and self.conn.serverside and self.conn.serverside.lower().startswith('y'):
+            return self.dbconn.cursor("ewah", cursor_factory=RealDictCursor)
+        else:
+            return self.dbconn.cursor(cursor_factory=RealDictCursor)
 
     def execute(
         self, sql: str, params: Optional[dict] = None, commit: bool = False, cursor=None
