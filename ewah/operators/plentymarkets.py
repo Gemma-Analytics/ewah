@@ -6,7 +6,6 @@ from datetime import datetime, date
 
 
 class EWAHPlentyMarketsOperator(EWAHBaseOperator):
-
     _NAMES = ["plentymarkets"]
 
     _ACCEPTED_EXTRACT_STRATEGIES = {

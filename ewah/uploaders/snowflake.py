@@ -45,7 +45,6 @@ class SnowflakeOperator(BaseOperator):
 
 
 class EWAHSnowflakeUploader(EWAHBaseUploader):
-
     _QUERY_SCHEMA_CHANGES_COLUMNS = """
         SELECT
             column_name

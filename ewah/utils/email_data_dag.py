@@ -83,7 +83,6 @@ def dbt_dag_email_data(
     start_date=datetime(2019, 1, 1),
     default_args=None,
 ):
-
     dag = DAG(
         dag_name,
         schedule_interval=schedule_interval,

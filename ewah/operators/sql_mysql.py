@@ -3,7 +3,6 @@ from ewah.hooks.mysql import EWAHMySQLHook
 
 
 class EWAHMySQLOperator(EWAHSQLBaseOperator):
-
     _NAMES = ["mysql"]
 
     _SQL_BASE = "SELECT\n{columns}\nFROM `{schema}`.`{table}`"

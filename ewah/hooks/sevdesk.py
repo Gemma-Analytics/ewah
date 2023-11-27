@@ -4,7 +4,6 @@ import requests
 
 
 class EWAHSevDeskHook(EWAHBaseHook):
-
     conn_name_attr = "ewah_sevdesk_conn_id"
     default_conn_name = "ewah_sevdesk_default"
     conn_type = "ewah_sevdesk"

@@ -3,7 +3,6 @@ import recurly
 
 
 class EWAHRecurlyHook(EWAHBaseHook):
-
     _ATTR_RELABEL = {
         "api_token": "password",
     }

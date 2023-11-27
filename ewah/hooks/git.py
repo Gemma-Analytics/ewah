@@ -9,7 +9,6 @@ import re
 
 
 class EWAHRemoteGitHook(EWAHBaseHook):
-
     _ATTR_RELABEL = {
         "git_link": "host",
         "branch": "schema",

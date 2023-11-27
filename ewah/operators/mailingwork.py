@@ -9,7 +9,6 @@ import copy
 
 
 class EWAHMailingworkOperator(EWAHBaseOperator):
-
     _NAMES = ["mailingwork"]
 
     _ACCEPTED_EXTRACT_STRATEGIES = {

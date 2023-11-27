@@ -9,7 +9,6 @@ from oauth2client.service_account import ServiceAccountCredentials as SAC
 
 
 class EWAHGSpreadOperator(EWAHBaseOperator):
-
     _NAMES = ["google_sheets", "gs", "gsheets"]
 
     _ACCEPTED_EXTRACT_STRATEGIES = {

@@ -11,7 +11,6 @@ import re
 
 
 class EWAHPostgresUploader(EWAHBaseUploader):
-
     _QUERY_SCHEMA_CHANGES_COLUMNS = """
         SELECT
         	f.attname AS "name"

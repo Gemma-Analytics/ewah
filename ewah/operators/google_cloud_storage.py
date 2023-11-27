@@ -4,7 +4,6 @@ from ewah.operators.base import EWAHBaseOperator
 
 
 class EWAHGoogleCloudStorageOperator(EWAHBaseOperator):
-
     _NAMES = ["gcs", "google_cloud_storage"]
 
     _ACCEPTED_EXTRACT_STRATEGIES = {

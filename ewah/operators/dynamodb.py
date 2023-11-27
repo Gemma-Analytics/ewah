@@ -5,7 +5,6 @@ import boto3
 
 
 class EWAHDynamoDBOperator(EWAHBaseOperator):
-
     _NAMES = ["dynamodb"]
 
     # For incremental loading, use Kinesis Firehose to push changes to S3
@@ -26,7 +25,6 @@ class EWAHDynamoDBOperator(EWAHBaseOperator):
         *args,
         **kwargs
     ):
-
         source_table_name = source_table_name or kwargs.get("target_table_name")
         kwargs["primary_key"] = [partition_key]
         if sort_key:

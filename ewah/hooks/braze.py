@@ -8,7 +8,6 @@ from datetime import datetime
 
 
 class EWAHBrazeHook(EWAHBaseHook):
-
     _ATTR_RELABEL = {
         "api_key": "password",
         "endpoint": "host",

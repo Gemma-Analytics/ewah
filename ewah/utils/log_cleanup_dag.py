@@ -105,7 +105,6 @@ def cleanup_dag_factory(
     )
 
     for log_cleanup_id in range(1, NUMBER_OF_WORKERS + 1):
-
         log_cleanup = BashOperator(
             task_id="log_cleanup_" + str(log_cleanup_id),
             bash_command=log_cleanup,

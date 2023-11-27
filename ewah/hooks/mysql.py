@@ -6,7 +6,6 @@ from typing import Optional, List, Union
 
 
 class EWAHMySQLHook(EWAHSQLBaseHook):
-
     _DEFAULT_PORT = 3306
 
     _ATTR_RELABEL = {

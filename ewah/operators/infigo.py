@@ -5,7 +5,6 @@ from ewah.constants import EWAHConstants as EC
 
 
 class EWAHInfigoOperator(EWAHBaseOperator):
-
     _NAMES = ["infigo"]
 
     _ACCEPTED_EXTRACT_STRATEGIES = {

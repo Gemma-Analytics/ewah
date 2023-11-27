@@ -8,7 +8,6 @@ import copy
 
 
 class EWAHPipedriveHook(EWAHBaseHook):
-
     _ATTR_RELABEL: dict = {
         "company": "login",
         "api_token": "password",

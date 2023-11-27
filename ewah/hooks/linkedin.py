@@ -9,7 +9,6 @@ import requests
 
 
 class EWAHLinkedInHook(EWAHBaseHook):
-
     _ATTR_RELABEL: {}
 
     conn_name_attr = "ewah_linkedin_conn_id"

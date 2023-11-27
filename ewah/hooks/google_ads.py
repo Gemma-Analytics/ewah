@@ -11,7 +11,6 @@ import json
 
 
 class EWAHGoogleAdsHook(EWAHBaseHook):
-
     _ATTR_RELABEL: {
         "client_id": "login",
         "client_secret": "password",
@@ -101,7 +100,7 @@ class EWAHGoogleAdsHook(EWAHBaseHook):
 
         def unnest_dict(nested_dict: dict, prefix: Optional[str] = None):
             unnested_dict = {}
-            for (k, v) in nested_dict.items():
+            for k, v in nested_dict.items():
                 if isinstance(v, dict):
                     if prefix:
                         next_prefix = prefix + "__" + k

@@ -5,7 +5,6 @@ from ewah.constants import EWAHConstants as EC
 
 
 class EWAHAircallOperator(EWAHBaseOperator):
-
     _NAMES = ["aircall"]
 
     _ACCEPTED_EXTRACT_STRATEGIES = {

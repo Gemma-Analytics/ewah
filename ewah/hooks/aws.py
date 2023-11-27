@@ -7,7 +7,6 @@ import boto3
 
 
 class EWAHAWSHook(EWAHBaseHook):
-
     _ATTR_RELABEL = {
         "access_key_id": "login",
         "secret_access_key": "password",

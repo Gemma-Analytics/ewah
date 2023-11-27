@@ -5,7 +5,6 @@ from ewah.constants import EWAHConstants as EC
 
 
 class EWAHPersonioOperator(EWAHBaseOperator):
-
     _NAMES = ["personio"]
 
     _ACCEPTED_EXTRACT_STRATEGIES = {

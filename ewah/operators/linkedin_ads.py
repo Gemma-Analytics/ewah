@@ -7,7 +7,6 @@ from datetime import datetime, timedelta, date
 
 
 class EWAHLinkedInAdsOperator(EWAHBaseOperator):
-
     _NAMES = ["li_ads", "linkedin_ads"]
 
     _ACCEPTED_EXTRACT_STRATEGIES = {

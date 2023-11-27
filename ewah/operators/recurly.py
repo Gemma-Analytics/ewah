@@ -5,7 +5,6 @@ from ewah.constants import EWAHConstants as EC
 
 
 class EWAHRecurlyOperator(EWAHBaseOperator):
-
     _NAMES = ["recurly"]
 
     _ACCEPTED_EXTRACT_STRATEGIES = {

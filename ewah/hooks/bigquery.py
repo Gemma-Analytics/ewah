@@ -13,7 +13,6 @@ import json
 
 
 class EWAHBigQueryHook(EWAHSQLBaseHook):
-
     _ATTR_RELABEL: dict = {"project": "host"}
 
     conn_name_attr = "ewah_bigquery_conn_id"

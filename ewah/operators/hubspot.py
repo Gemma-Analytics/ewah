@@ -5,7 +5,6 @@ from ewah.hooks.hubspot import EWAHHubspotHook
 
 
 class EWAHHubspotOperator(EWAHBaseOperator):
-
     _NAMES = ["hubspot"]
 
     _ACCEPTED_EXTRACT_STRATEGIES = {
