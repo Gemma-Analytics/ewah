@@ -61,13 +61,21 @@ class EWAHPostgresHook(EWAHSQLBaseHook):
         )
 
     def _get_cursor(self):
-        if hasattr(self.conn, "serverside") and self.conn.serverside and self.conn.serverside.lower().startswith('y'):
+        if (
+            hasattr(self.conn, "serverside")
+            and self.conn.serverside
+            and self.conn.serverside.lower().startswith("y")
+        ):
             return self.dbconn.cursor("ewah")
         else:
             return self.dbconn.cursor()
 
     def _get_dictcursor(self):
-        if hasattr(self.conn, "serverside") and self.conn.serverside and self.conn.serverside.lower().startswith('y'):
+        if (
+            hasattr(self.conn, "serverside")
+            and self.conn.serverside
+            and self.conn.serverside.lower().startswith("y")
+        ):
             return self.dbconn.cursor("ewah", cursor_factory=RealDictCursor)
         else:
             return self.dbconn.cursor(cursor_factory=RealDictCursor)
