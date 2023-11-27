@@ -6,7 +6,6 @@ from typing import Optional, List, Union
 
 
 class EWAHSnowflakeHook(EWAHBaseHook):
-
     _ATTR_RELABEL = {
         "user": "login",
         "account": "host",

@@ -11,7 +11,6 @@ from time import sleep
 
 
 class EWAHHubspotHook(EWAHBaseHook):
-
     _ATTR_RELABEL = {
         "api_key": "password",
     }
@@ -181,7 +180,6 @@ class EWAHHubspotHook(EWAHBaseHook):
         max_properties_per_call: int = 250,
         batch_size: int = 10000,
     ) -> List[Dict[str, Any]]:
-
         self.log.info("Loading data for CRM object {0}!".format(object))
         params_object = {"limit": 100}
         if associations == "all":

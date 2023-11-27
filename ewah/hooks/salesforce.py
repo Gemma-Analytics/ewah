@@ -9,7 +9,6 @@ import requests
 
 
 class EWAHSalesforceHook(EWAHBaseHook):
-
     _ATTR_RELABEL: dict = {
         "username": "login",
         "domain": "schema",

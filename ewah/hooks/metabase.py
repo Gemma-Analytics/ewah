@@ -7,7 +7,6 @@ import yaml
 
 
 class EWAHMetabaseHook(EWAHBaseHook):
-
     _ATTR_RELABEL = {
         "user": "login",
         "database": "schema",

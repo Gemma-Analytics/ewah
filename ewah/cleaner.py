@@ -180,7 +180,7 @@ class EWAHCleaner(LoggingMixin):
         return row
 
     def _rename_columns(self, row):
-        for (old_name, new_name) in self.rename_columns.items():
+        for old_name, new_name in self.rename_columns.items():
             row[new_name] = row.pop(old_name, row.get(new_name))
         return row
 

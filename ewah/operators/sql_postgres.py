@@ -3,7 +3,6 @@ from ewah.hooks.postgres import EWAHPostgresHook
 
 
 class EWAHPostgresOperator(EWAHSQLBaseOperator):
-
     _NAMES = ["pgsql", "postgres", "postgresql"]
 
     _SQL_BASE = 'SELECT\n{columns}\nFROM "{schema}"."{table}"\n'

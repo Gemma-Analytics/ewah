@@ -13,7 +13,6 @@ from datetime import datetime
 
 
 class EWAHGoogleCloudStorageHook(EWAHBaseHook):
-
     _ATTR_RELABEL = {
         "project_id": "schema",
     }

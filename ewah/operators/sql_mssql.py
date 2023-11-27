@@ -3,7 +3,6 @@ from ewah.hooks.mssql import EWAHMSSQLHook
 
 
 class EWAHMSSQLOperator(EWAHSQLBaseOperator):
-
     _NAMES = ["mssql"]
 
     _SQL_BASE = 'SELECT\n{columns}\nFROM "{schema}"."{table}"'

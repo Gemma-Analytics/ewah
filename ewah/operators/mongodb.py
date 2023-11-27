@@ -3,7 +3,6 @@ from ewah.operators.base import EWAHBaseOperator
 
 
 class EWAHMongoDBOperator(EWAHBaseOperator):
-
     _NAMES = ["mongo", "mongodb"]
 
     _ACCEPTED_EXTRACT_STRATEGIES = {
@@ -22,7 +21,6 @@ class EWAHMongoDBOperator(EWAHBaseOperator):
         *args,
         **kwargs
     ):
-
         self.source_collection_name = (
             source_collection_name or kwargs["target_table_name"]
         )

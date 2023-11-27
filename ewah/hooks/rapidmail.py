@@ -6,7 +6,6 @@ import requests
 
 
 class EWAHRapidmailHook(EWAHBaseHook):
-
     _ATTR_RELABEL: {}
 
     conn_name_attr = "ewah_rapidmail_conn_id"

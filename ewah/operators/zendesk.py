@@ -12,7 +12,6 @@ import time
 
 
 class EWAHZendeskOperator(EWAHBaseOperator):
-
     _NAMES = ["zendesk"]
 
     _ACCEPTED_EXTRACT_STRATEGIES = {
@@ -23,7 +22,6 @@ class EWAHZendeskOperator(EWAHBaseOperator):
     _base_url = "https://{support_url}.zendesk.com/{endpoint}"
 
     def __init__(self, support_url, resource, auth_type, *args, **kwargs):
-
         self._accepted_resources = {
             "tickets": {
                 "function": self.execute_incremental_cursor_based,
@@ -156,7 +154,6 @@ class EWAHZendeskOperator(EWAHBaseOperator):
             )
 
     def execute_incremental_time_based(_, context, self):
-
         url = self._base_url.format(
             **{
                 "support_url": self.support_url,

@@ -240,7 +240,6 @@ class EWAHS3Operator(EWAHBaseOperator):
                 file_load_parallelism=self.file_load_parallelism,
                 thread_pool_size=self.thread_pool_size,
             ):
-
                 self.log.info("Loading data from file {0}".format(obj_iter["Key"]))
                 raw_data = obj_iter["_body"]
                 if self.decompress:

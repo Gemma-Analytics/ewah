@@ -8,7 +8,6 @@ import dateutil
 
 
 class EWAHShopifyHook(EWAHBaseHook):
-
     _ATTR_RELABEL = {}
 
     conn_name_attr = "ewah_shopify_conn_id"

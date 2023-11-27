@@ -6,7 +6,6 @@ from datetime import timedelta
 
 
 class EWAHAmazonAdsOperator(EWAHBaseOperator):
-
     _NAMES = ["amazon_ads"]
 
     _ACCEPTED_EXTRACT_STRATEGIES = {
@@ -113,7 +112,6 @@ class EWAHAmazonAdsDSPOperator(EWAHBaseOperator):
         *args,
         **kwargs,
     ):
-
         # TODO: auto-generate primary key (combined date + id, probably)
 
         super().__init__(*args, **kwargs)

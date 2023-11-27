@@ -3,7 +3,6 @@ from ewah.hooks.oracle import EWAHOracleSQLOperator
 
 
 class EWAHOracleSQLOperator(EWAHSQLBaseOperator):
-
     _NAMES = ["oracle"]
 
     _SQL_BASE = 'SELECT\n{columns}\nFROM "{schema}"."{table}"\n'

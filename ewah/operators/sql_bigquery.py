@@ -3,7 +3,6 @@ from ewah.hooks.bigquery import EWAHBigQueryHook
 
 
 class EWAHBigQueryOperator(EWAHSQLBaseOperator):
-
     _NAMES = ["bq", "biqguery"]
 
     _SQL_BASE = """

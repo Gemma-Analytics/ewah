@@ -15,7 +15,6 @@ import time
 
 
 class EWAHFBOperator(EWAHBaseOperator):
-
     _NAMES = ["facebook", "fb"]
 
     _ACCEPTED_EXTRACT_STRATEGIES = {
@@ -41,18 +40,17 @@ class EWAHFBOperator(EWAHBaseOperator):
     ):
         if isinstance(maximum_fetch_interval, int):
             maximum_fetch_interval = timedelta(days=maximum_fetch_interval)
-        
+
         if maximum_fetch_interval:
             if not isinstance(maximum_fetch_interval, timedelta):
                 raise Exception("maximum_fetch_interval must be integer or timedelta!")
-                
+
             if maximum_fetch_interval <= timedelta(days=0):
                 raise Exception("maximum_fetch_interval must be positive!")
 
             if not (maximum_fetch_interval / timedelta(days=1)).is_integer():
                 raise Exception("maximum_fetch_interval must be a whole number/days!")
-            
-            
+
         if isinstance(refresh_interval, int):
             refresh_interval = timedelta(days=refresh_interval)
         elif not isinstance(refresh_interval, timedelta):
@@ -144,7 +142,7 @@ class EWAHFBOperator(EWAHBaseOperator):
             data_since = data_since.date()
         if isinstance(data_until, datetime):
             data_until = data_until.date()
-        
+
         while data_since <= data_until:
             # Iterate in smaller time steps
             batch_until = min(

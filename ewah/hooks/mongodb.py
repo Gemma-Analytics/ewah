@@ -11,7 +11,6 @@ from tempfile import NamedTemporaryFile
 
 
 class EWAHMongoDBHook(EWAHBaseHook):
-
     _ATTR_RELABEL = {
         "default_database": "schema",
         "uri": "password",
@@ -157,7 +156,6 @@ class EWAHMongoDBHook(EWAHBaseHook):
         filter_expression=None,
         batch_size: int = 100000,
     ):
-
         mongo_database = self.mongoclient.get_database(
             name=database or self.conn.default_database
         )

@@ -9,7 +9,6 @@ def git_pull_dag_factory(
     start_date=None,
     schedule_interval=None,
 ):
-
     dag = DAG(
         dag_name,
         catchup=False,

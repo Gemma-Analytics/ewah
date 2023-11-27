@@ -6,7 +6,6 @@ from datetime import datetime, date
 
 
 class EWAHPersonioHook(EWAHBaseHook):
-
     _ATTR_RELABEL = {
         "client_id": "login",
         "client_secret": "password",

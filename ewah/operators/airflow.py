@@ -6,7 +6,6 @@ from dateutil.parser import parse
 
 
 class EWAHAirflowOperator(EWAHBaseOperator):
-
     _NAMES = ["airflow"]
 
     _ACCEPTED_EXTRACT_STRATEGIES = {

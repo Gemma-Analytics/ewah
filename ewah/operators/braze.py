@@ -6,7 +6,6 @@ from typing import Optional
 
 
 class EWAHBrazeOperator(EWAHBaseOperator):
-
     _NAMES = ["braze"]
 
     _ACCEPTED_EXTRACT_STRATEGIES = {

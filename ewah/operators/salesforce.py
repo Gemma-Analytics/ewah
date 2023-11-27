@@ -7,7 +7,6 @@ from typing import Optional
 
 
 class EWAHSalesforceOperator(EWAHBaseOperator):
-
     _NAMES = ["sf", "salesforce"]
 
     _ACCEPTED_EXTRACT_STRATEGIES = {

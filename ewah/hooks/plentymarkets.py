@@ -11,7 +11,6 @@ from cryptography.fernet import Fernet
 
 
 class EWAHPlentyMarketsHook(EWAHBaseHook):
-
     _ATTR_RELABEL = {
         "username": "login",
         "url": "host",

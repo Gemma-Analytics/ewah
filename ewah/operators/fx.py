@@ -7,7 +7,6 @@ from ewah.utils.airflow_utils import datetime_utcnow_with_tz
 
 
 class EWAHFXOperator(EWAHBaseOperator):
-
     _NAMES = ["fx"]
 
     _ACCEPTED_EXTRACT_STRATEGIES = {
@@ -22,7 +21,6 @@ class EWAHFXOperator(EWAHBaseOperator):
         *args,
         **kwargs
     ):
-
         if not frequency in ("daily", "weekly", "monthly"):
             raise Exception("Frequency must be one of: daily, weekly, monthly")
 

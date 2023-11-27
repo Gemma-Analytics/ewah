@@ -71,7 +71,6 @@ def map_bq_data_type_to_avro(data_type):
 
 
 class EWAHBigQueryUploader(EWAHBaseUploader):
-
     _QUERY_SCHEMA_CHANGES_COLUMNS = """
         SELECT column_name
         FROM `{project_id}.{schema_name}.INFORMATION_SCHEMA.COLUMNS`

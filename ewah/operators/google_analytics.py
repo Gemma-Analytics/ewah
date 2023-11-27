@@ -7,7 +7,6 @@ from datetime import datetime, timedelta
 
 
 class EWAHGAOperator(EWAHBaseOperator):
-
     _NAMES = ["ga", "google_analytics"]
 
     _ACCEPTED_EXTRACT_STRATEGIES = {

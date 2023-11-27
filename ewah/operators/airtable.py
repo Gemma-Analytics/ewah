@@ -5,7 +5,6 @@ from ewah.constants import EWAHConstants as EC
 
 
 class EWAHAirtableOperator(EWAHBaseOperator):
-
     _NAMES = ["airtable"]
 
     _ACCEPTED_EXTRACT_STRATEGIES = {

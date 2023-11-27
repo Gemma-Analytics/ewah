@@ -133,7 +133,6 @@ class EWAHdbtOperator(BaseOperator):
         self.env_var_conn_ids = env_var_conn_ids
 
     def execute(self, context):
-
         # env to be used in processes later
         env = os.environ.copy()
         env["PIP_USER"] = "no"

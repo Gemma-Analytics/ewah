@@ -32,7 +32,6 @@ class ExtendedETS(ExternalTaskSensor):
         *args,
         **kwargs,
     ) -> None:
-
         self.backfill_dag_id = backfill_dag_id
         self.backfill_execution_delta = backfill_execution_delta
         self.backfill_execution_date_fn = backfill_execution_date_fn
@@ -41,7 +40,6 @@ class ExtendedETS(ExternalTaskSensor):
         super().__init__(*args, **kwargs)
 
     def execute(self, context: dict) -> None:
-
         if context["dag"].start_date == context["data_interval_start"]:
             # First execution of the DAG.
             if self.backfill_dag_id:

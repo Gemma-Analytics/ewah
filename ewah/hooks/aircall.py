@@ -5,7 +5,6 @@ import time
 
 
 class EWAHAircallHook(EWAHBaseHook):
-
     _ATTR_RELABEL = {
         "api_id": "login",
         "api_token": "password",

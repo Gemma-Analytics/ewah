@@ -13,7 +13,6 @@ sshtunnel.TUNNEL_TIMEOUT = 30
 
 
 class EWAHSSHHook(EWAHBaseHook):
-
     _ATTR_RELABEL = {
         "username": "login",
     }

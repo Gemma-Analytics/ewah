@@ -8,7 +8,6 @@ from datetime import datetime, timedelta
 
 
 class EWAHGoogleAdsOperator(EWAHBaseOperator):
-
     _NAMES = ["gads", "google_ads"]
 
     _ACCEPTED_EXTRACT_STRATEGIES = {
@@ -29,7 +28,6 @@ class EWAHGoogleAdsOperator(EWAHBaseOperator):
         *args,
         **kwargs
     ):
-
         if metrics:
             fields["metrics"] = metrics
 

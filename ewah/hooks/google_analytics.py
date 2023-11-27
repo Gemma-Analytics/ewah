@@ -10,7 +10,6 @@ from datetime import datetime, timedelta
 
 
 class EWAHGoogleAnalyticsHook(EWAHBaseHook):
-
     _ATTR_RELABEL = {}
 
     conn_name_attr = "ewah_google_analytics_conn_id"

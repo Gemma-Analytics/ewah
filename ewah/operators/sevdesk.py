@@ -5,7 +5,6 @@ from ewah.constants import EWAHConstants as EC
 
 
 class EWAHSevDeskOperator(EWAHBaseOperator):
-
     _NAMES = ["sevdesk"]
 
     _ACCEPTED_EXTRACT_STRATEGIES = {

@@ -10,7 +10,6 @@ import time
 
 
 class EWAHFacebookHook(EWAHBaseHook):
-
     _ATTR_RELABEL = {
         "app_id": "login",
         "app_secret": "password",

@@ -6,7 +6,6 @@ import stripe
 
 
 class EWAHStripeHook(EWAHBaseHook):
-
     _ATTR_RELABEL = {
         "api_key": "password",
     }

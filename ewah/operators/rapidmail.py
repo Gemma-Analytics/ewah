@@ -4,7 +4,6 @@ from ewah.operators.base import EWAHBaseOperator
 
 
 class EWAHGoogleAdsOperator(EWAHBaseOperator):
-
     _NAMES = ["rapidmail"]
 
     _ACCEPTED_EXTRACT_STRATEGIES = {

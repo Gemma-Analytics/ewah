@@ -5,7 +5,6 @@ from ewah.utils.python_utils import is_iterable_not_string
 
 
 class EWAHShopifyOperator(EWAHBaseOperator):
-
     _NAMES = ["shopify"]
 
     _ACCEPTED_EXTRACT_STRATEGIES = {

@@ -6,7 +6,6 @@ from typing import Optional
 
 
 class EWAHPipedriveOperator(EWAHBaseOperator):
-
     _NAMES = ["pd", "pipedrive"]
 
     _ACCEPTED_EXTRACT_STRATEGIES = {

@@ -6,7 +6,6 @@ from typing import Optional, List, Union
 
 
 class EWAHOracleSQLOperator(EWAHSQLBaseHook):
-
     _DEFAULT_PORT = 1521
 
     _ATTR_RELABEL = {

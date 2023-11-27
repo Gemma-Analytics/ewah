@@ -5,7 +5,6 @@ from ewah.hooks.mailchimp import EWAHMailchimpHook
 
 
 class EWAHMailchimpOperator(EWAHBaseOperator):
-
     _NAMES = ["mailchimp", "mc"]
 
     _ACCEPTED_EXTRACT_STRATEGIES = {

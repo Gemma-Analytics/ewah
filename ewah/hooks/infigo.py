@@ -4,7 +4,6 @@ import requests
 
 
 class EWAHInfigoHook(EWAHBaseHook):
-
     _ATTR_RELABEL = {
         "api_token": "password",
         "base_url": "host",

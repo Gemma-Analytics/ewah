@@ -8,9 +8,10 @@ services:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
       POSTGRES_DB: ewah
+      PGDATA: /var/lib/postgresql/data
     volumes:
       # persist data on disk
-      - ./postgres-data:/var/lib/postgresql
+      - ewah_airflow_metadata:/var/lib/postgresql
     ports:
       - 5432:5432
 
@@ -56,3 +57,7 @@ services:
 networks:
   default:
     name: ewah-net
+
+volumes:
+    ewah_airflow_metadata:
+        driver: local

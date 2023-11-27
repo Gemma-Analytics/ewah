@@ -5,7 +5,6 @@ from ewah.hooks.stripe import EWAHStripeHook
 
 
 class EWAHStripeOperator(EWAHBaseOperator):
-
     _NAMES = ["stripe"]
 
     _ACCEPTED_EXTRACT_STRATEGIES = {
