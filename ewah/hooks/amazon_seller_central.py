@@ -81,6 +81,14 @@ class EWAHAmazonSellerCentralHook(EWAHBaseHook):
                 "add_bsr": [True, False],
             },
         },
+        "inventory": {  # Full-refresh only
+            "report_type": "GET_FBA_MYI_UNSUPPRESSED_INVENTORY_DATA",
+            "report_options": {},
+            "method_name": "get_inventory",
+            "primary_key": None,
+            "subsequent_field": None,
+            "accepted_strategies": [EC.ES_FULL_REFRESH],
+        },
     }
 
     _ATTR_RELABEL = {}
@@ -739,6 +747,39 @@ class EWAHAmazonSellerCentralHook(EWAHBaseHook):
                 if asin:
                     self.log.info("Fetching additional catalogue data for a listing...")
                     row.update(self.get_listing_details(marketplace_region, asin) or {})
+            data.append(row)
+            if i == batch_size:
+                yield data
+                i = 0
+                data = []
+        if data:
+            yield data
+
+    def get_inventory(
+        self,
+        marketplace_region,
+        report_name,
+        data_from,
+        data_until,
+        report_options=None,
+        ewah_options=None,
+        batch_size=10000,
+    ):
+        self.log.info("Fetching Inventory. Ignoring datetimes if any.")
+        data_io = StringIO(
+            self.get_report_data(
+                marketplace_region,
+                report_name,
+                None,
+                None,
+                report_options,
+            ).decode("latin-1")
+        )
+        csv_reader = csv.DictReader(data_io, delimiter="\t")
+        data = []
+        i = 0
+        for row in csv_reader:
+            i += 1
             data.append(row)
             if i == batch_size:
                 yield data
