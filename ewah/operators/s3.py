@@ -5,6 +5,7 @@ from airflow.providers.amazon.aws.hooks.s3 import S3Hook
 
 from botocore.exceptions import ClientError
 from datetime import datetime, timedelta
+from io import StringIO
 from multiprocessing.dummy import Pool as ThreadPool
 
 import json
@@ -39,6 +40,16 @@ class ExtendedS3Hook(S3Hook):
             time.sleep(0.1)
         return self.credentials_by_region[region_name]
 
+    def read_key(self, key, bucket_name=None, is_compressed=False):
+        """
+        Overwrite method in order to allow for compressed objects
+        Source: https://airflow.apache.org/docs/apache-airflow/1.10.12/_api/airflow/hooks/S3_hook/index.html#airflow.hooks.S3_hook.S3Hook.read_key
+        """
+        obj = self.get_key(key, bucket_name)
+        if is_compressed:
+            return obj.get()["Body"].read()
+        return obj.get()["Body"].read().decode("utf-8")
+
 
 class EWAHS3Operator(EWAHBaseOperator):
     """Only implemented for JSON and CSV files from S3 right now!"""
@@ -53,6 +64,7 @@ class EWAHS3Operator(EWAHBaseOperator):
 
     _IMPLEMENTED_FORMATS = [
         "JSON",
+        "JSONL",  # Multiple JSON objects split by newlines in the same file
         "AWS_FIREHOSE_JSON",
         "CSV",
     ]
@@ -92,9 +104,6 @@ class EWAHS3Operator(EWAHBaseOperator):
         if not file_format == "CSV" and csv_format_options:
             raise Exception("csv_format_options is only valid for CSV files!")
 
-        if decompress and not file_format == "CSV":
-            raise exception("Can currently only decompress CSVs!")
-
         self.bucket_name = bucket_name
         self.prefix = prefix
         self.suffix = suffix
@@ -123,7 +132,7 @@ class EWAHS3Operator(EWAHBaseOperator):
         """
 
         def read_key(key_name):
-            return s3hook.read_key(key_name, bucket)
+            return s3hook.read_key(key_name, bucket, self.decompress)
 
         cli = s3hook.get_client_type("s3")
         paginator = cli.get_paginator("list_objects_v2")
@@ -132,8 +141,8 @@ class EWAHS3Operator(EWAHBaseOperator):
         all_objects = [
             o
             for o in page_iterator.build_full_result()["Contents"]
-            if (not modified_from or o["LastModified"] >= modified_from)
-            and (not modified_until or o["LastModified"] < modified_until)
+            if (not modified_from or o["LastModified"] > modified_from)
+            and (not modified_until or o["LastModified"] <= modified_until)
             and (not suffix or suffix == o["Key"][-len(suffix) :])
         ]
 
@@ -174,6 +183,23 @@ class EWAHS3Operator(EWAHBaseOperator):
             return self.execute_json(
                 context=context,
                 f_get_data=lambda file_content: json.loads(file_content),
+            )
+        elif self.file_format == "JSONL":
+            f_get_data = lambda file_content: list(
+                # Use StringIO in order to iterate through each line of the file
+                map(json.loads, StringIO(file_content))
+            )
+            if self.decompress:
+                f_get_data = lambda file_content: list(
+                    map(
+                        json.loads,
+                        # We need to decompress the whole file before iterating over its lines
+                        StringIO(gzip.decompress(bytes(file_content)).decode("utf-8")),
+                    )
+                )
+            return self.execute_json(
+                context=context,
+                f_get_data=f_get_data,
             )
         elif self.file_format == "AWS_FIREHOSE_JSON":
             return self.execute_json(
@@ -305,14 +331,16 @@ class EWAHS3Operator(EWAHBaseOperator):
                     {
                         "bucket_name": self.bucket_name,
                         "file_name": obj_iter["Key"],
-                        "file_last_modified": str(obj_iter["LastModified"]),
+                        "file_last_modified": obj_iter["LastModified"],
                     }
                 )
                 data = f_get_data(file_content=obj_iter["_body"])
                 if self.subsequent_field:
                     # TODO: Abstract this logic
                     for datum in data:
-                        datum[self.subsequent_field] = datetime.strptime(
-                            datum[self.subsequent_field], "%Y-%m-%dT%H:%M:%S.%f%z"
-                        )
+                        # Avoid KeyError when using `file_last_modified` as subsequent field
+                        if not self.subsequent_field in self._metadata.keys():
+                            datum[self.subsequent_field] = datetime.strptime(
+                                datum[self.subsequent_field], "%Y-%m-%dT%H:%M:%S.%f%z"
+                            )
                 self.upload_data(data=data)
