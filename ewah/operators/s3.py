@@ -83,7 +83,6 @@ class EWAHS3Operator(EWAHBaseOperator):
         decompress=False,
         file_load_parallelism=1000,
         thread_pool_size=20,
-        f_transform_datum=None,
         *args,
         **kwargs
     ):
@@ -115,7 +114,6 @@ class EWAHS3Operator(EWAHBaseOperator):
         self.decompress = decompress
         self.file_load_parallelism = file_load_parallelism
         self.thread_pool_size = thread_pool_size
-        self.f_transform_datum = f_transform_datum
 
     def _iterate_through_bucket(
         self,
@@ -188,19 +186,20 @@ class EWAHS3Operator(EWAHBaseOperator):
             )
         elif self.file_format == "JSONL":
             f_get_data = lambda file_content: list(
+                # Use StringIO in order to iterate through each line of the file
                 map(json.loads, StringIO(file_content))
             )
             if self.decompress:
                 f_get_data = lambda file_content: list(
                     map(
                         json.loads,
+                        # We need to decompress the whole file before iterating over its lines
                         StringIO(gzip.decompress(bytes(file_content)).decode("utf-8")),
                     )
                 )
             return self.execute_json(
                 context=context,
                 f_get_data=f_get_data,
-                f_transform_datum=self.f_transform_datum,
             )
         elif self.file_format == "AWS_FIREHOSE_JSON":
             return self.execute_json(
@@ -302,7 +301,7 @@ class EWAHS3Operator(EWAHBaseOperator):
                 )
                 chunk_upload(reader)
 
-    def execute_json(self, context, f_get_data, f_transform_datum=None):
+    def execute_json(self, context, f_get_data):
         hook = ExtendedS3Hook(self.source_conn.conn_id)
 
         if self.key_name:
@@ -335,16 +334,13 @@ class EWAHS3Operator(EWAHBaseOperator):
                         "file_last_modified": obj_iter["LastModified"],
                     }
                 )
-                original_data = f_get_data(file_content=obj_iter["_body"])
-                data = []
+                data = f_get_data(file_content=obj_iter["_body"])
                 if self.subsequent_field:
-                    for datum in original_data:
-                        if self.f_transform_datum:
-                            datum = self.f_transform_datum(datum)
+                    # TODO: Abstract this logic
+                    for datum in data:
                         # Avoid KeyError when using `file_last_modified` as subsequent field
                         if not self.subsequent_field in self._metadata.keys():
                             datum[self.subsequent_field] = datetime.strptime(
                                 datum[self.subsequent_field], "%Y-%m-%dT%H:%M:%S.%f%z"
                             )
-                        data.append(datum)
                 self.upload_data(data=data)
