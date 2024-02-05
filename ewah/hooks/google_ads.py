@@ -64,7 +64,7 @@ class EWAHGoogleAdsHook(EWAHBaseHook):
                 config_dict["login_customer_id"] = self.conn.schema.replace("-", "")
             self._service = GoogleAdsClient.load_from_dict(
                 config_dict=config_dict,
-                version="v18",
+                version="v15",
             ).get_service("GoogleAdsService")
 
         return self._service
