@@ -12,6 +12,7 @@ from bson.json_util import dumps  # dumping mongob objects to string
 from bson.objectid import ObjectId
 from collections import OrderedDict
 from decimal import Decimal
+from uuid import UUID
 
 import json
 
@@ -237,6 +238,8 @@ class EWAHCleaner(LoggingMixin):
                         value = dumps(value)
                 elif isinstance(value, Decimal):
                     value = float(value)
+                elif isinstance(value, UUID):
+                    value = str(value)
                 row[key] = value
 
                 # Set the fields_definition for the key

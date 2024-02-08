@@ -1,5 +1,5 @@
 from datetime import datetime, date, timedelta
-
+from uuid import UUID
 
 class EWAHConstants:
     "This class contains a number of constants for use throughout Ewah."
@@ -79,6 +79,7 @@ class EWAHConstants:
             datetime: "timestamp with time zone",
             date: "date",
             timedelta: "interval",
+            UUID: "text",
         },
         DWH_ENGINE_SNOWFLAKE: {
             str: "TEXT",
@@ -92,6 +93,7 @@ class EWAHConstants:
             bool: "BOOLEAN",
             datetime: "TIMESTAMP_TZ",
             date: "DATE",
+            UUID: "TEXT",
         },
         DWH_ENGINE_BIGQUERY: {
             str: "STRING",
@@ -108,6 +110,7 @@ class EWAHConstants:
             datetime: "TIMESTAMP",
             date: "DATE",
             bytes: "BYTES",
+            UUID: "STRING",
         },
         # DWH_ENGINE_REDSHIFT: {},
         # DWH_ENGINE_S3: {},
@@ -124,5 +127,6 @@ class EWAHConstants:
             bool: "x",
             datetime: "timestamp with time x",
             date: "x",
+            UUID: "x",
         },
     }
