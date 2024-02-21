@@ -117,13 +117,13 @@ class EWAHAmazonSellerCentralHook(EWAHBaseHook):
 
         return {
             "extra__ewah_amazon_seller_central__aws_access_key_id": StringField(
-                "AWS Access Key ID", widget=BS3TextFieldWidget()
+                "AWS Access Key ID (Optional)", widget=BS3TextFieldWidget()
             ),
             "extra__ewah_amazon_seller_central__aws_secret_access_key": StringField(
-                "AWS Secret Access Key", widget=BS3PasswordFieldWidget()
+                "AWS Secret Access Key (Optional)", widget=BS3PasswordFieldWidget()
             ),
             "extra__ewah_amazon_seller_central__aws_arn_role": StringField(
-                "AWS ARN - Role", widget=BS3TextFieldWidget()
+                "AWS ARN - Role (Optional)", widget=BS3TextFieldWidget()
             ),
             "extra__ewah_amazon_seller_central__lwa_client_id": StringField(
                 "LoginWithAmazon (LWA) Client ID", widget=BS3TextFieldWidget()
@@ -245,6 +245,21 @@ class EWAHAmazonSellerCentralHook(EWAHBaseHook):
         return self._access_token
 
     @property
+    def use_legacy_authentication(self):
+        legacy_secrets = [
+            self.conn.aws_access_key_id,
+            self.conn.aws_secret_access_key,
+            self.conn.aws_arn_role,
+        ]
+        if any([secret in (None, "") for secret in legacy_secrets]):
+            if all([secret in (None, "") for secret in legacy_secrets]):
+                return False
+            raise Exception(
+                "Some, but not all, legacy secrets are used! Either use none at all or fill all out (AWS access key, secret key, arn role)"
+            )
+        return True
+
+    @property
     def boto3_role_credentials(self):
         if (
             not hasattr(self, "_boto3_role_credentials")
@@ -285,6 +300,13 @@ class EWAHAmazonSellerCentralHook(EWAHBaseHook):
 
     def generate_request_headers(self, url, method, region, params=None, body=None):
         # Returns the headers dict to authorize a request for the SP-API
+        if not self.use_legacy_authentication:
+            return {
+                "x-amz-access-token": self.access_token,
+                "Content-Type": "application/json",
+            }
+
+        # Below is the legacy authentication header generation
 
         assert method in ["GET", "POST"]
         params = params or {}
