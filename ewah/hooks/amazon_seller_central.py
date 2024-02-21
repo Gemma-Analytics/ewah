@@ -619,7 +619,7 @@ class EWAHAmazonSellerCentralHook(EWAHBaseHook):
         ).decode()
         if data_string:
             self.log.info("Turning response XML into JSON...")
-            raw_data = simple_xml_to_json(ET.fromstring(data_string))["Message"]
+            raw_data = simple_xml_to_json(ET.fromstring(data_string)).get("Message", [])
         else:
             # No data to provide
             raw_data = []
@@ -670,10 +670,11 @@ class EWAHAmazonSellerCentralHook(EWAHBaseHook):
                     data_from_dt.day,
                 )
 
-            data_raw = self.get_report_data(
+            # Note that if no data is returned (e.g., timeframe too early), the get_report_data method returns None
+            data_raw = (self.get_report_data(
                 marketplace_region, report_name, data_from, data_from, report_options
-            ).decode()
-            data = json.loads(data_raw)["salesAndTrafficByAsin"]
+            ) or b"").decode()
+            data = json.loads(data_raw or "{}").get("salesAndTrafficByAsin", [])
             for datum in data:
                 # add the requested day to all rows
                 datum["date"] = data_from_dt
