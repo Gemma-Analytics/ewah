@@ -671,9 +671,16 @@ class EWAHAmazonSellerCentralHook(EWAHBaseHook):
                 )
 
             # Note that if no data is returned (e.g., timeframe too early), the get_report_data method returns None
-            data_raw = (self.get_report_data(
-                marketplace_region, report_name, data_from, data_from, report_options
-            ) or b"").decode()
+            data_raw = (
+                self.get_report_data(
+                    marketplace_region,
+                    report_name,
+                    data_from,
+                    data_from,
+                    report_options,
+                )
+                or b""
+            ).decode()
             data = json.loads(data_raw or "{}").get("salesAndTrafficByAsin", [])
             for datum in data:
                 # add the requested day to all rows
