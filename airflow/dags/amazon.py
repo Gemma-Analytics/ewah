@@ -26,12 +26,12 @@ factory_kwargs = {
 
 dag_sp_api_fr = dag_factory_atomic(
     dag_name="EL_SP_API_FR",
-    target_schema_name="raw_sp_api_reporting_fr",
+    target_schema_name="raw_sp_api_reporting_new",
     operator_config={
         "general_config": {
-            "source_conn_id": "seller_central_ne",
+            "source_conn_id": "seller_central",
             "marketplace_region": "DE",
-            "reload_data_from": datetime(2022, 7, 28, tzinfo=pytz.utc),
+            "reload_data_from": datetime(2024, 2, 1, tzinfo=pytz.utc),
         },
         "tables": {
             "listings": {

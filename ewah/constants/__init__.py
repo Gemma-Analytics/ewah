@@ -1,6 +1,7 @@
 from datetime import datetime, date, timedelta
 from uuid import UUID
 
+
 class EWAHConstants:
     "This class contains a number of constants for use throughout Ewah."
 
