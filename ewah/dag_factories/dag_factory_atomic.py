@@ -25,7 +25,7 @@ def dag_factory_atomic(
     target_schema_suffix: str = "_next",
     target_database_name: Optional[str] = None,
     default_args: Optional[dict] = None,
-    schedule_interval: Union[str, timedelta] = timedelta(days=1),
+    schedule_interval: Optional[Union[str, timedelta]] = timedelta(days=1),
     end_date: Optional[datetime] = None,
     read_right_users: Optional[Union[List[str], str]] = None,
     additional_dag_args: Optional[dict] = None,
@@ -58,12 +58,8 @@ def dag_factory_atomic(
         catchup = False
         assert croniter.is_valid(
             schedule_interval
-        ), "schedule_interval is neither timedelta nor not valid cron!"
-    else:
-        assert isinstance(
-            schedule_interval, timedelta
-        ), "schedule_interval must be cron-string or timedelta!"
-
+        ), "schedule_interval is not valid a cron expression!"
+    elif isinstance(schedule_interval, timedelta):
         catchup = True
         # fake catchup = True: between start_date and end_date is one schedule_interval
         # --> run the full refreshs every schedule_interval at the same time instead of

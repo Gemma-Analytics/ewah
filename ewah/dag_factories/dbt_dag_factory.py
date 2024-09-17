@@ -6,7 +6,7 @@ from ewah.utils.dbt_operator import EWAHdbtOperator
 
 from croniter import croniter
 from datetime import datetime, timedelta
-from typing import Union
+from typing import Optional, Union
 
 import pytz
 
@@ -25,7 +25,7 @@ def dbt_dags_factory(
     schema_name="analytics",  # see https://docs.getdbt.com/dbt-cli/configure-your-profile/#understanding-target-schemas
     keepalives_idle=0,  # see https://docs.getdbt.com/reference/warehouse-profiles/postgres-profile/
     dag_base_name="T_dbt_run",
-    schedule_interval: Union[str, timedelta] = timedelta(hours=1),
+    schedule_interval: Optional[Union[str, timedelta]] = timedelta(hours=1),
     start_date=datetime(2019, 1, 1),
     default_args=None,
     run_flags=None,  # e.g. --model tag:base
@@ -51,10 +51,10 @@ def dbt_dags_factory(
         # Allow using cron-style schedule intervals
         assert croniter.is_valid(
             schedule_interval
-        ), "schedule_interval is neither timedelta nor not valid cron!"
+        ), "schedule_interval is not valid a cron expression!"
         catchup = False
         end_date = None
-    else:
+    elif isinstance(schedule_interval, timedelta):
         # if start_date is timezone offset-naive, assume utc and turn into offset-aware
         catchup = True
         if not start_date.tzinfo:
@@ -205,7 +205,7 @@ def dbt_snapshot_dag(
     schema_name="analytics",  # for the profiles.yml
     keepalives_idle=0,
     dag_name="T_dbt_snapshots",
-    schedule_interval: Union[str, timedelta] = timedelta(hours=1),
+    schedule_interval: Optional[Union[str, timedelta]] = timedelta(hours=1),
     start_date=None,
     default_args=None,
     dagrun_timeout_factor=None,
