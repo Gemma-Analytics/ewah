@@ -25,7 +25,7 @@ def dag_factory_atomic(
     target_schema_suffix: str = "_next",
     target_database_name: Optional[str] = None,
     default_args: Optional[dict] = None,
-    schedule_interval: Optional[Union[str, timedelta]] = timedelta(days=1),
+    schedule_interval: Optional[Union[str, timedelta]] = None,
     end_date: Optional[datetime] = None,
     read_right_users: Optional[Union[List[str], str]] = None,
     additional_dag_args: Optional[dict] = None,
@@ -53,9 +53,12 @@ def dag_factory_atomic(
         if not isinstance(read_right_users, Iterable):
             raise_exception("read_right_users must be an iterable or string!")
 
+    # Initialize parameter with default value here that can be updated depending
+    # on schedule_interval conditions
+    catchup = False
+
+    # Allow using cron-style schedule intervals
     if isinstance(schedule_interval, str):
-        # Allow using cron-style schedule intervals
-        catchup = False
         assert croniter.is_valid(
             schedule_interval
         ), "schedule_interval is not valid a cron expression!"
