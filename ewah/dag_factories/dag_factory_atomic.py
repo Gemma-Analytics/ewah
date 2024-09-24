@@ -25,7 +25,7 @@ def dag_factory_atomic(
     target_schema_suffix: str = "_next",
     target_database_name: Optional[str] = None,
     default_args: Optional[dict] = None,
-    schedule_interval: Optional[Union[str, timedelta]] = None,
+    schedule_interval: Optional[Union[str, timedelta]] = timedelta(days=1),
     end_date: Optional[datetime] = None,
     read_right_users: Optional[Union[List[str], str]] = None,
     additional_dag_args: Optional[dict] = None,

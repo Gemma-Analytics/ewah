@@ -25,7 +25,7 @@ def dbt_dags_factory(
     schema_name="analytics",  # see https://docs.getdbt.com/dbt-cli/configure-your-profile/#understanding-target-schemas
     keepalives_idle=0,  # see https://docs.getdbt.com/reference/warehouse-profiles/postgres-profile/
     dag_base_name="T_dbt_run",
-    schedule_interval: Optional[Union[str, timedelta]] = None,
+    schedule_interval: Optional[Union[str, timedelta]] = timedelta(days=1),
     start_date=datetime(2019, 1, 1),
     default_args=None,
     run_flags=None,  # e.g. --model tag:base
