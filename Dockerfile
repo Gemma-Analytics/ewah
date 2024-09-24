@@ -54,7 +54,7 @@ USER airflow
 ### <= --------------------------------------------- run as root ##
 
 
-RUN pip install --user --upgrade --no-cache-dir pip setuptools
+RUN pip install --user --upgrade --no-cache-dir pip 'setuptools<71'
 
 # required to make Oracle work with airflow user
 RUN sudo ldconfig /opt/oracle/instantclient_19_8
