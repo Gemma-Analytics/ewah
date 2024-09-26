@@ -15,12 +15,15 @@ class EWAHGoogleAdsHook(EWAHBaseHook):
         "client_id": "login",
         "client_secret": "password",
         "login_customer_id": "schema",
+        "api_version": "host",
     }
 
     conn_name_attr = "ewah_google_ads_conn_id"
     default_conn_name = "ewah_google_ads_default"
     conn_type = "ewah_google_ads"
     hook_name = "EWAH Google Ads Connection"
+
+    _DEFAULT_VERSION = "v17"
 
     @staticmethod
     def get_ui_field_behaviour() -> dict:
@@ -30,6 +33,7 @@ class EWAHGoogleAdsHook(EWAHBaseHook):
                 "schema": "Login Customer ID (optional)",
                 "login": "Client ID",
                 "password": "Client Secret",
+                "host": "[Optional] api Version"
             },
         }
 
@@ -62,9 +66,12 @@ class EWAHGoogleAdsHook(EWAHBaseHook):
             }
             if self.conn.schema:
                 config_dict["login_customer_id"] = self.conn.schema.replace("-", "")
+            api_version = self.conn.api_version or self._DEFAULT_VERSION
+            if not api_version.startswith("v"):
+                api_version = "v{0}".format(api_version)
             self._service = GoogleAdsClient.load_from_dict(
                 config_dict=config_dict,
-                version="v15",
+                version=api_version,
             ).get_service("GoogleAdsService")
 
         return self._service
