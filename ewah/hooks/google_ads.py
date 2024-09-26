@@ -28,7 +28,7 @@ class EWAHGoogleAdsHook(EWAHBaseHook):
     @staticmethod
     def get_ui_field_behaviour() -> dict:
         return {
-            "hidden_fields": ["extra", "host", "port"],
+            "hidden_fields": ["extra", "port"],
             "relabeling": {
                 "schema": "Login Customer ID (optional)",
                 "login": "Client ID",
