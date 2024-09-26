@@ -60,13 +60,14 @@ class EWAHGoogleAdsHook(EWAHBaseHook):
                 "client_id": self.conn.login,
                 "client_secret": self.conn.password,
                 "refresh_token": self.conn.refresh_token,
+                "api_version": self.conn.host,
                 # TODO: Refactor with use_proto_plus=False - for now, the code will work
                 # See here for details : https://github.com/googleads/google-ads-python/issues/486
                 "use_proto_plus": True,
             }
             if self.conn.schema:
                 config_dict["login_customer_id"] = self.conn.schema.replace("-", "")
-            api_version = self.conn.api_version or self._DEFAULT_VERSION
+            api_version = self.conn.host or self._DEFAULT_VERSION
             if not api_version.startswith("v"):
                 api_version = "v{0}".format(api_version)
             self._service = GoogleAdsClient.load_from_dict(
