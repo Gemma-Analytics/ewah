@@ -33,7 +33,7 @@ class EWAHGoogleAdsHook(EWAHBaseHook):
                 "schema": "Login Customer ID (optional)",
                 "login": "Client ID",
                 "password": "Client Secret",
-                "host": "[Optional] api Version"
+                "host": "API Version (optional)"
             },
         }
 
