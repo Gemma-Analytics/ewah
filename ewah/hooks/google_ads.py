@@ -15,6 +15,7 @@ class EWAHGoogleAdsHook(EWAHBaseHook):
         "client_id": "login",
         "client_secret": "password",
         "login_customer_id": "schema",
+        "api_version": "host",
     }
 
     conn_name_attr = "ewah_google_ads_conn_id"
@@ -22,14 +23,17 @@ class EWAHGoogleAdsHook(EWAHBaseHook):
     conn_type = "ewah_google_ads"
     hook_name = "EWAH Google Ads Connection"
 
+    _DEFAULT_VERSION = "v17"
+
     @staticmethod
     def get_ui_field_behaviour() -> dict:
         return {
-            "hidden_fields": ["extra", "host", "port"],
+            "hidden_fields": ["extra", "port"],
             "relabeling": {
                 "schema": "Login Customer ID (optional)",
                 "login": "Client ID",
                 "password": "Client Secret",
+                "host": "API Version (optional)"
             },
         }
 
@@ -56,15 +60,19 @@ class EWAHGoogleAdsHook(EWAHBaseHook):
                 "client_id": self.conn.login,
                 "client_secret": self.conn.password,
                 "refresh_token": self.conn.refresh_token,
+                "api_version": self.conn.host,
                 # TODO: Refactor with use_proto_plus=False - for now, the code will work
                 # See here for details : https://github.com/googleads/google-ads-python/issues/486
                 "use_proto_plus": True,
             }
             if self.conn.schema:
                 config_dict["login_customer_id"] = self.conn.schema.replace("-", "")
+            api_version = self.conn.host or self._DEFAULT_VERSION
+            if not api_version.startswith("v"):
+                api_version = "v{0}".format(api_version)
             self._service = GoogleAdsClient.load_from_dict(
                 config_dict=config_dict,
-                version="v15",
+                version=api_version,
             ).get_service("GoogleAdsService")
 
         return self._service
