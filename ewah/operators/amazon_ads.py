@@ -27,7 +27,7 @@ class EWAHAmazonAdsOperator(EWAHBaseOperator):
         # TODO: make error more explicit
         # TODO: validate via hook
         assert (ads_type in ("sp", "sb", "sd", "hsa") and api_version == "v2") or (
-            ads_type in ("SPONSORED_PRODUCTS") and api_version == "v3"
+            ads_type in ("SPONSORED_PRODUCTS", "SPONSORED_BRANDS", "SPONSORED_DISPLAY") and api_version == "v3"
         ), "ads_type and api_version combination not supported"
 
         assert api_version in ("v2", "v3"), "only Amazon Ads v2 or v3 supported"
