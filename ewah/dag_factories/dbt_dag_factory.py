@@ -28,7 +28,6 @@ def dbt_dags_factory(
     schedule_interval: Optional[Union[str, timedelta]] = timedelta(days=1),
     full_refresh_schedule_interval: Optional[Union[str, timedelta]] = None,
     start_date=datetime(2019, 1, 1),
-    full_refresh_start_date=None,  # defaults to start_date if None
     default_args=None,
     run_flags=None,  # e.g. --model tag:base
     seed_flags=None,
@@ -53,7 +52,9 @@ def dbt_dags_factory(
     # on schedule_interval conditions
     catchup = False
     end_date = None
-    
+    # Keep original start_date for full refresh DAG
+    full_refresh_start_date = start_date
+
     # Allow using cron-style schedule intervals
     if isinstance(schedule_interval, str):
         assert croniter.is_valid(
@@ -102,8 +103,8 @@ def dbt_dags_factory(
         dagrun_timeout=dagrun_timeout,
         **dag_kwargs,
     )
-    # for full refresh we need to set a different start_date
-    dag_kwargs["start_date"] = full_refresh_start_date or start_date
+    # for full refresh we need to set the original start_date
+    dag_kwargs["start_date"] = full_refresh_start_date
     dag_kwargs["catchup"] = False # dont catch up full refreshes
     dag_2 = DAG(dag_base_name + "_full_refresh", schedule_interval=full_refresh_schedule_interval, **dag_kwargs)
 
