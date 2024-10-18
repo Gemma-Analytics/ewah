@@ -26,6 +26,7 @@ def dbt_dags_factory(
     keepalives_idle=0,  # see https://docs.getdbt.com/reference/warehouse-profiles/postgres-profile/
     dag_base_name="T_dbt_run",
     schedule_interval: Optional[Union[str, timedelta]] = timedelta(days=1),
+    full_refresh_schedule_interval: Optional[Union[str, timedelta]] = None,
     start_date=datetime(2019, 1, 1),
     default_args=None,
     run_flags=None,  # e.g. --model tag:base
@@ -100,7 +101,7 @@ def dbt_dags_factory(
         dagrun_timeout=dagrun_timeout,
         **dag_kwargs,
     )
-    dag_2 = DAG(dag_base_name + "_full_refresh", schedule_interval=None, **dag_kwargs)
+    dag_2 = DAG(dag_base_name + "_full_refresh", schedule_interval=full_refresh_schedule_interval, **dag_kwargs)
 
     sensor_sql = """
         SELECT
