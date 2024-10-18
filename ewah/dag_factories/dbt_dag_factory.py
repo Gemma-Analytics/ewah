@@ -104,6 +104,7 @@ def dbt_dags_factory(
     )
     # for full refresh we need to set a different start_date
     dag_kwargs["start_date"] = full_refresh_start_date or start_date
+    dag_kwargs["catchup"] = False # dont catch up full refreshes
     dag_2 = DAG(dag_base_name + "_full_refresh", schedule_interval=full_refresh_schedule_interval, **dag_kwargs)
 
     sensor_sql = """
