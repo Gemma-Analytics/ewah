@@ -23,7 +23,7 @@ class EWAHSharepointOperator(EWAHBaseOperator):
         *args,
         **kwargs,
     ) -> None:
-        assert file_relative_path.endswith(".xlsx"), "Only Excel files for now!"
+        assert file_relative_path.endswith((".xlsx", ".xlsm")), "Only Excel files for now!"
         self.file_relative_path = file_relative_path
         self.sheet_name = sheet_name
         self.header_row = header_row
