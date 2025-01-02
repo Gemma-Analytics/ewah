@@ -27,7 +27,6 @@ class EWAHPlentyMarketsOperator(EWAHBaseOperator):
         *args,
         **kwargs
     ):
-        kwargs["pickling_upload_chunk_size"] = kwargs.get("pickling_upload_chunk_size", 50000) #reduce chunk size to avoid timeouts
         kwargs["primary_key"] = kwargs.get("primary_key", "id")
         resource = resource or kwargs.get("target_table_name")
         if kwargs["extract_strategy"] == EC.ES_SUBSEQUENT:
