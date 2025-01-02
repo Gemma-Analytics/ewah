@@ -23,9 +23,11 @@ class EWAHPlentyMarketsOperator(EWAHBaseOperator):
         batch_size=10000,
         request_method="get",
         post_request_payload=None,
+        expand_fields=None, #list of strings
         *args,
         **kwargs
     ):
+        kwargs["pickling_upload_chunk_size"] = kwargs.get("pickling_upload_chunk_size", 50000) #reduce chunk size to avoid timeouts
         kwargs["primary_key"] = kwargs.get("primary_key", "id")
         resource = resource or kwargs.get("target_table_name")
         if kwargs["extract_strategy"] == EC.ES_SUBSEQUENT:
@@ -47,8 +49,47 @@ class EWAHPlentyMarketsOperator(EWAHBaseOperator):
         self.batch_size = batch_size
         self.request_method = request_method
         self.post_request_payload = post_request_payload
+        self.expand_fields = expand_fields
+        
+    #function to expand a field that contains an array of dictionaries
+    def expand_field_data(self, batch):
+        if not self.expand_fields:
+            return batch
+
+        expanded_data = batch
+        
+        for field_name in self.expand_fields:
+            temp_data = []
+            for row in expanded_data:
+                # skip if field doesn't exist in this row and just append row as is
+                if field_name not in row:
+                    temp_data.append(row)
+                    continue
+
+                # If field exists but is None/empty, default to empty list
+                field_data = row.pop(field_name, [])
+                if not field_data:
+                    temp_data.append(row)
+                    continue
+                
+                # Create a new row for each item in the field
+                for item in field_data:
+                    new_row = row.copy()
+                    # Create new columns with prefixed names to avoid conflicts
+                    prefixed_item = {
+                        f"{field_name}_{k}": v 
+                        for k, v in item.items()
+                    }
+                    new_row.update(prefixed_item)
+                    temp_data.append(new_row)
+            
+            expanded_data = temp_data
+        
+        return expanded_data
 
     def ewah_execute(self, context):
+        self.log.info(f"Starting extraction for resource: {self.resource}")
+        
         if (
             self.extract_strategy == EC.ES_SUBSEQUENT
             and self.test_if_target_table_exists()
@@ -66,6 +107,10 @@ class EWAHPlentyMarketsOperator(EWAHBaseOperator):
                     )
         else:
             data_from = self.data_from
+
+        self.log.info(f"Extracting data from {data_from} until {self.data_until}")
+        
+        total_records = 0
         for batch in self.source_hook.get_data_in_batches(
             resource=self.resource,
             data_from=data_from,
@@ -75,4 +120,18 @@ class EWAHPlentyMarketsOperator(EWAHBaseOperator):
             request_method=self.request_method,
             post_request_payload=self.post_request_payload,
         ):
+            batch_size = len(batch)
+            self.log.info(f"Processing batch of {batch_size} records")
+            
+            if self.expand_fields:
+                self.log.info(f"Expanding fields: {self.expand_fields}")
+            batch = self.expand_field_data(batch)
+            
+            expanded_size = len(batch)
+            if expanded_size != batch_size:
+                self.log.info(f"Batch size after expansion: {expanded_size} records")
+            
             self.upload_data(batch)
+            total_records += expanded_size
+
+        self.log.info(f"Completed extraction of {total_records} total records for {self.resource}")
