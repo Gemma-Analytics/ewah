@@ -25,7 +25,7 @@ class EWAHPlentyMarketsOperator(EWAHBaseOperator):
         post_request_payload=None,
         expand_fields=None,  # list of strings
         *args,
-        **kwargs
+        **kwargs,
     ):
         kwargs["primary_key"] = kwargs.get("primary_key", "id")
         resource = resource or kwargs.get("target_table_name")
@@ -101,6 +101,8 @@ class EWAHPlentyMarketsOperator(EWAHBaseOperator):
                     )
         else:
             data_from = self.data_from
+
+        total_records = 0
         for batch in self.source_hook.get_data_in_batches(
             resource=self.resource,
             data_from=data_from,
@@ -110,4 +112,20 @@ class EWAHPlentyMarketsOperator(EWAHBaseOperator):
             request_method=self.request_method,
             post_request_payload=self.post_request_payload,
         ):
+            batch_size = len(batch)
+            self.log.info(f"Processing batch of {batch_size} records")
+
+            if self.expand_fields:
+                self.log.info(f"Expanding fields: {self.expand_fields}")
+            batch = self.expand_field_data(batch)
+
+            expanded_size = len(batch)
+            if expanded_size != batch_size:
+                self.log.info(f"Batch size after expansion: {expanded_size} records")
+
             self.upload_data(batch)
+            total_records += expanded_size
+
+        self.log.info(
+            f"Completed extraction of {total_records} total records for {self.resource}"
+        )
