@@ -23,7 +23,7 @@ class EWAHPlentyMarketsOperator(EWAHBaseOperator):
         batch_size=10000,
         request_method="get",
         post_request_payload=None,
-        expand_fields=None,  # list of strings
+        expand_field=None, #name of the field to expand
         *args,
         **kwargs,
     ):
@@ -48,38 +48,38 @@ class EWAHPlentyMarketsOperator(EWAHBaseOperator):
         self.batch_size = batch_size
         self.request_method = request_method
         self.post_request_payload = post_request_payload
-        self.expand_fields = expand_fields
+        self.expand_field = expand_field
 
-    # function to expand a field that contains an array of dictionaries
+    # method to expand a field that contains an array of dictionaries
     def expand_field_data(self, batch):
-        if not self.expand_fields:
+        if not self.expand_field:
             return batch
 
-        expanded_data = batch
+        expanded_data = []
 
-        for field_name in self.expand_fields:
-            temp_data = []
-            for row in expanded_data:
-                # skip if field doesn't exist in this row and just append row as is
-                if field_name not in row:
-                    temp_data.append(row)
-                    continue
+        while batch:
+            row = batch.pop(0)
 
-                # If field exists but is None/empty, default to empty list
-                field_data = row.pop(field_name, [])
-                if not field_data:
-                    temp_data.append(row)
-                    continue
+            # skip if field doesn't exist in this row and just append row as is
+            if self.expand_field not in row:
+                expanded_data.append(row)
+                continue
+            
+            # get the field data
+            field_data = row.pop(self.expand_field, [])
 
-                # Create a new row for each item in the field
-                for item in field_data:
-                    new_row = row.copy()
-                    # Create new columns with prefixed names to avoid conflicts
-                    prefixed_item = {f"{field_name}_{k}": v for k, v in item.items()}
-                    new_row.update(prefixed_item)
-                    temp_data.append(new_row)
+            # If field exists but is None/empty, default to empty list
+            if not field_data:
+                expanded_data.append(row)
+                continue
 
-            expanded_data = temp_data
+            # Create a new row for each item in the field
+            for item in field_data:
+                new_row = row.copy()
+                # Create new columns with prefixed names to avoid conflicts
+                prefixed_item = {f"{self.expand_field}_{k}": v for k, v in item.items()}
+                new_row.update(prefixed_item)
+                expanded_data.append(new_row)
 
         return expanded_data
 
@@ -115,8 +115,8 @@ class EWAHPlentyMarketsOperator(EWAHBaseOperator):
             batch_size = len(batch)
             self.log.info(f"Processing batch of {batch_size} records")
 
-            if self.expand_fields:
-                self.log.info(f"Expanding fields: {self.expand_fields}")
+            if self.expand_field:
+                self.log.info(f"Expanding fields: {self.expand_field}")
             batch = self.expand_field_data(batch)
 
             expanded_size = len(batch)
