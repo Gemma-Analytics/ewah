@@ -29,6 +29,12 @@ class EWAHPlentyMarketsOperator(EWAHBaseOperator):
     ):
         kwargs["primary_key"] = kwargs.get("primary_key", "id")
         resource = resource or kwargs.get("target_table_name")
+        
+        # expand_field has only been implemented for full refresh strategy
+        assert (
+            kwargs["extract_strategy"] == EC.ES_FULL_REFRESH or expand_field is None
+        ), "expand_field can only be used with full refresh strategy"
+        
         if kwargs["extract_strategy"] == EC.ES_SUBSEQUENT:
             kwargs["subsequent_field"] = kwargs.get("subsequent_field", "updatedAt")
             assert (
