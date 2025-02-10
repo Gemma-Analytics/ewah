@@ -5,6 +5,8 @@ import requests
 import time
 import copy
 import dateutil
+import re
+from datetime import datetime, timedelta
 
 
 class EWAHShopifyHook(EWAHBaseHook):
@@ -65,6 +67,9 @@ class EWAHShopifyHook(EWAHBaseHook):
                 "processed_at",
             ),
         },
+        "fulfillment_orders": {
+            "_is_drop_and_replace": True,
+        },
     }
 
     @staticmethod
@@ -76,6 +81,39 @@ class EWAHShopifyHook(EWAHBaseHook):
                 "password": "Access Token",
             },
         }
+
+    @staticmethod
+    def extract_next_url(input_str):
+        pattern = r'<(.*?)>; rel="(.*?)"'
+        matches = re.findall(pattern, input_str)
+        url_rel_mapping = {rel: url for url, rel in matches}
+        return(url_rel_mapping["next"])
+
+    def get_fulfillment_orders(self, order_ids, shop, version, headers):
+        # Fetches fulfillment_orders for every order
+        self.log.info("Requesting fulfillment_orders of orders...")
+        base_url = self._BASE_URL.format(
+            shop=shop,
+            version=version,
+            object="orders/{id}/fulfillment_orders",
+        )
+
+        data = []
+        for count, order in enumerate(order_ids):
+            url = base_url.format(id=order)
+            response = requests.get(url, headers=headers)
+            response.raise_for_status()
+            result = response.json()["fulfillment_orders"]
+            if result:
+                data.append(result)
+            if count %50 == 0:
+                self.log.info(f"Processed {count} fulfillment orders")
+
+        self.log.info(
+            f"All fulfillment orders of chosen time period fetched ({count} fulfillment orders)"
+        )
+
+        return data
 
     def add_get_transactions(self, data, shop, version, req_kwargs):
         # Adds transactions to orders
@@ -168,6 +206,7 @@ class EWAHShopifyHook(EWAHBaseHook):
         add_transactions=False,
         add_events=False,
         add_inventoryitems=False,
+        parent_object=None
     ):
         # Get data from Shopify via REST API
         assert shopify_object in self._OBJECTS.keys(), "Object invalid!"
@@ -213,6 +252,31 @@ class EWAHShopifyHook(EWAHBaseHook):
         }
 
         # for endpoints that need ids
+        order_ids = []
+        if shopify_object == "fulfillment_orders":
+            # Load only fulfillment orders of last three months
+            data_from = datetime.now() - timedelta(days=90)
+            for chunk in self.get_data(
+                parent_object="fulfillment_orders",
+                shopify_object="orders",
+                filter_fields={},
+                shop_id=shop_id,
+                version=version,
+                data_from=data_from,
+                data_until=None,
+                add_transactions=False,
+                add_events=False,
+                add_inventoryitems=False,
+            ):
+                for order in chunk:
+                    order_ids.append(order["id"])
+                    if len(order_ids) %50 == 0:
+                        self.log.info(f"Processed {len(order_ids)} orders")
+
+            self.log.info(
+                f" All order ids of chosen time period fetched ({len(order_ids)} orders)"
+            )
+
         ids_list = []
         if shopify_object == "inventory_levels":
             for chunk in self.get_data(
@@ -235,6 +299,9 @@ class EWAHShopifyHook(EWAHBaseHook):
         }
         kwargs_links = {"headers": headers}
 
+        if shopify_object == "fulfillment_orders":
+            params = {}
+
         self.log.info(
             "Requesting data from REST API - url: {0}, params: {1}".format(
                 url, str(params)
@@ -255,16 +322,28 @@ class EWAHShopifyHook(EWAHBaseHook):
                 # the request with new ids once the previous pagination is done
                 finished_pagination = False
 
-            response = requests.get(url, **req_kwargs)
             if is_first or not finished_pagination:
-                is_first = False
                 req_kwargs = kwargs_links
-            data = response.json().get(
-                object_metadata.get(
-                    "_name_in_request_data",
-                    shopify_object,
+
+            if parent_object == "fulfillment_orders":
+                response = requests.get(url, **req_kwargs, params=params)
+                if is_first:
+                    params = {}
+                    is_first = False
+
+            else:
+                response = requests.get(url, **req_kwargs)
+                is_first = False
+
+            # Special case: To avoid raising an exception we use other get method for data
+            if not shopify_object == "fulfillment_orders":
+                response.raise_for_status()
+                data = response.json().get(
+                    object_metadata.get(
+                        "_name_in_request_data",
+                        shopify_object,
+                    )
                 )
-            )
             if add_transactions:
                 data = self.add_get_transactions(
                     data=data,
@@ -286,19 +365,32 @@ class EWAHShopifyHook(EWAHBaseHook):
                     version=version,
                     req_kwargs=kwargs_links,
                 )
+            if shopify_object == "fulfillment_orders":
+                data = self.get_fulfillment_orders(
+                    order_ids=order_ids,
+                    shop=shop_id,
+                    version=version,
+                    headers=headers,
+                )
 
             if data and not object_metadata.get("_is_drop_and_replace", False):
                 for datum in data:
                     datum[timestamp_fields[2]] = dateutil.parser.parse(
                         datum[timestamp_fields[2]]
                     )
-            yield data
 
-            if response.headers.get("Link") and response.headers["Link"].endswith(
+            if shopify_object == "fulfillment_orders":
+                # Data from fulfillment_orders comes in a list, must iterate through
+                for order in data:
+                    yield order
+            else:
+                yield data
+
+            if response.headers.get("Link") != None and response.headers["Link"].endswith(
                 'el="next"'
             ):
                 self.log.info("Requesting next page of data...")
-                url = response.headers["Link"][1:-13]
+                url = self.extract_next_url(response.headers["Link"])
             elif ids_list and shopify_object == "inventory_levels":
                 # after pagination complete we restart the requests while
                 # we still have ids in id_list
@@ -312,6 +404,5 @@ class EWAHShopifyHook(EWAHBaseHook):
             else:
                 break
 
-        assert response.status_code == 200, "Code {0}: {1}".format(
-            response.status_code, response.text
-        )
+
+
