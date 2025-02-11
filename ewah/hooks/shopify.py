@@ -22,7 +22,7 @@ class EWAHShopifyHook(EWAHBaseHook):
 
     _DEFAULT_TIMESTAMP_FIELDS = ("updated_at_min", "updated_at_max", "updated_at")
     _DEFAULT_DATETIME_FORMAT = "%Y-%m-%d %H:%M:%S%z"
-    _FULFILLMENT_LOOKBACK_WINDOW_DAYS = 90
+    _FULFILLMENT_ORDERS_LOOKBACK_WINDOW_DAYS = 90
     _OBJECTS = {
         # "object_name": {
         #   "_is_drop_and_replace": True, - set if loading possible only as full refresh
@@ -258,7 +258,7 @@ class EWAHShopifyHook(EWAHBaseHook):
         if shopify_object == "fulfillment_orders":
             # We need to fetch all order ids to use them to request their respective fulfillment_orders
             data_from = datetime.now() - timedelta(
-                days=self._FULFILLMENT_LOOKBACK_WINDOW_DAYS
+                days=self._FULFILLMENT_ORDERS_LOOKBACK_WINDOW_DAYS
             )
             for chunk in self.get_data(
                 parent_object="fulfillment_orders",
@@ -276,7 +276,8 @@ class EWAHShopifyHook(EWAHBaseHook):
                     order_ids.append(order["id"])
 
             self.log.info(
-                f"Fetched ({len(order_ids)} orders for the time period of the last {self._FULFILLMENT_LOOKBACK_WINDOW_DAYS} days )"
+                # fu
+                f"Fetched ({len(order_ids)} orders for the time period of the last {self._FULFILLMENT_ORDERS_LOOKBACK_WINDOW_DAYS} days )"
             )
 
         ids_list = []
