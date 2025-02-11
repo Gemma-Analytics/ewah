@@ -22,6 +22,7 @@ class EWAHShopifyHook(EWAHBaseHook):
 
     _DEFAULT_TIMESTAMP_FIELDS = ("updated_at_min", "updated_at_max", "updated_at")
     _DEFAULT_DATETIME_FORMAT = "%Y-%m-%d %H:%M:%S%z"
+    _FULFILLMENT_LOOKBACK_WINDOW_DAYS = 90
     _OBJECTS = {
         # "object_name": {
         #   "_is_drop_and_replace": True, - set if loading possible only as full refresh
@@ -84,13 +85,14 @@ class EWAHShopifyHook(EWAHBaseHook):
 
     @staticmethod
     def extract_next_url(input_str):
+        """Extracts the next url from the input string that contains the url and the rel attribute"""
         pattern = r'<(.*?)>; rel="(.*?)"'
         matches = re.findall(pattern, input_str)
         url_rel_mapping = {rel: url for url, rel in matches}
-        return(url_rel_mapping["next"])
+        return url_rel_mapping["next"]
 
     def get_fulfillment_orders(self, order_ids, shop, version, headers):
-        # Fetches fulfillment_orders for every order
+        """Fetches fulfillment_orders for every order"""
         self.log.info("Requesting fulfillment_orders of orders...")
         base_url = self._BASE_URL.format(
             shop=shop,
@@ -106,7 +108,7 @@ class EWAHShopifyHook(EWAHBaseHook):
             result = response.json()["fulfillment_orders"]
             if result:
                 data.append(result)
-            if count %50 == 0:
+            if count % 250 == 0:
                 self.log.info(f"Processed {count} fulfillment orders")
 
         self.log.info(
@@ -159,7 +161,7 @@ class EWAHShopifyHook(EWAHBaseHook):
 
         return data
 
-    def add_get_events(data, shop, version, req_kwargs):
+    def add_get_events(self, data, shop, version, req_kwargs):
         # Adds events of an order to orders
         self.log.info("Requesting events of orders...")
         base_url = self._BASE_URL.format(
@@ -206,7 +208,7 @@ class EWAHShopifyHook(EWAHBaseHook):
         add_transactions=False,
         add_events=False,
         add_inventoryitems=False,
-        parent_object=None
+        parent_object=None,
     ):
         # Get data from Shopify via REST API
         assert shopify_object in self._OBJECTS.keys(), "Object invalid!"
@@ -254,8 +256,10 @@ class EWAHShopifyHook(EWAHBaseHook):
         # for endpoints that need ids
         order_ids = []
         if shopify_object == "fulfillment_orders":
-            # Load only fulfillment orders of last three months
-            data_from = datetime.now() - timedelta(days=90)
+            # We need to fetch all order ids to use them to request their respective fulfillment_orders
+            data_from = datetime.now() - timedelta(
+                days=self._FULFILLMENT_LOOKBACK_WINDOW_DAYS
+            )
             for chunk in self.get_data(
                 parent_object="fulfillment_orders",
                 shopify_object="orders",
@@ -270,11 +274,9 @@ class EWAHShopifyHook(EWAHBaseHook):
             ):
                 for order in chunk:
                     order_ids.append(order["id"])
-                    if len(order_ids) %50 == 0:
-                        self.log.info(f"Processed {len(order_ids)} orders")
 
             self.log.info(
-                f" All order ids of chosen time period fetched ({len(order_ids)} orders)"
+                f"Fetched ({len(order_ids)} orders for the time period of the last {self._FULFILLMENT_LOOKBACK_WINDOW_DAYS} days )"
             )
 
         ids_list = []
@@ -332,6 +334,7 @@ class EWAHShopifyHook(EWAHBaseHook):
                     is_first = False
 
             else:
+                # This is the main request for the connector used for most objects
                 response = requests.get(url, **req_kwargs)
                 is_first = False
 
@@ -384,11 +387,12 @@ class EWAHShopifyHook(EWAHBaseHook):
                 for order in data:
                     yield order
             else:
+                # This is the main yield statement for the connector
                 yield data
 
-            if response.headers.get("Link") != None and response.headers["Link"].endswith(
-                'el="next"'
-            ):
+            if response.headers.get("Link") != None and response.headers[
+                "Link"
+            ].endswith('el="next"'):
                 self.log.info("Requesting next page of data...")
                 url = self.extract_next_url(response.headers["Link"])
             elif ids_list and shopify_object == "inventory_levels":
@@ -403,6 +407,3 @@ class EWAHShopifyHook(EWAHBaseHook):
                 req_kwargs = kwargs_init
             else:
                 break
-
-
-
