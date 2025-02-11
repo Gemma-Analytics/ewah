@@ -387,7 +387,7 @@ class EWAHShopifyHook(EWAHBaseHook):
                 for order in data:
                     yield order
             else:
-                # This is the main yield statement for the connector
+                # This is the main yield statement for the connector used for most objects
                 yield data
 
             if response.headers.get("Link") != None and response.headers[
