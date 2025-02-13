@@ -101,6 +101,7 @@ class EWAHShopifyHook(EWAHBaseHook):
         )
 
         data = []
+        count = 0  # In case no fulfillment orders information exist (e.g. CH shop)
         for count, order in enumerate(order_ids):
             url = base_url.format(id=order)
             response = requests.get(url, headers=headers)
@@ -408,4 +409,3 @@ class EWAHShopifyHook(EWAHBaseHook):
                 req_kwargs = kwargs_init
             else:
                 break
-  
