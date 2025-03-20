@@ -95,6 +95,61 @@ class EWAHAmazonAdsHook(EWAHBaseHook):
             )
         return self._access_token
 
+    def _make_request_with_backoff(self, request_func, max_retries=5):
+        """
+        Make a request with exponential backoff for rate-limited endpoints. Intially we take the retry-after value, but if we get multiple 429s in a row, we add an additional exponential backoff.
+        """
+        attempt = 0
+        consecutive_429s = 0  # Track consecutive 429 responses
+        base_wait = 1  # Base wait time for exponential backoff
+
+        while attempt <= max_retries:
+            response = request_func()
+            
+            # If successful response, return it
+            if response.status_code == 200:
+                consecutive_429s = 0
+                return response
+                
+            # If rate limited (429), retry with backoff
+            if response.status_code == 429:
+                if attempt == max_retries:
+                    break
+                
+                consecutive_429s += 1
+                retry_after = int(response.headers.get('Retry-After', 1))
+                
+                if consecutive_429s > 2:
+                    additional_backoff = base_wait * (2 ** (consecutive_429s - 2))
+                    wait_time = retry_after + additional_backoff
+                    self.log.info(
+                        f"Multiple 429s detected. Adding backoff of {additional_backoff}s "
+                        f"to Retry-After value of {retry_after}s"
+                    )
+                else:
+                    wait_time = retry_after
+
+                self.log.info(
+                    f"Request throttled. Retrying in {wait_time} seconds "
+                    f"(attempt {attempt + 1}/{max_retries})"
+                )
+                time.sleep(wait_time)
+                attempt += 1
+                continue
+            
+            # For any other error code, fail immediately
+            assert False, (
+                f"Request failed with status code {response.status_code}. "
+                f"Response: {response.text}"
+            )
+
+        # If we've exhausted all retries on 429s, raise the last error
+        assert False, (
+            f"Request failed after {max_retries} retries due to rate limiting. "
+            f"Status code: {response.status_code}, "
+            f"Response: {response.text}"
+        )
+
     def get_profile_ids(self):
         url = "/".join([self._ENDPOINTS_ADS_API[self.conn.region], "v2", "profiles"])
         headers = {
@@ -102,8 +157,9 @@ class EWAHAmazonAdsHook(EWAHBaseHook):
             "Authorization": f"Bearer {self.access_token}",
             "Content-Type": "application/json",
         }
-        response = requests.get(url, headers=headers)
-        assert response.status_code == 200, response.text
+        response = self._make_request_with_backoff(
+            lambda: requests.get(url, headers=headers)
+        )
         return response.json()
 
     def get_report(
@@ -224,8 +280,9 @@ class EWAHAmazonAdsHook(EWAHBaseHook):
             },
         }
         self.log.info(f"Creating report at {url}")
-        response = requests.post(url, data=json.dumps(params), headers=headers)
-        assert response.status_code == 200, response.text
+        response = self._make_request_with_backoff(
+            lambda: requests.post(url, data=json.dumps(params), headers=headers)
+        )
         report_id = response.json()["reportId"]
 
         # Loop for report status
@@ -240,8 +297,9 @@ class EWAHAmazonAdsHook(EWAHBaseHook):
                 ]
             )
             self.log.info(f"Pinging report status at {url}")
-            response = requests.get(url, headers=headers)
-            assert response.status_code == 200, response.text
+            response = self._make_request_with_backoff(
+                lambda: requests.get(url, headers=headers)
+            )
             report_status = response.json()["status"]
             if report_status == "COMPLETED":
                 break
@@ -259,7 +317,9 @@ class EWAHAmazonAdsHook(EWAHBaseHook):
         # Download data
         download_url = response.json()["url"]
         self.log.info(f"Downloading report from {download_url}")
-        download = requests.get(download_url)
+        download = self._make_request_with_backoff(
+            lambda: requests.get(download_url)
+        )
         report_data = json.loads(gzip.decompress(download.content).decode())
 
         return report_data
