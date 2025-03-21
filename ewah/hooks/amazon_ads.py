@@ -298,12 +298,7 @@ class EWAHAmazonAdsHook(EWAHBaseHook):
             )
             self.log.info(f"Pinging report status at {url}")
             # Update headers with fresh token on each request
-            headers = {
-                "Amazon-Advertising-API-ClientId": self.conn.lwa_client_id,
-                "Authorization": f"Bearer {self.access_token}",
-                "Amazon-Advertising-API-Scope": str(profile_id),
-                "Content-Type": "application/json",
-            }
+            headers["Authorization"]=f"Bearer {self.access_token}"
             response = self._make_request_with_backoff(
                 lambda: requests.get(url, headers=headers)
             )
