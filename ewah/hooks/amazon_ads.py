@@ -297,9 +297,15 @@ class EWAHAmazonAdsHook(EWAHBaseHook):
                 ]
             )
             self.log.info(f"Pinging report status at {url}")
-            response = self._make_request_with_backoff(
-                lambda: requests.get(url, headers=headers)
-            )
+            # Update headers with fresh token on each request
+            headers = {
+                "Amazon-Advertising-API-ClientId": self.conn.lwa_client_id,
+                "Authorization": f"Bearer {self.access_token}",
+                "Amazon-Advertising-API-Scope": str(profile_id),
+                "Content-Type": "application/json",
+            }
+            response = requests.get(url, headers=headers)
+            assert response.status_code == 200, response.text
             report_status = response.json()["status"]
             if report_status == "COMPLETED":
                 break
