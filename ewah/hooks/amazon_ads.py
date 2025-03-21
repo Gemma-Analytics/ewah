@@ -304,8 +304,9 @@ class EWAHAmazonAdsHook(EWAHBaseHook):
                 "Amazon-Advertising-API-Scope": str(profile_id),
                 "Content-Type": "application/json",
             }
-            response = requests.get(url, headers=headers)
-            assert response.status_code == 200, response.text
+            response = self._make_request_with_backoff(
+                lambda: requests.get(url, headers=headers)
+            )
             report_status = response.json()["status"]
             if report_status == "COMPLETED":
                 break
