@@ -286,7 +286,7 @@ class EWAHAmazonAdsHook(EWAHBaseHook):
         report_id = response.json()["reportId"]
 
         # Loop for report status
-        wait_for = 1
+        wait_for = 15 # min wait time from experience
         while True:
             url = "/".join(
                 [
