@@ -286,7 +286,7 @@ class EWAHAmazonAdsHook(EWAHBaseHook):
         report_id = response.json()["reportId"]
 
         # Loop for report status
-        wait_for = 1
+        wait_for = 15 # min wait time from experience
         while True:
             url = "/".join(
                 [
@@ -297,6 +297,8 @@ class EWAHAmazonAdsHook(EWAHBaseHook):
                 ]
             )
             self.log.info(f"Pinging report status at {url}")
+            # Update headers with fresh token on each request
+            headers["Authorization"]=f"Bearer {self.access_token}"
             response = self._make_request_with_backoff(
                 lambda: requests.get(url, headers=headers)
             )
