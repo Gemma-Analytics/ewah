@@ -62,9 +62,6 @@ class EWAHSnowflakeHook(EWAHBaseHook):
                 warehouse=self.conn.warehouse,
                 account=self.conn.account,
                 database=self.database or self.conn.database,
-                session_parameters={
-                    "CLIENT_SESSION_KEEP_ALIVE": True,
-                },
             )
         return self._snow_conn
 
