@@ -49,7 +49,8 @@ class EWAHAmazonAdsOperator(EWAHBaseOperator):
 
     def ewah_execute(self, context):
         # Note: Incremental only!
-        request_date = self.data_from.date()
+        start_date = self.data_from.date()
+        end_date = self.data_until.date()
         if isinstance(self.profile_id, str):
             profiles = [{"profileId": self.profile_id}]
         elif self.profile_id is None:
@@ -57,38 +58,62 @@ class EWAHAmazonAdsOperator(EWAHBaseOperator):
         else:
             raise Exception("This should not happen")
 
-        while request_date <= self.data_until.date():
-            self.log.info(f"Requesting data for {request_date.isoformat()}...")
+        if self.api_version == "v2":
+            while start_date <= end_date:
+                self.log.info(f"Requesting data for {start_date.isoformat()}...")
+                # Get data for each profile
+                for profile in profiles:
+                    if profile.get("accountInfo", {}).get("type") == "agency":
+                        continue
+                    profile_id = profile["profileId"]
+                    self.log.info(f"Requesting data for profile {profile_id}...")
+                    
+                    report_data = self.source_hook.get_report(
+                        date=start_date,
+                        profile_id=profile_id,
+                        ads_type=self.ads_type,
+                        report_type=self.report_type,
+                        additional_params=self.additional_params,
+                    )
+
+                    # Enrich all records with metadata
+                    for datum in report_data:
+                        datum["_report_date"] = start_date.isoformat()
+                        datum["_profile_id"] = profile_id
+                        datum["_profile_metadata"] = profile
+                    
+                    # Upload once after enriching all records
+                    self.upload_data(report_data)
+                start_date += timedelta(days=1)
+                
+        if self.api_version == "v3":
             # Get data for each profile
             for profile in profiles:
                 if profile.get("accountInfo", {}).get("type") == "agency":
                     continue
                 profile_id = profile["profileId"]
                 self.log.info(f"Requesting data for profile {profile_id}...")
-                # we have to keep v2 because most endpoints are not available yet in v3
-                if self.api_version == "v2":
-                    report_data = self.source_hook.get_report(
-                        date=request_date,
-                        profile_id=profile_id,
-                        ads_type=self.ads_type,
-                        report_type=self.report_type,
-                        additional_params=self.additional_params,
-                    )
-                # v3 is only covering SP (sponsored products) ad_products at the moment
-                if self.api_version == "v3":
-                    report_data = self.source_hook.get_report_v3(
-                        date=request_date,
-                        profile_id=profile_id,
-                        ad_product=self.ads_type,
-                        report_type=self.report_type,
-                        additional_params=self.additional_params,
-                    )
+                self.log.info(f"Start date: {start_date.isoformat()}")
+                self.log.info(f"End date: {end_date.isoformat()}")
+                
+                report_data = self.source_hook.get_report_v3(
+                    start_date=start_date,
+                    end_date=end_date,
+                    profile_id=profile_id,
+                    ad_product=self.ads_type,
+                    report_type=self.report_type,
+                    additional_params=self.additional_params,
+                )
+
+                # Enrich all records with metadata
                 for datum in report_data:
-                    datum["_report_date"] = request_date.isoformat()
+                    datum["_report_date"] = end_date.isoformat()
                     datum["_profile_id"] = profile_id
                     datum["_profile_metadata"] = profile
+                
+                # Upload once after enriching all records
                 self.upload_data(report_data)
-            request_date += timedelta(days=1)
+
 
 
 class EWAHAmazonAdsDSPOperator(EWAHBaseOperator):

@@ -243,7 +243,8 @@ class EWAHAmazonAdsHook(EWAHBaseHook):
 
     def get_report_v3(
         self,
-        date,
+        start_date,
+        end_date,
         ad_product,
         report_type,
         profile_id,
@@ -269,8 +270,8 @@ class EWAHAmazonAdsHook(EWAHBaseHook):
             "Content-Type": "application/json",
         }
         params = {
-            "startDate": date.isoformat(),
-            "endDate": date.isoformat(),
+            "startDate": start_date.isoformat(),
+            "endDate": end_date.isoformat(),
             "configuration": {
                 "adProduct": ad_product,
                 "reportTypeId": report_type,
