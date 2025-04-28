@@ -873,7 +873,6 @@ class EWAHAmazonSellerCentralHook(EWAHBaseHook):
         if data:
             yield data
 
-
     def get_data_from_reporting_api_in_batches(
         self,
         marketplace_region,
