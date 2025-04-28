@@ -279,6 +279,7 @@ class EWAHdbtOperator(BaseOperator):
                 cmd.append(
                     "pip install --quiet --upgrade "
                     '"MarkupSafe<=2.0.1" '
+                    '"certifi==2025.1.31" '  # Workaround for Snowflake certificate errors
                     '"dbt-core{1}" '
                     '"dbt-{0}{1}"'.format(
                         {
