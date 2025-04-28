@@ -855,8 +855,8 @@ class EWAHAmazonSellerCentralHook(EWAHBaseHook):
             self.get_report_data(
                 marketplace_region,
                 report_name,
-                None,
-                None,
+                data_from,
+                data_until,
                 report_options,
             ).decode("latin-1")
         )
@@ -872,6 +872,7 @@ class EWAHAmazonSellerCentralHook(EWAHBaseHook):
                 data = []
         if data:
             yield data
+
 
     def get_data_from_reporting_api_in_batches(
         self,
