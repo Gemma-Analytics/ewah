@@ -836,13 +836,27 @@ class EWAHAmazonSellerCentralHook(EWAHBaseHook):
         ewah_options=None,
         batch_size=10000,
     ):
-        self.log.info("Fetching Fee Preview Report. Ignoring datetimes if any.")
+        self.log.info("Fetching Fee Preview Report...")
+
+        # The FBA Fee Preview Report (GET_FBA_ESTIMATED_FBA_FEES_TXT_DATA)
+        # "contains the estimated Amazon Selling and Fulfillment Fees for the seller's FBA
+        # inventory with active offers. The content is updated at least once every
+        # 72 hours. To successfully generate a report, specify the StartDate parameter
+        # for a minimum 72 hours prior to NOW and EndDate to NOW."
+        # https://developer-docs.amazon.com/sp-api/docs/report-type-values-fba#fba-payments-reports
+
+        if not data_from:
+            data_from = datetime.utcnow().replace(tzinfo=pytz.utc) - timedelta(hours=72)
+            self.log.info(f"No data_from provided, setting to 72 hours ago: {data_from}")
+        else:
+            self.log.info(f"Using provided data_from: {data_from}")
+
         data_io = StringIO(
             self.get_report_data(
                 marketplace_region,
                 report_name,
-                None,
-                None,
+                data_from,
+                data_until,
                 report_options,
             ).decode("latin-1")
         )
