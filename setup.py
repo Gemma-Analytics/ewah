@@ -55,6 +55,6 @@ setuptools.setup(
         "sshtunnel>=0.2.2",
         "stripe",
         "virtualenv",
-        "yahoofinancials",
+        "yahoofinancials @ git+https://github.com/lpillmann/yahoofinancials.git@master#egg=yahoofinancials",  # Temporary fix for yahoofinancials to deal with Too Many Requests error
     ],
 )
