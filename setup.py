@@ -55,6 +55,6 @@ setuptools.setup(
         "sshtunnel>=0.2.2",
         "stripe",
         "virtualenv",
-        "yahoofinancials-gemma-analytics",  # We needed to create our own fork + module to deal with Too Many Requests error
+        "yahoofinancials-gemma-analytics==1.23",  # We needed to create our own fork + module to deal with Too Many Requests error
     ],
 )
