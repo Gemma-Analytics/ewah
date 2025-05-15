@@ -221,21 +221,29 @@ class EWAHdbtOperator(BaseOperator):
                 }
             elif self.dwh_engine == EC.DWH_ENGINE_SNOWFLAKE:
                 mb_database = self.database_name or dwh_conn.database
+                
+                connection_params = {
+                    "type": "snowflake",
+                    "account": dwh_conn.account,
+                    "user": dwh_conn.user,
+                    "role": dwh_conn.role,
+                    "database": self.database_name or dwh_conn.database,
+                    "warehouse": dwh_conn.warehouse,
+                    "schema": self.schema_name or dwh_conn.schema,
+                    "threads": self.threads,
+                    "keepalives_idle": self.keepalives_idle,
+                }
+                
+                if dwh_conn.private_key:
+                    connection_params["private_key"] = dwh_conn.private_key
+                    connection_params["private_key_passphrase"] = dwh_conn.private_key_passphrase
+                else:
+                    connection_params["password"] = dwh_conn.password
+                
                 profiles_yml[profile_name] = {
                     "target": "prod",  # same as the output defined below
                     "outputs": {
-                        "prod": {  # for snowflake
-                            "type": "snowflake",
-                            "account": dwh_conn.account,
-                            "user": dwh_conn.user,
-                            "password": dwh_conn.password,
-                            "role": dwh_conn.role,
-                            "database": self.database_name or dwh_conn.database,
-                            "warehouse": dwh_conn.warehouse,
-                            "schema": self.schema_name or dwh_conn.schema,
-                            "threads": self.threads,
-                            "keepalives_idle": self.keepalives_idle,
-                        },
+                        "prod": connection_params
                     },
                 }
             elif self.dwh_engine == EC.DWH_ENGINE_BIGQUERY:
