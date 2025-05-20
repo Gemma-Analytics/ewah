@@ -22,6 +22,7 @@ import copy
 import gzip
 import json
 import csv
+import random
 
 
 class EWAHAmazonSellerCentralHook(EWAHBaseHook):
@@ -1166,28 +1167,60 @@ class EWAHAmazonSellerCentralHook(EWAHBaseHook):
                 ]
             ),
         }
-        requested_at = datetime.utcnow()
-        response = requests.get(
-            url,
-            params=params,
-            headers=self.generate_request_headers(
-                url=url, method="GET", region=region, params=params
-            ),
-        )
-        # Respect endpoint response rate limit of 2 requests per second
-        # Run 1 request per second, just to be sure in case of conflicts
-        time.sleep(
-            max(
-                0,
-                (
-                    requested_at + timedelta(seconds=1) - datetime.utcnow()
-                ).total_seconds(),
+
+        # Backoff strategy parameters
+        max_retries = 5
+        base_delay = 2  
+        max_delay = 60 
+        jitter = 0.1
+
+        for attempt in range(max_retries):
+            requested_at = datetime.utcnow()
+            response = requests.get(
+                url,
+                params=params,
+                headers=self.generate_request_headers(
+                    url=url, method="GET", region=region, params=params
+                ),
             )
-        )
-        if not response.status_code == 200:
-            if response.json()["errors"][0]["code"] == "NOT_FOUND":
-                # item wasn't found in marketplace, ignore error and return None
-                return
+
+            if response.status_code == 200:
+                # If successful, respect endpoint response rate limit of 2 requests per second
+                # Run 1 request per second, just to be sure in case of conflicts
+                time.sleep(
+                    max(
+                        0,
+                        (requested_at + timedelta(seconds=1) - datetime.utcnow()).total_seconds(),
+                    )
+                )
+                return {f"catalogue_{key}": value for key, value in response.json().items()}
+
+            elif response.status_code == 429:  
+                # If rate limit exceeded even though we respected the rate limit
+                # We'll retry with exponential backoff
+                if attempt < max_retries - 1:
+                    # Calculate delay with exponential backoff and jitter
+                    delay = min(max_delay, base_delay * (2 ** attempt))
+                    jitter_amount = delay * jitter * (2 * random.random() - 1)
+                    total_delay = max(0, delay + jitter_amount)
+                    
+                    self.log.warning(
+                        f"Rate limit exceeded. Attempt {attempt + 1}/{max_retries}. "
+                        f"Retrying in {total_delay:.2f} seconds..."
+                    )
+                    time.sleep(total_delay)
+                    continue
             else:
+                # Check for NOT_FOUND in the response body
+                try:
+                    error_data = response.json()
+                    if error_data.get("errors", [{}])[0].get("code") == "NOT_FOUND":
+                        # item wasn't found in marketplace, ignore error and return None
+                        return
+                except (ValueError, KeyError, IndexError):
+                    pass  # If we can't parse the response as JSON, continue to raise the original error
+                
                 raise Exception(f"Error {response.status_code}: {response.text}")
-        return {f"catalogue_{key}": value for key, value in response.json().items()}
+
+        # If exhausted all retries
+        raise Exception(f"Max retries ({max_retries}) exceeded for rate limit. Last error: {response.text}")
