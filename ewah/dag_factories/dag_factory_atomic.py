@@ -94,9 +94,16 @@ def dag_factory_atomic(
         assert isinstance(dagrun_timeout_factor, (int, float)) and (
             0 < dagrun_timeout_factor <= 1
         ), _msg
-        additional_dag_args["dagrun_timeout"] = additional_dag_args.get(
-            "dagrun_timeout", dagrun_timeout_factor * schedule_interval
+        # If schedule_interval is a string, we assume it is a cron and set a default
+        if isinstance(schedule_interval, str):
+            default_timeout = timedelta(hours=1)
+            additional_dag_args["dagrun_timeout"] = additional_dag_args.get(
+              "dagrun_timeout", default_timeout
         )
+        else:
+          additional_dag_args["dagrun_timeout"] = additional_dag_args.get(
+              "dagrun_timeout", dagrun_timeout_factor * schedule_interval
+          )
 
     if task_timeout_factor:
         additional_task_args["execution_timeout"] = additional_task_args.get(
