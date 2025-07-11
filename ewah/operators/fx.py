@@ -1,5 +1,5 @@
-from datetime import datetime
-from yahoofinancials import YahooFinancials
+from datetime import datetime, timedelta
+from yfinance import download
 
 from ewah.constants import EWAHConstants as EC
 from ewah.operators.base import EWAHBaseOperator
@@ -17,12 +17,19 @@ class EWAHFXOperator(EWAHBaseOperator):
     def __init__(
         self,
         currency_pair,  # iterable of length 2
-        frequency="daily",  # daily, weekly, or monthly
+        frequency="1d",  # 1d, 1wk, 1mo
         *args,
         **kwargs
     ):
-        if not frequency in ("daily", "weekly", "monthly"):
-            raise Exception("Frequency must be one of: daily, weekly, monthly")
+        if not frequency in ("1d", "1wk", "1mo"):
+            if frequency == "daily":
+                frequency = "1d"
+            elif frequency == "weekly":
+                frequency = "1wk"
+            elif frequency == "monthly":
+                frequency = "1mo"
+            else:
+                raise Exception("Frequency must be one of: 1d, 1wk, 1mo")
 
         if not len(currency_pair) == 2:
             raise Exception(
@@ -48,13 +55,31 @@ class EWAHFXOperator(EWAHBaseOperator):
 
     def ewah_execute(self, context):
         data_from = self.data_from or context["dag"].start_date
-        data_until = self.data_until or datetime_utcnow_with_tz()
+        # yfinance requires one day extra to also show the current day
+        data_until = (self.data_until or datetime_utcnow_with_tz()) + timedelta(days=1)
 
         format_str = "%Y-%m-%d"
         currency_str = "{0}{1}=X".format(*self.currency_pair)
-        data = YahooFinancials([currency_str]).get_historical_price_data(
+        data = download(
+            currency_str,
             data_from.strftime(format_str),
             data_until.strftime(format_str),
             self.frequency,
+            auto_adjust=False
         )
-        self.upload_data(data[currency_str]["prices"])
+        data_list = []
+        for index, row in data.iterrows():
+            data_dict = {
+                # UNIX timestamp is calculated, adding 82800 to match unix timestamp from yahoofinancials (legacy)
+                'date': int(datetime.strptime(index.strftime('%Y-%m-%d'), '%Y-%m-%d').timestamp() + 82800),
+                'high': float(row['High'].iloc[0]),
+                'low': float(row['Low'].iloc[0]),
+                'open': float(row['Open'].iloc[0]),
+                'close': float(row['Close'].iloc[0]),
+                'volume': float(row['Volume'].iloc[0]),
+                'adjclose': float(row['Adj Close'].iloc[0]),
+                'formatted_date': index.strftime('%Y-%m-%d')
+            }
+            data_list.append(data_dict)
+
+        self.upload_data(data_list)
