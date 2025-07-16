@@ -6,7 +6,7 @@ from ewah.operators.base import EWAHBaseOperator
 from ewah.utils.airflow_utils import datetime_utcnow_with_tz
 
 
-class EWAHFXOperator(EWAHBaseOperator):
+class EWAHFXYFinanceOperator(EWAHBaseOperator):
     _NAMES = ["fx_yfinance"]
 
     _ACCEPTED_EXTRACT_STRATEGIES = {
