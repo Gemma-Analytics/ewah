@@ -1,4 +1,4 @@
-FROM apache/airflow:2.2.5-python3.8 as dev_build
+FROM apache/airflow:2.3.4-python3.10 as dev_build
 
 ### --------------------------------------------- run as root => ##
 USER root
@@ -49,6 +49,7 @@ RUN echo "airflow ALL=(ALL) NOPASSWD: ALL" > /etc/sudoers && \
 # overwrite entrypoint
 COPY --chown=airflow:root  docker/scripts/entrypoint_prod.sh /entrypoint
 COPY --chown=airflow:root  docker/scripts/entrypoint_prod.py /entrypoint.py
+RUN chmod +x /entrypoint
 
 USER airflow
 ### <= --------------------------------------------- run as root ##
