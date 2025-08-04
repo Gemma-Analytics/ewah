@@ -213,7 +213,6 @@ class EWAHSnowflakeUploader(EWAHBaseUploader):
             ),
         )
         list_of_columns = [col[0].strip() for col in list_of_columns]
-        python_fix_required = sys.version_info.minor < 10  # See below for reason
 
         self.log.info("Writing data to a temporary .csv file")
         with TemporaryDirectory(prefix="uploadtosnowflake") as tmp_dir:
@@ -223,7 +222,7 @@ class EWAHSnowflakeUploader(EWAHBaseUploader):
                 suffix=".csv",
             ) as datafile:
                 file_name = os.path.abspath(datafile.name)
-                with open(file_name, mode="w") as csv_file:
+                with open(file_name, mode="w", newline="") as csv_file:
                     csvwriter = csv.writer(
                         csv_file,
                         delimiter=",",
@@ -231,21 +230,15 @@ class EWAHSnowflakeUploader(EWAHBaseUploader):
                         quoting=csv.QUOTE_MINIMAL,
                     )
 
-                    for _ in range(len(data)):
-                        datum = data.pop(0)
+                    for datum in data:
                         # Make sure order of csv is the same as order of columns
                         csvwriter.writerow(
                             [
-                                # csv has a bug, which is fixed in Python 3.10,
-                                # which leads to the escape character itself not
-                                # being escaped - Snowflake uploads will fail
-                                # if it is not escaped, hence strings with backslashes
-                                # need double-slashes to "manually" escape it.
-                                # Hotfix can be removed when upgrading to Python >= 3.10
-                                datum[col].replace("\\", "\\\\")
-                                if python_fix_required
-                                and isinstance(datum.get(col), str)
-                                else datum.get(col)
+                                (
+                                    value.replace("\\", "\\\\")
+                                    if isinstance(value := datum.get(col), str)
+                                    else value
+                                )
                                 for col in list_of_columns
                             ],
                         )
