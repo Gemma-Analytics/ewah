@@ -23,7 +23,7 @@ class EWAHGoogleAdsHook(EWAHBaseHook):
     conn_type = "ewah_google_ads"
     hook_name = "EWAH Google Ads Connection"
 
-    _DEFAULT_VERSION = "v17"
+    _DEFAULT_VERSION = "v19"
 
     @staticmethod
     def get_ui_field_behaviour() -> dict:
