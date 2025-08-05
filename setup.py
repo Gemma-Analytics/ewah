@@ -29,7 +29,7 @@ setuptools.setup(
         "croniter",
         "cx_Oracle",
         "facebook_business",
-        "google-ads>=16.0.0",
+        "google-ads>=25.2.0",
         "google-cloud-bigquery",
         "google-cloud-storage",
         "googlemaps",
