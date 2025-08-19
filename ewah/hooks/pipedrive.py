@@ -41,7 +41,9 @@ class EWAHPipedriveHook(EWAHBaseHook):
             result = request.json()
             success = request.status_code == 200 and result.get("success")
             if success:
-                if int(request.headers[self._REQUESTS_LEFT]) < 10:
+                # AS of 2025-08-19, the rate limit parameters do not exist, therefore we add a fallback
+                # Potentially, this code is not needed anymore, but we kept it in case the parameters show up again.
+                if int(request.headers[self._REQUESTS_LEFT], 10) < 10:
                     # Wait for ratelimit to fill up again
                     time.sleep(2)
 
