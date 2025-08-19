@@ -43,7 +43,7 @@ class EWAHPipedriveHook(EWAHBaseHook):
             if success:
                 # AS of 2025-08-19, the rate limit parameters do not exist, therefore we add a fallback
                 # Potentially, this code is not needed anymore, but we kept it in case the parameters show up again.
-                if int(request.headers[self._REQUESTS_LEFT], 10) < 10:
+                if int(request.headers.get(self._REQUESTS_LEFT, 10)) < 10:
                     # Wait for ratelimit to fill up again
                     time.sleep(2)
 
