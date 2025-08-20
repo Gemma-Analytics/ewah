@@ -51,7 +51,14 @@ setuptools.setup(
         "recurly",
         "selenium",
         "simple-salesforce",
-        "snowflake-connector-python>=2.3.8",  # 2.3.8 vendored urrlib3 and requests
+        
+        # Snowflake connector dependencies (ref: https://stackoverflow.com/a/76463170)
+        "snowflake-connector-python[pandas]",
+        "pyarrow",
+        "pandas",
+        "sqlalchemy",
+        "snowflake-sqlalchemy",
+        
         "sshtunnel>=0.2.2",
         "stripe",
         "virtualenv",
