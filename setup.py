@@ -36,6 +36,7 @@ setuptools.setup(
         "gspread>=3.6",
         "Jinja2",
         "mailchimp3",
+        "numpy<2.0.0",  # For backwards compatibility with the previous version of EWAH (<0.9.0and its dependencies
         "oauth2client",
         "Office365-REST-Python-Client",
         "openpyxl",
