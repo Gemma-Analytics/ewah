@@ -165,6 +165,9 @@ ENV AIRFLOW__CORE__FERNET_KEY='Hello, I am AIRFLOW__CORE__FERNET_KEY and I need 
 ENV AIRFLOW__WEBSERVER__SECRET_KEY=''
 ENV AIRFLOW__CORE__SQL_ALCHEMY_CONN=''
 
+# Extra configurations
+ENV AIRFLOW__WEBSERVER__WARN_DEPLOYMENT_EXPOSURE=False
+
 # install from pip
 ARG package_version
 RUN pip install --user --upgrade --no-cache-dir ewah==${package_version}
