@@ -123,6 +123,7 @@ class EWAHHubspotHook(EWAHBaseHook):
             "companies",
             "contacts",
             "deals",
+            "p3909618_milestones",
         ],
     }
 
