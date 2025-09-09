@@ -119,6 +119,11 @@ class EWAHHubspotHook(EWAHBaseHook):
             "tickets",
             "quotes",
         ],
+        "p3909618_milestones": [
+            "companies",
+            "contacts",
+            "deals",
+        ],
     }
 
     @staticmethod
