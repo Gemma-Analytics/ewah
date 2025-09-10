@@ -119,6 +119,7 @@ class EWAHHubspotHook(EWAHBaseHook):
             "tickets",
             "quotes",
         ],
+        # Custom object requested by a customer. This is not a standard object in HubSpot.
         "p3909618_milestones": [
             "companies",
             "contacts",
