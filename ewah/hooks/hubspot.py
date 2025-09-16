@@ -24,6 +24,7 @@ class EWAHHubspotHook(EWAHBaseHook):
     PROPERTIES_URL = "https://api.hubapi.com/crm/v3/properties/{0}"
     PIPELINES_URL = "https://api.hubapi.com/crm/v3/pipelines/{0}"
     ASSOC_URL = "https://api.hubapi.com/crm/v3/associations/{fromObjectType}/{toObjectType}/batch/read"
+    ASSOC_URL_V4 = "https://api.hubapi.com/crm/v4/associations/{fromObjectType}/{toObjectType}/batch/read"
     OWNERS_URL = "https://api.hubapi.com/crm/v3/owners/"
 
     # The value is a list of possible associations. Giving the "all" value for
@@ -245,6 +246,12 @@ class EWAHHubspotHook(EWAHBaseHook):
                         "\n\t- ".join(associations)
                     )
                 )
+                if object == "p3909618_milestones":
+                    assoc_url = self.ASSOC_URL_V4
+                    self.log.info("Using v4 API for associations")
+                else:
+                    assoc_url = self.ASSOC_URL
+                    self.log.info("Using v3 API for associations")
 
         keepgoing = True
         i = 0
@@ -288,7 +295,7 @@ class EWAHHubspotHook(EWAHBaseHook):
                 )
                 for association in associations:
                     request = requests.post(
-                        self.ASSOC_URL.format(
+                        assoc_url.format(
                             fromObjectType=object,
                             toObjectType=association,
                         ),
