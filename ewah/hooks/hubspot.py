@@ -24,6 +24,7 @@ class EWAHHubspotHook(EWAHBaseHook):
     PROPERTIES_URL = "https://api.hubapi.com/crm/v3/properties/{0}"
     PIPELINES_URL = "https://api.hubapi.com/crm/v3/pipelines/{0}"
     ASSOC_URL = "https://api.hubapi.com/crm/v3/associations/{fromObjectType}/{toObjectType}/batch/read"
+    # ASSOC_URL_V4 is only used for a custom object of a customer
     ASSOC_URL_V4 = "https://api.hubapi.com/crm/v4/associations/{fromObjectType}/{toObjectType}/batch/read"
     OWNERS_URL = "https://api.hubapi.com/crm/v3/owners/"
 
@@ -247,6 +248,7 @@ class EWAHHubspotHook(EWAHBaseHook):
                     )
                 )
                 if object == "p3909618_milestones":
+                    # The custom object needs the v4 API for the right associations
                     assoc_url = self.ASSOC_URL_V4
                     self.log.info("Using v4 API for associations")
                 else:
