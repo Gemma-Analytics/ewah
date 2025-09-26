@@ -38,7 +38,11 @@ class EWAHSharepointHook(EWAHBaseHook):
                 widget=BS3TextFieldWidget(),
             ),
             "extra__ewah_sharepoint__site_path": StringField(
-                "Site Path (e.g. sites/Natsana_Analytics_Shared_Folder)",
+                "Site Path (e.g. sites/Finance)",
+                widget=BS3TextFieldWidget(),
+            ),
+            "extra__ewah_sharepoint__drive_id": StringField(
+                "Drive ID (optional, e.g. b!oS9JMAuH1...DdrP)",
                 widget=BS3TextFieldWidget(),
             ),
         }
@@ -111,6 +115,7 @@ class EWAHSharepointHook(EWAHBaseHook):
         batch_size: int,
         site_hostname: str = None,
         site_path: str = None,
+        drive_id: str = None,
     ):
         """
         Get data from Excel file in SharePoint using Microsoft Graph API.
@@ -123,6 +128,7 @@ class EWAHSharepointHook(EWAHBaseHook):
             batch_size: Number of rows to process in each batch
             site_hostname: SharePoint hostname (e.g., "company.sharepoint.com")
             site_path: SharePoint site path (e.g., "sites/MySite")
+            drive_id: SharePoint drive ID
         """
         assert (
             isinstance(batch_size, int) and batch_size > 0
@@ -143,6 +149,9 @@ class EWAHSharepointHook(EWAHBaseHook):
         if not site_path:
             site_path = self.conn.extra_dejson.get("extra__ewah_sharepoint__site_path")
 
+        if not drive_id:
+            drive_id = self.conn.extra_dejson.get("extra__ewah_sharepoint__drive_id")
+
         if not site_hostname or not site_path:
             raise ValueError(
                 "site_hostname and site_path must be provided either as parameters or in the connection"
@@ -154,8 +163,9 @@ class EWAHSharepointHook(EWAHBaseHook):
         # Get site ID
         site_id = self._get_site_id(access_token, site_hostname, site_path)
 
-        # Get drive ID
-        drive_id = self._get_drive_id(access_token, site_id)
+        # If drive_id is not provided, get it using the default method
+        if not drive_id:
+            drive_id = self._get_drive_id(access_token, site_id)
 
         # Download the file using Graph API
         self.log.info(f"Downloading file: {relative_file_path}")
