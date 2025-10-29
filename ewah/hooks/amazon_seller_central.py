@@ -106,8 +106,18 @@ class EWAHAmazonSellerCentralHook(EWAHBaseHook):
             "subsequent_field": "report_created_date",
             "accepted_strategies": [EC.ES_SUBSEQUENT],
         },
+        "brand_analytics_search_catalog_performance": {
+            "report_type": "GET_BRAND_ANALYTICS_SEARCH_CATALOG_PERFORMANCE_REPORT",
+            "report_options": {
+                "reportPeriod": ["WEEK", "MONTH", "QUARTER"]
+            },
+            "method_name": "get_brand_analytics_search_catalog_performance",
+            "primary_key": ["asin","startDate","endDate"],
+            "subsequent_field": "endDate",
+            "accepted_strategies": [EC.ES_SUBSEQUENT],
+        },
     }
-
+    
     _ATTR_RELABEL = {}
 
     conn_name_attr = "ewah_amazon_seller_central_conn_id"
@@ -881,6 +891,201 @@ class EWAHAmazonSellerCentralHook(EWAHBaseHook):
                 data = []
         if data:
             yield data
+
+    def get_brand_analytics_search_catalog_performance(
+        self,
+        marketplace_region,
+        report_name,
+        data_from,
+        data_until,
+        report_options=None,
+        ewah_options=None,
+        batch_size=10000,
+    ):
+        """Fetch Brand Analytics Search Catalog Performance Report from Amazon Seller Central.
+        
+        This report provides insights into search catalog performance for brand analytics.
+        Only WEEK reportPeriod is supported.
+        
+        Requirements:
+        - Requests must include reportPeriod=WEEK in the reportsOptions
+        - Use dataStartTime and dataEndTime parameters to specify date boundaries
+        - dataStartTime must be a Sunday and dataEndTime must be a Saturday
+        """
+        self.log.info("Fetching Brand Analytics Search Catalog Performance Report...")
+
+        # Ensure report_options is a dictionary
+        if report_options is None:
+            report_options = {}
+        
+        # Validate that reportPeriod is provided
+        if "reportPeriod" not in report_options:
+            raise ValueError("reportPeriod must be specified in report_options for Brand Analytics Search Catalog Performance Report")
+        
+        report_period = report_options["reportPeriod"]
+        
+        # Validate reportPeriod
+        if report_period != "WEEK":
+            raise ValueError(f"Only reportPeriod=WEEK is supported. Got: {report_period}")
+
+        # date_from must be a Sunday
+        if data_from.weekday() != 6:
+            raise ValueError(f"data_from must be a Sunday (number 6). Got: {data_from.weekday()}")
+        
+        # Set up weekly data fetching
+        start_date = data_from.date()
+        
+        # Calculate the last available Saturday
+        today = date.today()
+        if today.weekday() == 5:  # Today is Saturday
+            last_saturday = today
+        else:  # Find the most recent Saturday
+            days_since_saturday = (today.weekday() + 2) % 7  # Calculate days since last Saturday
+            last_saturday = today - timedelta(days=days_since_saturday)
+        
+        self.log.info(f"Fetching weekly data from {start_date.strftime('%Y-%m-%d')} to {last_saturday.strftime('%Y-%m-%d')}")
+        
+        # Process each week from start_date to last_saturday
+        current_sunday = start_date
+        while current_sunday <= last_saturday:
+            current_saturday = current_sunday + timedelta(days=6)
+            
+            # End if this week would go beyond our end date
+            if current_saturday > last_saturday:
+                break
+                
+            self.log.info(f"Processing week: {current_sunday.strftime('%Y-%m-%d')} to {current_saturday.strftime('%Y-%m-%d')}")
+            
+            # Process the report data as JSON for this week
+            max_retries = 3
+            delay = 60
+            data_raw = None
+            
+            try:
+                for attempt in range(max_retries):
+                    try:
+                        data_raw = (
+                            self.get_report_data(
+                                marketplace_region,
+                                report_name,
+                                current_sunday,
+                                current_saturday,
+                                report_options,
+                            )
+                            or b""
+                        ).decode()
+                        # Success - break out of retry loop
+                        break
+                    except (AssertionError, Exception) as e:
+                        error_text = str(e)
+                        # Check if it's a QuotaExceeded error (can occur at any stage of get_report_data)
+                        is_quota_error = "QuotaExceeded" in error_text or "quota" in error_text.lower()
+                        
+                        if is_quota_error and attempt < max_retries - 1:
+                            self.log.warning(
+                                f"Quota exceeded for week {current_sunday.strftime('%Y-%m-%d')} to {current_saturday.strftime('%Y-%m-%d')}. "
+                                f"Attempt {attempt + 1}/{max_retries}. Waiting {delay} seconds before retry..."
+                            )
+                            time.sleep(delay)
+                            continue
+                        # If max retries exceeded or non-quota error, raise
+                        raise
+            except Exception as e:
+                # We assume that if the error is FATAL, it is because the report is not available yet
+                if "FATAL" in str(e):
+                    current_sunday += timedelta(days=7)
+                    self.log.error(f"Fatal error encountered for week {current_sunday} to {current_saturday}: {e}\n Skipping week...")
+                    continue
+                else:
+                    raise e
+
+            if not data_raw:
+                self.log.info(f"No data returned for week {current_sunday} to {current_saturday}")
+                # Move to next week
+                current_sunday += timedelta(days=7)
+                continue
+                
+            json_data = json.loads(data_raw)
+            raw_data = json_data.get("dataByAsin", [])
+                
+            # Process and flatten the data for this week
+            data = []
+            i = 0
+            for item in raw_data:
+                # Extract top-level fields
+                flattened_row = {
+                    "startDate": item.get("startDate"),
+                    "endDate": item.get("endDate"), 
+                    "asin": item.get("asin")
+                }
+                
+                # Flatten impressionData fields
+                impression_data = item.get("impressionData", {})
+                if impression_data:
+                    flattened_row.update({
+                        "impressionCount": impression_data.get("impressionCount"),
+                        "impressionMedianPrice": impression_data.get("impressionMedianPrice"),
+                        "sameDayShippingImpressionCount": impression_data.get("sameDayShippingImpressionCount"),
+                        "oneDayShippingImpressionCount": impression_data.get("oneDayShippingImpressionCount"),
+                        "twoDayShippingImpressionCount": impression_data.get("twoDayShippingImpressionCount")
+                    })
+                
+                # Flatten clickData fields
+                click_data = item.get("clickData", {})
+                if click_data:
+                    flattened_row.update({
+                        "clickCount": click_data.get("clickCount"),
+                        "clickRate": click_data.get("clickRate"),
+                        "clickedMedianPrice": click_data.get("clickedMedianPrice"),
+                        "sameDayShippingClickCount": click_data.get("sameDayShippingClickCount"),
+                        "oneDayShippingClickCount": click_data.get("oneDayShippingClickCount"),
+                        "twoDayShippingClickCount": click_data.get("twoDayShippingClickCount")
+                    })
+                
+                # Flatten cartAddData fields
+                cart_add_data = item.get("cartAddData", {})
+                if cart_add_data:
+                    flattened_row.update({
+                        "cartAddCount": cart_add_data.get("cartAddCount"),
+                        "cartAddedMedianPrice": cart_add_data.get("cartAddedMedianPrice"),
+                        "sameDayShippingCartAddCount": cart_add_data.get("sameDayShippingCartAddCount"),
+                        "oneDayShippingCartAddCount": cart_add_data.get("oneDayShippingCartAddCount"),
+                        "twoDayShippingCartAddCount": cart_add_data.get("twoDayShippingCartAddCount")
+                    })
+                
+                # Flatten purchaseData fields
+                purchase_data = item.get("purchaseData", {})
+                if purchase_data:
+                    flattened_row.update({
+                        "purchaseCount": purchase_data.get("purchaseCount"),
+                        "searchTrafficSales": purchase_data.get("searchTrafficSales"),
+                        "conversionRate": purchase_data.get("conversionRate"),
+                        "purchaseMedianPrice": purchase_data.get("purchaseMedianPrice"),
+                        "sameDayShippingPurchaseCount": purchase_data.get("sameDayShippingPurchaseCount"),
+                        "oneDayShippingPurchaseCount": purchase_data.get("oneDayShippingPurchaseCount"),
+                        "twoDayShippingPurchaseCount": purchase_data.get("twoDayShippingPurchaseCount")
+                    })
+                
+                data.append(flattened_row)
+                i += 1
+                
+                if i == batch_size:
+                    yield data
+                    i = 0
+                    data = []
+                    
+            if data:
+                yield data
+            
+            # Move to next week
+            current_sunday += timedelta(days=7)
+            
+            # Add a small delay between weekly requests to respect API rate limits
+            if current_sunday <= last_saturday:
+                self.log.info("Waiting 2 seconds before processing next week...")
+                time.sleep(2)
+            
+            print(f"Retrieved report for week {current_sunday} to {current_saturday}\n")
 
     def get_settlement_report_v2_data(
         self,
