@@ -7,6 +7,9 @@ import json
 class EWAHShopifyGraphQLHook(EWAHBaseHook):
     _ATTR_RELABEL = {}
 
+    # Note: so far only query implemenation for orders node
+    # including fields for lineItem JSON & discountApplication JSON
+
     # use same connection as in Rest API hook
     conn_name_attr = "ewah_shopify_grahql_conn_id"
     default_conn_name = "ewah_shopify_graphql_default"
@@ -54,7 +57,7 @@ class EWAHShopifyGraphQLHook(EWAHBaseHook):
         return data.get("data")
 
     def flatten_order(self, order_node):
-        """Flatten nested GraphQL order structure into a flat dictionary"""
+
         flattened = {}
 
         # Basic order fields
@@ -89,22 +92,10 @@ class EWAHShopifyGraphQLHook(EWAHBaseHook):
         # customer could be null for draft orders
         flattened["customer"] = json.dumps(customer_node) if customer_node else None
 
-        # Line items - store as JSON since there can be multiple
-        line_items = []
-        if order_node.get("lineItems") and order_node["lineItems"].get("edges"):
-            for edge in order_node["lineItems"]["edges"]:
-                item = edge.get("node", {})
-                item_data = {
-                    "id": item.get("id", "").split("/")[-1] if item.get("id") else None,
-                    "title": item.get("title"),
-                    "quantity": item.get("quantity"),
-                }
-                if item.get("originalUnitPriceSet") and item["originalUnitPriceSet"].get("shopMoney"):
-                    price = item["originalUnitPriceSet"]["shopMoney"]
-                    item_data["originalUnitPriceAmount"] = price.get("amount")
-                    item_data["originalUnitPriceCurrencyCode"] = price.get("currencyCode")
-                line_items.append(item_data)
-        flattened["lineItems"] = json.dumps(line_items) if line_items else None
+        # line items -> extract the node values
+        line_item_edges = order_node.get("lineItems", {}).get("edges", [])
+        line_items = [edge.get("node", {}) for edge in line_item_edges]
+        flattened["lineItems"] = line_items
 
         return flattened
 
@@ -112,7 +103,7 @@ class EWAHShopifyGraphQLHook(EWAHBaseHook):
         self,
         shop_id=None,
         version=None,
-        first=250,
+        first=50,
     ):
         """Get orders data from Shopify GraphQL API with pagination"""
         shop_id = shop_id or self.conn.login
@@ -143,7 +134,14 @@ class EWAHShopifyGraphQLHook(EWAHBaseHook):
                         cancelledAt
                         cancelReason
                         currencyCode
-                        customer {id }
+                        customer {
+                            id
+                            emailMarketingConsent {
+                                marketingState
+                                marketingOptInLevel
+                                consentUpdatedAt
+                            }
+                        }
                         customerLocale
                         taxesIncluded
                         currentSubtotalPriceSet { shopMoney { amount currencyCode } }
@@ -151,7 +149,7 @@ class EWAHShopifyGraphQLHook(EWAHBaseHook):
                         totalTaxSet { shopMoney { amount currencyCode } }
                         totalDiscountsSet { shopMoney { amount currencyCode } }
                         discountCodes
-                        discountApplications(first: 250) {
+                        discountApplications(first: 5) {
                             edges {
                                 node {
                                 __typename
@@ -185,17 +183,29 @@ class EWAHShopifyGraphQLHook(EWAHBaseHook):
                         returnStatus
                         sourceName
 
-                        lineItems(first: 250) {
+                        lineItems(first: 5) {
                             edges {
                                 node {
                                     id
+                                    name
                                     title
                                     quantity
+                                    refundableQuantity
+                                    sku
+                                    customAttributes { key value }
+                                    totalDiscountSet { shopMoney { amount currencyCode }}
                                     originalUnitPriceSet { shopMoney { amount currencyCode }}
                                     discountAllocations {
                                         allocatedAmountSet { shopMoney { amount currencyCode } }
-                                        discountApplication {
-                                            index
+                                        discountApplication { index }
+                                    }
+                                    product {
+                                        bundleComponents(first: 2) {
+                                            nodes {
+                                                componentProduct { id title }
+                                                componentVariants(first: 2) { nodes { id sku } }
+                                                quantity
+                                            }
                                         }
                                     }
                                 }
