@@ -875,15 +875,19 @@ class EWAHAmazonSellerCentralHook(EWAHBaseHook):
         else:
             self.log.info(f"Using provided data_from: {data_from}")
 
-        data_io = StringIO(
-            self.get_report_data(
-                marketplace_region,
-                report_name,
-                data_from,
-                data_until,
-                report_options,
-            ).decode("latin-1")
+        document_content = self.get_report_data(
+            marketplace_region,
+            report_name,
+            data_from,
+            data_until,
+            report_options,
         )
+        
+        if document_content is None:
+            self.log.warning("No document content returned")
+            return
+        
+        data_io = StringIO(document_content.decode("latin-1"))
         csv_reader = csv.DictReader(data_io, delimiter="\t")
         data = []
         i = 0
