@@ -1014,7 +1014,7 @@ class EWAHAmazonSellerCentralHook(EWAHBaseHook):
                 # We assume that if the error is FATAL, it is because the report is not available yet
                 if "FATAL" in str(e):
                     self.log.error(
-                        f"Fatal error encountered for week {current_sunday} to {current_saturday}: {e}\n Skipping week..."
+                        f"Fatal error encountered for week {current_sunday.strftime('%Y-%m-%d')} to {current_saturday.strftime('%Y-%m-%d')}: {e}\n Skipping week..."
                     )
                     current_sunday += timedelta(days=7)
                     continue
@@ -1023,7 +1023,7 @@ class EWAHAmazonSellerCentralHook(EWAHBaseHook):
 
             if not data_raw:
                 self.log.info(
-                    f"No data returned for week {current_sunday} to {current_saturday}"
+                    f"No data returned for week {current_sunday.strftime('%Y-%m-%d')} to {current_saturday.strftime('%Y-%m-%d')}"
                 )
                 # Move to next week
                 current_sunday += timedelta(days=7)
