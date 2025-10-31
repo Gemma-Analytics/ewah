@@ -80,10 +80,11 @@ class EWAHShopifyGraphQLHook(EWAHBaseHook):
         flattened["totalTaxSet"] = order_node.get("totalTaxSet")
         flattened["totalDiscountsSet"] = order_node.get("totalDiscountsSet")
         flattened["discountCodes"] = order_node.get("discountCodes")
-        flattened["discountApplications"] = order_node.get("discountApplications")
+        # discount applications -> extract the node values
+        disc_app_edges = order_node.get("discountApplications", {}).get("edges", [])
+        disc_apps = [edge.get("node", {}) for edge in disc_app_edges]
+        flattened["discountApplications"] = disc_apps
 
-        # Customer-> dump whole customer node in one column
-        # note currently only selected ID in query
         customer_node = order_node.get("customer")
         # customer could be null for draft orders
         flattened["customer"] = json.dumps(customer_node) if customer_node else None
