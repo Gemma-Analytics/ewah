@@ -113,7 +113,7 @@ class EWAHAmazonSellerCentralHook(EWAHBaseHook):
         },
         "brand_analytics_search_catalog_performance": {
             "report_type": "GET_BRAND_ANALYTICS_SEARCH_CATALOG_PERFORMANCE_REPORT",
-            "report_options": {"reportPeriod": ["WEEK", "MONTH", "QUARTER"]},
+            "report_options": {"reportPeriod": ["WEEK"]},
             "method_name": "get_brand_analytics_search_catalog_performance",
             "primary_key": ["asin", "startDate", "endDate"],
             "subsequent_field": "endDate",
