@@ -1013,10 +1013,10 @@ class EWAHAmazonSellerCentralHook(EWAHBaseHook):
             except Exception as e:
                 # We assume that if the error is FATAL, it is because the report is not available yet
                 if "FATAL" in str(e):
-                    current_sunday += timedelta(days=7)
                     self.log.error(
                         f"Fatal error encountered for week {current_sunday} to {current_saturday}: {e}\n Skipping week..."
                     )
+                    current_sunday += timedelta(days=7)
                     continue
                 else:
                     raise e
@@ -1141,6 +1141,11 @@ class EWAHAmazonSellerCentralHook(EWAHBaseHook):
             if data:
                 yield data
 
+            # Log completion before moving to next week
+            self.log.info(
+                f"Retrieved report for week {current_sunday.strftime('%Y-%m-%d')} to {current_saturday.strftime('%Y-%m-%d')}"
+            )
+
             # Move to next week
             current_sunday += timedelta(days=7)
 
@@ -1148,8 +1153,6 @@ class EWAHAmazonSellerCentralHook(EWAHBaseHook):
             if current_sunday <= last_saturday:
                 self.log.info("Waiting 2 seconds before processing next week...")
                 time.sleep(2)
-
-            print(f"Retrieved report for week {current_sunday} to {current_saturday}\n")
 
     def get_settlement_report_v2_data(
         self,
