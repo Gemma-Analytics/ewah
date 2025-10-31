@@ -73,12 +73,14 @@ class EWAHShopifyGraphQLHook(EWAHBaseHook):
         flattened["totalWeight"] = order_node.get("totalWeight")
         flattened["displayFinancialStatus"] = order_node.get("displayFinancialStatus")
         flattened["displayFulfillmentStatus"] = order_node.get("displayFulfillmentStatus")
-
-        # Total price
-        if order_node.get("totalPriceSet") and order_node["totalPriceSet"].get("shopMoney"):
-            money = order_node["totalPriceSet"]["shopMoney"]
-            flattened["totalPriceAmount"] = money.get("amount")
-            flattened["totalPriceCurrencyCode"] = money.get("currencyCode")
+        flattened["statusPageUrl"] = order_node.get("statusPageUrl")
+        flattened["taxesIncluded"] = order_node.get("taxesIncluded")
+        flattened["currentSubtotalPriceSet"] = order_node.get("currentSubtotalPriceSet")
+        flattened["totalPriceSet"] = order_node.get("totalPriceSet")
+        flattened["totalTaxSet"] = order_node.get("totalTaxSet")
+        flattened["totalDiscountsSet"] = order_node.get("totalDiscountsSet")
+        flattened["discountCodes"] = order_node.get("discountCodes")
+        flattened["discountApplications"] = order_node.get("discountApplications")
 
         # Customer-> dump whole customer node in one column
         # note currently only selected ID in query
@@ -130,38 +132,69 @@ class EWAHShopifyGraphQLHook(EWAHBaseHook):
                 edges {
                     node {
                         id
+                        legacyResourceId
                         name
                         email
                         createdAt
                         updatedAt
-                        cancelledAt
                         processedAt
                         closedAt
-                        currencyCode
+                        cancelledAt
                         cancelReason
+                        currencyCode
+                        customer {id }
+                        customerLocale
+                        taxesIncluded
+                        currentSubtotalPriceSet { shopMoney { amount currencyCode } }
+                        totalPriceSet { shopMoney { amount currencyCode } }
+                        totalTaxSet { shopMoney { amount currencyCode } }
+                        totalDiscountsSet { shopMoney { amount currencyCode } }
+                        discountCodes
+                        discountApplications(first: 250) {
+                            edges {
+                                node {
+                                __typename
+                                index
+                                targetSelection
+                                targetType
+                                allocationMethod
+
+                                ... on DiscountCodeApplication {
+                                    code
+                                }
+                                ... on AutomaticDiscountApplication { title }
+                                ... on ManualDiscountApplication { title description }
+                                ... on ScriptDiscountApplication { title }
+
+                                value {
+                                    __typename
+                                    ... on MoneyV2 { amount currencyCode }
+                                    ... on PricingPercentageValue { percentage }
+                                }
+                                }
+                            }
+                            }
+
+                        displayFinancialStatus
+                        displayFulfillmentStatus
                         note
                         tags
                         totalWeight
-                        totalPriceSet {
-                            shopMoney {
-                                amount
-                                currencyCode
-                            }
-                        }
-                        displayFinancialStatus
-                        displayFulfillmentStatus
-                        customer {
-                            id
-                        }
+                        statusPageUrl
+                        returnStatus
+                        sourceName
+
                         lineItems(first: 250) {
                             edges {
                                 node {
+                                    id
                                     title
                                     quantity
-                                    originalUnitPriceSet {
-                                        shopMoney {
-                                            amount
-                                            currencyCode
+                                    originalUnitPriceSet { shopMoney { amount currencyCode }}
+                                    discountAllocations {
+                                        allocatedAmountSet { shopMoney { amount currencyCode } }
+                                        discountApplication {
+                                            index
                                         }
                                     }
                                 }
@@ -171,6 +204,7 @@ class EWAHShopifyGraphQLHook(EWAHBaseHook):
                 }
             }
         }
+
         """
 
         has_next_page = True
