@@ -102,8 +102,21 @@ class EWAHAmazonSellerCentralHook(EWAHBaseHook):
             "report_type": "GET_V2_SETTLEMENT_REPORT_DATA_FLAT_FILE_V2",
             "report_options": {},
             "method_name": "get_settlement_report_v2_data",
-            "primary_key": ["settlement-id", "transaction-type", "order-id", "adjustment-id"],
+            "primary_key": [
+                "settlement-id",
+                "transaction-type",
+                "order-id",
+                "adjustment-id",
+            ],
             "subsequent_field": "report_created_date",
+            "accepted_strategies": [EC.ES_SUBSEQUENT],
+        },
+        "brand_analytics_search_catalog_performance": {
+            "report_type": "GET_BRAND_ANALYTICS_SEARCH_CATALOG_PERFORMANCE_REPORT",
+            "report_options": {"reportPeriod": ["WEEK"]},
+            "method_name": "get_brand_analytics_search_catalog_performance",
+            "primary_key": ["asin", "startDate", "endDate"],
+            "subsequent_field": "endDate",
             "accepted_strategies": [EC.ES_SUBSEQUENT],
         },
     }
@@ -856,7 +869,9 @@ class EWAHAmazonSellerCentralHook(EWAHBaseHook):
 
         if not data_from:
             data_from = datetime.utcnow().replace(tzinfo=pytz.utc) - timedelta(hours=72)
-            self.log.info(f"No data_from provided, setting to 72 hours ago: {data_from}")
+            self.log.info(
+                f"No data_from provided, setting to 72 hours ago: {data_from}"
+            )
         else:
             self.log.info(f"Using provided data_from: {data_from}")
 
@@ -881,6 +896,263 @@ class EWAHAmazonSellerCentralHook(EWAHBaseHook):
                 data = []
         if data:
             yield data
+
+    def get_brand_analytics_search_catalog_performance(
+        self,
+        marketplace_region,
+        report_name,
+        data_from,
+        data_until,
+        report_options=None,
+        ewah_options=None,
+        batch_size=10000,
+    ):
+        """Fetch Brand Analytics Search Catalog Performance Report from Amazon Seller Central.
+
+        This report provides insights into search catalog performance for brand analytics.
+        Only WEEK reportPeriod is supported.
+
+        Requirements:
+        - Requests must include reportPeriod=WEEK in the reportsOptions
+        - dataStartTime must be a Sunday and dataEndTime must be a Saturday
+        - The first date (data_from) in this report has to be a Sunday.
+        """
+        self.log.info("Fetching Brand Analytics Search Catalog Performance Report...")
+
+        # Ensure report_options is a dictionary
+        if report_options is None:
+            report_options = {}
+
+        # Validate that reportPeriod is provided
+        if "reportPeriod" not in report_options:
+            raise ValueError(
+                "reportPeriod must be specified in report_options for Brand Analytics Search Catalog Performance Report"
+            )
+
+        report_period = report_options["reportPeriod"]
+
+        # Validate reportPeriod
+        if report_period != "WEEK":
+            raise ValueError(
+                f"Only reportPeriod=WEEK is supported. Got: {report_period}"
+            )
+
+        # date_from must be a Sunday
+        if data_from.weekday() != 6:
+            raise ValueError(
+                f"data_from must be a Sunday (number 6). Got: {data_from.weekday()}"
+            )
+
+        # Set up weekly data fetching
+        start_date = data_from.date()
+
+        # Calculate the last available Saturday
+        today = date.today()
+        if today.weekday() == 5:  # Today is Saturday
+            last_saturday = today
+        else:  # Find the most recent Saturday
+            days_since_saturday = (
+                today.weekday() + 2
+            ) % 7  # Calculate days since last Saturday
+            last_saturday = today - timedelta(days=days_since_saturday)
+
+        self.log.info(
+            f"Fetching weekly data from {start_date.strftime('%Y-%m-%d')} to {last_saturday.strftime('%Y-%m-%d')}"
+        )
+
+        # Process each week from start_date to last_saturday
+        current_sunday = start_date
+        while current_sunday <= last_saturday:
+            current_saturday = current_sunday + timedelta(days=6)
+
+            # End if this week would go beyond our end date
+            if current_saturday > last_saturday:
+                break
+
+            self.log.info(
+                f"Processing week: {current_sunday.strftime('%Y-%m-%d')} to {current_saturday.strftime('%Y-%m-%d')}"
+            )
+
+            # Process the report data as JSON for this week
+            max_retries = 3
+            delay = 60
+            data_raw = None
+
+            try:
+                for attempt in range(max_retries):
+                    try:
+                        data_raw = (
+                            self.get_report_data(
+                                marketplace_region,
+                                report_name,
+                                current_sunday,
+                                current_saturday,
+                                report_options,
+                            )
+                            or b""
+                        ).decode()
+                        # Success - break out of retry loop
+                        break
+                    except (AssertionError, Exception) as e:
+                        error_text = str(e)
+                        # Check if it's a QuotaExceeded error (can occur at any stage of get_report_data)
+                        is_quota_error = (
+                            "QuotaExceeded" in error_text
+                            or "quota" in error_text.lower()
+                        )
+
+                        if is_quota_error and attempt < max_retries - 1:
+                            self.log.warning(
+                                f"Quota exceeded for week {current_sunday.strftime('%Y-%m-%d')} to {current_saturday.strftime('%Y-%m-%d')}. "
+                                f"Attempt {attempt + 1}/{max_retries}. Waiting {delay} seconds before retry..."
+                            )
+                            time.sleep(delay)
+                            continue
+                        # If max retries exceeded or non-quota error, raise
+                        raise
+            except Exception as e:
+                # We assume that if the error is FATAL, it is because the report is not available yet
+                if "FATAL" in str(e):
+                    self.log.error(
+                        f"Fatal error encountered for week {current_sunday.strftime('%Y-%m-%d')} to {current_saturday.strftime('%Y-%m-%d')}: {e}\n Skipping week..."
+                    )
+                    current_sunday += timedelta(days=7)
+                    continue
+                else:
+                    raise e
+
+            if not data_raw:
+                self.log.info(
+                    f"No data returned for week {current_sunday.strftime('%Y-%m-%d')} to {current_saturday.strftime('%Y-%m-%d')}"
+                )
+                # Move to next week
+                current_sunday += timedelta(days=7)
+                continue
+
+            json_data = json.loads(data_raw)
+            raw_data = json_data.get("dataByAsin", [])
+
+            # Process and flatten the data for this week
+            data = []
+            i = 0
+            for item in raw_data:
+                # Extract top-level fields
+                flattened_row = {
+                    "startDate": item.get("startDate"),
+                    "endDate": item.get("endDate"),
+                    "asin": item.get("asin"),
+                }
+
+                # Flatten impressionData fields
+                impression_data = item.get("impressionData", {})
+                if impression_data:
+                    flattened_row.update(
+                        {
+                            "impressionCount": impression_data.get("impressionCount"),
+                            "impressionMedianPrice": impression_data.get(
+                                "impressionMedianPrice"
+                            ),
+                            "sameDayShippingImpressionCount": impression_data.get(
+                                "sameDayShippingImpressionCount"
+                            ),
+                            "oneDayShippingImpressionCount": impression_data.get(
+                                "oneDayShippingImpressionCount"
+                            ),
+                            "twoDayShippingImpressionCount": impression_data.get(
+                                "twoDayShippingImpressionCount"
+                            ),
+                        }
+                    )
+
+                # Flatten clickData fields
+                click_data = item.get("clickData", {})
+                if click_data:
+                    flattened_row.update(
+                        {
+                            "clickCount": click_data.get("clickCount"),
+                            "clickRate": click_data.get("clickRate"),
+                            "clickedMedianPrice": click_data.get("clickedMedianPrice"),
+                            "sameDayShippingClickCount": click_data.get(
+                                "sameDayShippingClickCount"
+                            ),
+                            "oneDayShippingClickCount": click_data.get(
+                                "oneDayShippingClickCount"
+                            ),
+                            "twoDayShippingClickCount": click_data.get(
+                                "twoDayShippingClickCount"
+                            ),
+                        }
+                    )
+
+                # Flatten cartAddData fields
+                cart_add_data = item.get("cartAddData", {})
+                if cart_add_data:
+                    flattened_row.update(
+                        {
+                            "cartAddCount": cart_add_data.get("cartAddCount"),
+                            "cartAddedMedianPrice": cart_add_data.get(
+                                "cartAddedMedianPrice"
+                            ),
+                            "sameDayShippingCartAddCount": cart_add_data.get(
+                                "sameDayShippingCartAddCount"
+                            ),
+                            "oneDayShippingCartAddCount": cart_add_data.get(
+                                "oneDayShippingCartAddCount"
+                            ),
+                            "twoDayShippingCartAddCount": cart_add_data.get(
+                                "twoDayShippingCartAddCount"
+                            ),
+                        }
+                    )
+
+                # Flatten purchaseData fields
+                purchase_data = item.get("purchaseData", {})
+                if purchase_data:
+                    flattened_row.update(
+                        {
+                            "purchaseCount": purchase_data.get("purchaseCount"),
+                            "searchTrafficSales": purchase_data.get(
+                                "searchTrafficSales"
+                            ),
+                            "conversionRate": purchase_data.get("conversionRate"),
+                            "purchaseMedianPrice": purchase_data.get(
+                                "purchaseMedianPrice"
+                            ),
+                            "sameDayShippingPurchaseCount": purchase_data.get(
+                                "sameDayShippingPurchaseCount"
+                            ),
+                            "oneDayShippingPurchaseCount": purchase_data.get(
+                                "oneDayShippingPurchaseCount"
+                            ),
+                            "twoDayShippingPurchaseCount": purchase_data.get(
+                                "twoDayShippingPurchaseCount"
+                            ),
+                        }
+                    )
+
+                data.append(flattened_row)
+                i += 1
+
+                if i == batch_size:
+                    yield data
+                    i = 0
+                    data = []
+
+            if data:
+                yield data
+
+            # Log completion before moving to next week
+            self.log.info(
+                f"Retrieved report for week {current_sunday.strftime('%Y-%m-%d')} to {current_saturday.strftime('%Y-%m-%d')}"
+            )
+
+            # Move to next week
+            current_sunday += timedelta(days=7)
+
+            # Add a small delay between weekly requests to respect API rate limits
+            if current_sunday <= last_saturday:
+                self.log.info("Waiting 2 seconds before processing next week...")
+                time.sleep(2)
 
     def get_settlement_report_v2_data(
         self,
@@ -924,7 +1196,7 @@ class EWAHAmazonSellerCentralHook(EWAHBaseHook):
         self.log.info(
             "Fetching Settlement Report V2 data from {0} to {1}...".format(
                 data_from.isoformat() if data_from else "beginning",
-                data_until.isoformat() if data_until else "now"
+                data_until.isoformat() if data_until else "now",
             )
         )
 
@@ -937,7 +1209,9 @@ class EWAHAmazonSellerCentralHook(EWAHBaseHook):
             self.log.info(f"No data_until provided, using current time: {data_until}")
 
         # Adjust data_from if it's more than 90 days old
-        min_possible_date = datetime.utcnow().replace(tzinfo=pytz.utc) - timedelta(days=90)
+        min_possible_date = datetime.utcnow().replace(tzinfo=pytz.utc) - timedelta(
+            days=90
+        )
         if data_from < min_possible_date:
             self.log.info(
                 f"Requested start date {data_from} is more than 90 days old. "
@@ -958,11 +1232,11 @@ class EWAHAmazonSellerCentralHook(EWAHBaseHook):
             "reportTypes": ["GET_V2_SETTLEMENT_REPORT_DATA_FLAT_FILE_V2"],
             "pageSize": 100,
             "createdSince": data_from.isoformat(),
-            "createdUntil": data_until.isoformat()
+            "createdUntil": data_until.isoformat(),
         }
         headers = {
             "x-amz-access-token": access_token,
-            "Content-Type": "application/json"
+            "Content-Type": "application/json",
         }
 
         self.log.info(
@@ -979,7 +1253,9 @@ class EWAHAmazonSellerCentralHook(EWAHBaseHook):
                     break
                 elif response.status_code == 429 or "QuotaExceeded" in response.text:
                     if attempt < max_retries - 1:
-                        self.log.warning(f"[Step 1/4] Quota exceeded. Waiting {delay} seconds before retry...")
+                        self.log.warning(
+                            f"[Step 1/4] Quota exceeded. Waiting {delay} seconds before retry..."
+                        )
                         time.sleep(delay)
                         continue
                 response.raise_for_status()
@@ -1000,11 +1276,15 @@ class EWAHAmazonSellerCentralHook(EWAHBaseHook):
         # Process each report
         for report_index, report in enumerate(reports, 1):
             report_id = report["reportId"]
-            self.log.info(f"Processing report {report_id} ({report_index}/{len(reports)})...")
+            self.log.info(
+                f"Processing report {report_id} ({report_index}/{len(reports)})..."
+            )
 
             # Add delay to respect SP-API rate limit of 0.5 requests per second
             if report_index > 1:
-                time.sleep(2)  # 2 seconds between requests to stay under 0.5 requests/second
+                time.sleep(
+                    2
+                )  # 2 seconds between requests to stay under 0.5 requests/second
 
             # Get document ID
             url = f"{endpoint}/reports/2021-06-30/reports/{report_id}"
@@ -1016,12 +1296,16 @@ class EWAHAmazonSellerCentralHook(EWAHBaseHook):
                 except Exception as e:
                     if attempt == max_retries - 1:
                         raise
-                    self.log.warning(f"Report {report_id} - Step 1/3: API request failed. Retrying in {delay} seconds...")
+                    self.log.warning(
+                        f"Report {report_id} - Step 1/3: API request failed. Retrying in {delay} seconds..."
+                    )
                     time.sleep(delay)
                     continue
 
             document_id = response.json()["reportDocumentId"]
-            self.log.info(f"Report {report_id} - Step 1/3: Got document ID: {document_id}")
+            self.log.info(
+                f"Report {report_id} - Step 1/3: Got document ID: {document_id}"
+            )
 
             # Get document URL
             url = f"{endpoint}/reports/2021-06-30/documents/{document_id}"
@@ -1033,7 +1317,9 @@ class EWAHAmazonSellerCentralHook(EWAHBaseHook):
                 except Exception as e:
                     if attempt == max_retries - 1:
                         raise
-                    self.log.warning(f"Report {report_id} - Step 2/3: API request failed. Retrying in {delay} seconds...")
+                    self.log.warning(
+                        f"Report {report_id} - Step 2/3: API request failed. Retrying in {delay} seconds..."
+                    )
                     time.sleep(delay)
                     continue
 
@@ -1043,7 +1329,9 @@ class EWAHAmazonSellerCentralHook(EWAHBaseHook):
             # Download and process the report
             document_response = requests.get(document_url)
             assert document_response.status_code == 200, document_response.text
-            self.log.info(f"Report {report_id} - Step 3/3: Downloading and processing report data...")
+            self.log.info(
+                f"Report {report_id} - Step 3/3: Downloading and processing report data..."
+            )
 
             # Process the CSV data
             data_io = StringIO(document_response.content.decode("latin-1"))
@@ -1057,18 +1345,20 @@ class EWAHAmazonSellerCentralHook(EWAHBaseHook):
             csv_reader = csv.DictReader(data_io, delimiter="\t")
 
             # Get and parse report creation date
-            report_created_date = datetime.fromisoformat(report.get('createdTime').replace('Z', '+00:00'))
+            report_created_date = datetime.fromisoformat(
+                report.get("createdTime").replace("Z", "+00:00")
+            )
             self.log.info(f"Report creation date: {report_created_date.isoformat()}")
 
             for row in csv_reader:
                 # Skip summary rows (has settlement-id but no transaction details)
                 # as they would break the data structure needed for incremental loading
-                if row.get('settlement-id') and not row.get('transaction-type'):
+                if row.get("settlement-id") and not row.get("transaction-type"):
                     continue
 
                 i += 1
                 # Add the report creation date to each row -> for incremental loading
-                row['report_created_date'] = report_created_date
+                row["report_created_date"] = report_created_date
 
                 if first_row:
                     self.log.info(f"Settlement ID: {row['settlement-id']}")
@@ -1170,8 +1460,8 @@ class EWAHAmazonSellerCentralHook(EWAHBaseHook):
 
         # Backoff strategy parameters
         max_retries = 5
-        base_delay = 2  
-        max_delay = 60 
+        base_delay = 2
+        max_delay = 60
         jitter = 0.1
 
         for attempt in range(max_retries):
@@ -1190,20 +1480,24 @@ class EWAHAmazonSellerCentralHook(EWAHBaseHook):
                 time.sleep(
                     max(
                         0,
-                        (requested_at + timedelta(seconds=1) - datetime.utcnow()).total_seconds(),
+                        (
+                            requested_at + timedelta(seconds=1) - datetime.utcnow()
+                        ).total_seconds(),
                     )
                 )
-                return {f"catalogue_{key}": value for key, value in response.json().items()}
+                return {
+                    f"catalogue_{key}": value for key, value in response.json().items()
+                }
 
-            elif response.status_code == 429:  
+            elif response.status_code == 429:
                 # If rate limit exceeded even though we respected the rate limit
                 # We'll retry with exponential backoff
                 if attempt < max_retries - 1:
                     # Calculate delay with exponential backoff and jitter
-                    delay = min(max_delay, base_delay * (2 ** attempt))
+                    delay = min(max_delay, base_delay * (2**attempt))
                     jitter_amount = delay * jitter * (2 * random.random() - 1)
                     total_delay = max(0, delay + jitter_amount)
-                    
+
                     self.log.warning(
                         f"Rate limit exceeded. Attempt {attempt + 1}/{max_retries}. "
                         f"Retrying in {total_delay:.2f} seconds..."
@@ -1219,8 +1513,10 @@ class EWAHAmazonSellerCentralHook(EWAHBaseHook):
                         return
                 except (ValueError, KeyError, IndexError):
                     pass  # If we can't parse the response as JSON, continue to raise the original error
-                
+
                 raise Exception(f"Error {response.status_code}: {response.text}")
 
         # If exhausted all retries
-        raise Exception(f"Max retries ({max_retries}) exceeded for rate limit. Last error: {response.text}")
+        raise Exception(
+            f"Max retries ({max_retries}) exceeded for rate limit. Last error: {response.text}"
+        )
