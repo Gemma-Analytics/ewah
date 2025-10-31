@@ -63,6 +63,14 @@ class EWAHShopifyGraphQLHook(EWAHBaseHook):
         flattened["name"] = order_node.get("name")
         flattened["email"] = order_node.get("email")
         flattened["createdAt"] = order_node.get("createdAt")
+        flattened["updatedAt"] = order_node.get("updatedAt")
+        flattened["cancelledAt"] = order_node.get("cancelledAt")
+        flattened["processedAt"] = order_node.get("processedAt")
+        flattened["closedAt"] = order_node.get("closedAt")
+        flattened["currencyCode"] = order_node.get("currencyCode")
+        flattened["note"] = order_node.get("note")
+        flattened["tags"] = order_node.get("tags")
+        flattened["totalWeight"] = order_node.get("totalWeight")
         flattened["displayFinancialStatus"] = order_node.get("displayFinancialStatus")
         flattened["displayFulfillmentStatus"] = order_node.get("displayFulfillmentStatus")
 
@@ -125,6 +133,15 @@ class EWAHShopifyGraphQLHook(EWAHBaseHook):
                         name
                         email
                         createdAt
+                        updatedAt
+                        cancelledAt
+                        processedAt
+                        closedAt
+                        currencyCode
+                        cancelReason
+                        note
+                        tags
+                        totalWeight
                         totalPriceSet {
                             shopMoney {
                                 amount
