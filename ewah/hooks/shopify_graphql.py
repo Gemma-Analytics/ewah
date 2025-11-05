@@ -256,7 +256,7 @@ class EWAHShopifyGraphQLHook(EWAHBaseHook):
                 dt = dt.replace(tzinfo=UTC)
 
             iso_string = dt.isoformat().replace("+00:00", "Z")
-            query_string = f"updated_at:>'{iso_string}'"
+            query_string = f"updated_at:>='{iso_string}'"
             self.log.info(f"Filtering orders with query: {query_string}")
 
         while has_next_page:
