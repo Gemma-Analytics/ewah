@@ -14,8 +14,7 @@ class EWAHShopifyGraphQLHook(EWAHBaseHook):
     default_conn_name = "ewah_shopify_graphql_default"
     conn_type = "ewah_shopify_graphql"
     hook_name = "EWAH Shopify GraphQL Connection"
-
-    DEFAULT_API_VERSION = "2023-10"
+    DEFAULT_API_VERSION = "2025-01"
     _BASE_URL = "https://{shop}.myshopify.com/admin/api/{version}/graphql.json"
 
     @staticmethod
@@ -28,7 +27,7 @@ class EWAHShopifyGraphQLHook(EWAHBaseHook):
             },
         }
 
-    def execute_graphql_query(self, query, variables=None):
+    def execute_graphql_query(self, query, variables=None, shop=None, version=None):
         """Execute a GraphQL query against Shopify's GraphQL API"""
         headers = {
             "X-Shopify-Access-Token": self.conn.password,
@@ -36,13 +35,17 @@ class EWAHShopifyGraphQLHook(EWAHBaseHook):
         }
 
         payload = {"query": query}
+
+        shop = shop or self.conn.login
+        version = version or self.DEFAULT_API_VERSION
+
         if variables:
             payload["variables"] = variables
 
         response = requests.post(
             self._BASE_URL.format(
-                shop=self.conn.login,
-                version=self.DEFAULT_API_VERSION,
+                shop=shop,
+                version=version,
             ),
             headers=headers,
             json=payload
@@ -108,7 +111,6 @@ class EWAHShopifyGraphQLHook(EWAHBaseHook):
         shop_id = shop_id or self.conn.login
         version = version or self.DEFAULT_API_VERSION
         
-        self._BASE_URL = self._BASE_URL.replace("{version}", version)
 
         # Hardcoded limit for testing purposes  -- TOD: remove latere
         max_rows = 1000
@@ -228,7 +230,7 @@ class EWAHShopifyGraphQLHook(EWAHBaseHook):
             self.log.info(f"total rows test: {total_rows}")
             ################
 
-            data = self.execute_graphql_query(query, variables)
+            data = self.execute_graphql_query(query, variables, shop=shop_id, version=version)
 
             if not data or "orders" not in data:
                 break
