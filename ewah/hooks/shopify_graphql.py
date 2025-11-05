@@ -63,14 +63,14 @@ class EWAHShopifyGraphQLHook(EWAHBaseHook):
 
                 data = response.json()
 
-                # Log cost information if available
-                # requested: estimated before execution
-                # actual: real cost after execution (max 1,000 points allowed)
-                # Note: "Calls to the GraphQL Admin API are limited based on calculated query
-                # costs, which means you should consider the cost of requests over time,
-                # rather than the number of requests.
-                # currentlyAvailable: leaky bucket capacity,
-                # see https://shopify.dev/docs/api/usage/limits#the-leaky-bucket-algorithm
+                # Log cost information if available:
+                # (1) requestedQueryCost: estimated before execution
+                # (2) actualQueryCost: real cost after execution (max 1,000 points allowed)
+                #      Note: "Calls to the GraphQL Admin API are limited based on calculated query
+                #      costs, which means you should consider the cost of requests over time,
+                #      rather than the number of requests.
+                # (3) currentlyAvailable: leaky bucket capacity,
+                #      see https://shopify.dev/docs/api/usage/limits#the-leaky-bucket-algorithm
                 if "extensions" in data and "cost" in data["extensions"]:
                     cost = data["extensions"]["cost"]
                     self.log.info(
@@ -122,7 +122,7 @@ class EWAHShopifyGraphQLHook(EWAHBaseHook):
         flattened["totalDiscountsSet"] = order_node.get("totalDiscountsSet")
         flattened["discountCodes"] = order_node.get("discountCodes")
 
-        # discount applications -> extract the node values
+        # discountApplications -> extract the node values
         disc_app_edges = order_node.get("discountApplications", {}).get("edges", [])
         disc_apps = [edge.get("node", {}) for edge in disc_app_edges]
         flattened["discountApplications"] = disc_apps
@@ -131,7 +131,7 @@ class EWAHShopifyGraphQLHook(EWAHBaseHook):
         customer_node = order_node.get("customer")
         flattened["customer"] = json.dumps(customer_node) if customer_node else None
 
-        # line items -> extract the node values
+        # lineItems -> extract the node values
         line_item_edges = order_node.get("lineItems", {}).get("edges", [])
         line_items = [edge.get("node", {}) for edge in line_item_edges]
         flattened["lineItems"] = line_items
@@ -247,10 +247,10 @@ class EWAHShopifyGraphQLHook(EWAHBaseHook):
         has_next_page = True
         cursor = None
 
-        # Build query string for GraphQL if data_from is provided
+        # Build query string for GraphQL if data_from provided
         query_string = None
         if data_from:
-            # Convert to datetime and ensure UTC timezone, then format as ISO 8601
+            # ensure UTC timezone and ISO 8601 format
             dt = parse(str(data_from))
             if dt.tzinfo is None:
                 dt = dt.replace(tzinfo=UTC)
