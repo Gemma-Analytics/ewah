@@ -17,12 +17,12 @@ class EWAHShopifyGraphQLOperator(EWAHBaseOperator):
         api_version=None,
         first=250,  # 250 is the max
         *args,
-        **kwargs
+        **kwargs,
     ):
         # Set default subsequent_field for orders
         if kwargs.get("extract_strategy") == EC.ES_SUBSEQUENT:
             kwargs["subsequent_field"] = kwargs.get("subsequent_field", "updatedAt")
-        
+
         # Set default primary key
         kwargs["primary_key"] = kwargs.get("primary_key", "id")
 
@@ -32,7 +32,6 @@ class EWAHShopifyGraphQLOperator(EWAHBaseOperator):
         self.api_version = api_version
         self.first = first
 
-
     def ewah_execute(self, context):
         self._metadata.update({"shop_id": self.shop_id})
 
@@ -41,7 +40,9 @@ class EWAHShopifyGraphQLOperator(EWAHBaseOperator):
             and self.test_if_target_table_exists()
         ):
             data_from = self.get_max_value_of_column(self.subsequent_field)
-            self.log.info(f"Found max timestamp in result table -> Subsequent load: fetching orders updated after {data_from}")
+            self.log.info(
+                f"Found max timestamp in result table -> Subsequent load: fetching orders updated after {data_from}"
+            )
         else:
             data_from = self.data_from
 
