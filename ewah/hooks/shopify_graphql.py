@@ -106,18 +106,18 @@ class EWAHShopifyGraphQLHook(EWAHBaseHook):
         shop_id=None,
         version=None,
         first=50,
+        data_from=None,
     ):
         """Get orders data from Shopify GraphQL API with pagination"""
         shop_id = shop_id or self.conn.login
         version = version or self.DEFAULT_API_VERSION
         
-
-        # Hardcoded limit for testing purposes  -- TOD: remove latere
-        max_rows = 1000
+        # Remove testing limit
+        max_rows = 200
         
         query = """
-        query getOrders($first: Int!, $after: String) {
-            orders(first: $first, after: $after) {
+        query getOrders($first: Int!, $after: String, $query: String) {
+            orders(first: $first, after: $after, query: $query) {
                 pageInfo {
                     hasNextPage
                     endCursor
@@ -212,23 +212,41 @@ class EWAHShopifyGraphQLHook(EWAHBaseHook):
 
         has_next_page = True
         cursor = None
+        
+        # Remove testing code
+        total_rows = 0
 
-        ### REMOVE LATER
-        total_rows = 0  # Initialize the counter
-        #####
-
+        # Build query string for GraphQL if data_from is provided
+        query_string = None
+        if data_from:
+            # Convert datetime to ISO format string for GraphQL
+            if isinstance(data_from, str):
+                # If it's already a string, try to parse it
+                from dateutil.parser import parse
+                data_from = parse(data_from)
+            
+            # Format as ISO 8601 string (required by Shopify GraphQL)
+            if data_from.tzinfo is None:
+                # If timezone-naive, assume UTC
+                from pytz import UTC
+                data_from = data_from.replace(tzinfo=UTC)
+            
+            iso_string = data_from.isoformat().replace('+00:00', 'Z')
+            query_string = f"updated_at:>'{iso_string}'"
+            self.log.info(f"Filtering orders with query: {query_string}")
 
         while has_next_page:
             variables = {"first": first}
             if cursor:
                 variables["after"] = cursor
+            if query_string:
+                variables["query"] = query_string
 
             self.log.info(f"Fetching orders with cursor: {cursor}")
 
-            #### REMOVE LATER
-            self.log.info(f"In testing mode, fetching only 1000")
+            # Remove testing code
+            self.log.info(f"In testing mode, fetching only 200")
             self.log.info(f"total rows test: {total_rows}")
-            ################
 
             data = self.execute_graphql_query(query, variables, shop=shop_id, version=version)
 
@@ -245,19 +263,21 @@ class EWAHShopifyGraphQLHook(EWAHBaseHook):
                 flattened_order = self.flatten_order(edge["node"])
                 flattened_orders.append(flattened_order)
 
-            # Increment BEFORE yield so the count is accurate
+            # Log all updatedAt values for this batch
+            updated_at_values = [order.get('updatedAt') for order in flattened_orders]
+            self.log.info(f"Batch updatedAt values: {updated_at_values}")
+
+            # Remove testing code
             total_rows += len(flattened_orders)
 
             if flattened_orders:
                 yield flattened_orders
 
-            ### Check max_rows limit after incrementing
-            ### REMOVE LATER
+            # Remove testing code
             if total_rows >= max_rows:
                 self.log.info(f"Reached max_rows limit of {max_rows}, stopping pagination")
                 has_next_page = False
                 break
-            # #### REMOVE LATER
 
             has_next_page = page_info.get("hasNextPage", False)
             cursor = page_info.get("endCursor")

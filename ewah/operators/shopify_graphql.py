@@ -8,21 +8,21 @@ class EWAHShopifyGraphQLOperator(EWAHBaseOperator):
 
     _ACCEPTED_EXTRACT_STRATEGIES = {
         EC.ES_FULL_REFRESH: True,
+        EC.ES_SUBSEQUENT: True,
     }
 
     def __init__(
         self,
         shop_id=None,
         api_version=None,
-        first=250,
+        first=25,
         *args,
         **kwargs
     ):
-        # Only allow full refresh for now
-        if kwargs.get("extract_strategy") and kwargs["extract_strategy"] != EC.ES_FULL_REFRESH:
-            raise Exception("Only full refresh is supported for Shopify GraphQL connector")
-        kwargs["extract_strategy"] = EC.ES_FULL_REFRESH
-
+        # Set default subsequent_field for orders
+        if kwargs.get("extract_strategy") == EC.ES_SUBSEQUENT:
+            kwargs["subsequent_field"] = kwargs.get("subsequent_field", "updatedAt")
+        
         # Set default primary key
         kwargs["primary_key"] = kwargs.get("primary_key", "id")
 
@@ -36,9 +36,20 @@ class EWAHShopifyGraphQLOperator(EWAHBaseOperator):
     def ewah_execute(self, context):
         self._metadata.update({"shop_id": self.shop_id})
 
+        # Handle incremental loading - get max timestamp from table if it exists
+        if (
+            self.extract_strategy == EC.ES_SUBSEQUENT
+            and self.test_if_target_table_exists()
+        ):
+            data_from = self.get_max_value_of_column(self.subsequent_field)
+            self.log.info(f"Found max timestamp in result table -> Subsequent load: fetching orders updated after {data_from}")
+        else:
+            data_from = self.data_from
+
         for batch in self.source_hook.get_data(
             shop_id=self.shop_id,
             version=self.api_version,
             first=self.first,
+            data_from=data_from,
         ):
             self.upload_data(batch)
