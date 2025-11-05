@@ -15,7 +15,7 @@ class EWAHShopifyGraphQLOperator(EWAHBaseOperator):
         self,
         shop_id=None,
         api_version=None,
-        first=25,
+        first=250,  # 250 is the max
         *args,
         **kwargs
     ):
@@ -36,7 +36,6 @@ class EWAHShopifyGraphQLOperator(EWAHBaseOperator):
     def ewah_execute(self, context):
         self._metadata.update({"shop_id": self.shop_id})
 
-        # Handle incremental loading - get max timestamp from table if it exists
         if (
             self.extract_strategy == EC.ES_SUBSEQUENT
             and self.test_if_target_table_exists()
