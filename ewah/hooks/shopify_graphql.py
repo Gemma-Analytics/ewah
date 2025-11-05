@@ -8,7 +8,7 @@ class EWAHShopifyGraphQLHook(EWAHBaseHook):
     _ATTR_RELABEL = {}
 
     # Note: so far only query implemenation for orders node
-    # including fields for lineItem JSON & discountApplication JSON
+    # with line Items as JSON column
 
     conn_name_attr = "ewah_shopify_grahql_conn_id"
     default_conn_name = "ewah_shopify_graphql_default"
@@ -90,8 +90,8 @@ class EWAHShopifyGraphQLHook(EWAHBaseHook):
         disc_apps = [edge.get("node", {}) for edge in disc_app_edges]
         flattened["discountApplications"] = disc_apps
 
+        # customer - extract
         customer_node = order_node.get("customer")
-        # customer could be null for draft orders
         flattened["customer"] = json.dumps(customer_node) if customer_node else None
 
         # line items -> extract the node values
@@ -111,10 +111,7 @@ class EWAHShopifyGraphQLHook(EWAHBaseHook):
         """Get orders data from Shopify GraphQL API with pagination"""
         shop_id = shop_id or self.conn.login
         version = version or self.DEFAULT_API_VERSION
-        
-        # Remove testing limit
-        max_rows = 200
-        
+
         query = """
         query getOrders($first: Int!, $after: String, $query: String) {
             orders(first: $first, after: $after, query: $query) {
@@ -244,10 +241,6 @@ class EWAHShopifyGraphQLHook(EWAHBaseHook):
 
             self.log.info(f"Fetching orders with cursor: {cursor}")
 
-            # Remove testing code
-            self.log.info(f"In testing mode, fetching only 200")
-            self.log.info(f"total rows test: {total_rows}")
-
             data = self.execute_graphql_query(query, variables, shop=shop_id, version=version)
 
             if not data or "orders" not in data:
@@ -263,21 +256,8 @@ class EWAHShopifyGraphQLHook(EWAHBaseHook):
                 flattened_order = self.flatten_order(edge["node"])
                 flattened_orders.append(flattened_order)
 
-            # Log all updatedAt values for this batch
-            updated_at_values = [order.get('updatedAt') for order in flattened_orders]
-            self.log.info(f"Batch updatedAt values: {updated_at_values}")
-
-            # Remove testing code
-            total_rows += len(flattened_orders)
-
             if flattened_orders:
                 yield flattened_orders
-
-            # Remove testing code
-            if total_rows >= max_rows:
-                self.log.info(f"Reached max_rows limit of {max_rows}, stopping pagination")
-                has_next_page = False
-                break
 
             has_next_page = page_info.get("hasNextPage", False)
             cursor = page_info.get("endCursor")
