@@ -10,7 +10,6 @@ class EWAHShopifyGraphQLHook(EWAHBaseHook):
     # Note: so far only query implemenation for orders node
     # including fields for lineItem JSON & discountApplication JSON
 
-    # use same connection as in Rest API hook
     conn_name_attr = "ewah_shopify_grahql_conn_id"
     default_conn_name = "ewah_shopify_graphql_default"
     conn_type = "ewah_shopify_graphql"
@@ -112,7 +111,7 @@ class EWAHShopifyGraphQLHook(EWAHBaseHook):
         self._BASE_URL = self._BASE_URL.replace("{version}", version)
 
         # Hardcoded limit for testing purposes  -- TOD: remove latere
-        max_rows = 2000
+        max_rows = 1000
         
         query = """
         query getOrders($first: Int!, $after: String) {
@@ -149,7 +148,7 @@ class EWAHShopifyGraphQLHook(EWAHBaseHook):
                         totalTaxSet { shopMoney { amount currencyCode } }
                         totalDiscountsSet { shopMoney { amount currencyCode } }
                         discountCodes
-                        discountApplications(first: 5) {
+                        discountApplications(first: 250) {
                             edges {
                                 node {
                                 __typename
@@ -183,7 +182,7 @@ class EWAHShopifyGraphQLHook(EWAHBaseHook):
                         returnStatus
                         sourceName
 
-                        lineItems(first: 5) {
+                        lineItems(first: 250) {
                             edges {
                                 node {
                                     id
@@ -198,15 +197,6 @@ class EWAHShopifyGraphQLHook(EWAHBaseHook):
                                     discountAllocations {
                                         allocatedAmountSet { shopMoney { amount currencyCode } }
                                         discountApplication { index }
-                                    }
-                                    product {
-                                        bundleComponents(first: 2) {
-                                            nodes {
-                                                componentProduct { id title }
-                                                componentVariants(first: 2) { nodes { id sku } }
-                                                quantity
-                                            }
-                                        }
                                     }
                                 }
                             }
@@ -234,7 +224,7 @@ class EWAHShopifyGraphQLHook(EWAHBaseHook):
             self.log.info(f"Fetching orders with cursor: {cursor}")
 
             #### REMOVE LATER
-            self.log.info(f"In testing mode, fetching only 2000")
+            self.log.info(f"In testing mode, fetching only 1000")
             self.log.info(f"total rows test: {total_rows}")
             ################
 
