@@ -2,6 +2,8 @@ from ewah.hooks.base import EWAHBaseHook
 
 import requests
 import json
+from dateutil.parser import parse
+from pytz import UTC
 
 
 class EWAHShopifyGraphQLHook(EWAHBaseHook):
@@ -90,7 +92,7 @@ class EWAHShopifyGraphQLHook(EWAHBaseHook):
         disc_apps = [edge.get("node", {}) for edge in disc_app_edges]
         flattened["discountApplications"] = disc_apps
 
-        # customer - extract
+        # customer - extract (no egdes)
         customer_node = order_node.get("customer")
         flattened["customer"] = json.dumps(customer_node) if customer_node else None
 
@@ -210,25 +212,15 @@ class EWAHShopifyGraphQLHook(EWAHBaseHook):
         has_next_page = True
         cursor = None
         
-        # Remove testing code
-        total_rows = 0
-
         # Build query string for GraphQL if data_from is provided
         query_string = None
         if data_from:
-            # Convert datetime to ISO format string for GraphQL
-            if isinstance(data_from, str):
-                # If it's already a string, try to parse it
-                from dateutil.parser import parse
-                data_from = parse(data_from)
+            # Convert to datetime and ensure UTC timezone, then format as ISO 8601
+            dt = parse(str(data_from))
+            if dt.tzinfo is None:
+                dt = dt.replace(tzinfo=UTC)
             
-            # Format as ISO 8601 string (required by Shopify GraphQL)
-            if data_from.tzinfo is None:
-                # If timezone-naive, assume UTC
-                from pytz import UTC
-                data_from = data_from.replace(tzinfo=UTC)
-            
-            iso_string = data_from.isoformat().replace('+00:00', 'Z')
+            iso_string = dt.isoformat().replace('+00:00', 'Z')
             query_string = f"updated_at:>'{iso_string}'"
             self.log.info(f"Filtering orders with query: {query_string}")
 
