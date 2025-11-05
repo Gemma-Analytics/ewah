@@ -13,7 +13,7 @@ class EWAHShopifyGraphQLHook(EWAHBaseHook):
     # Note: so far only query implemenation for orders node
     # with line Items as JSON column
 
-    conn_name_attr = "ewah_shopify_grahql_conn_id"
+    conn_name_attr = "ewah_shopify_graphql_conn_id"
     default_conn_name = "ewah_shopify_graphql_default"
     conn_type = "ewah_shopify_graphql"
     hook_name = "EWAH Shopify GraphQL Connection"

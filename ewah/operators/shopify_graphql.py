@@ -24,8 +24,7 @@ class EWAHShopifyGraphQLOperator(EWAHBaseOperator):
             kwargs["subsequent_field"] = kwargs.get("subsequent_field", "updatedAt")
 
         # Set default primary key
-        kwargs["primary_key"] = kwargs.get("primary_key", "id")
-
+        kwargs["primary_key"] = kwargs.get("primary_key", "gid") # ex: gid://shopify/{object_name}/{id}
         super().__init__(*args, **kwargs)
 
         self.shop_id = shop_id
@@ -41,7 +40,8 @@ class EWAHShopifyGraphQLOperator(EWAHBaseOperator):
         ):
             data_from = self.get_max_value_of_column(self.subsequent_field)
             self.log.info(
-                f"Found max timestamp in result table -> Subsequent load: fetching orders updated after {data_from}"
+                f"""Found max timestamp in result table -> Subsequent load:
+                fetching orders updated after {data_from}"""
             )
         else:
             data_from = self.data_from
