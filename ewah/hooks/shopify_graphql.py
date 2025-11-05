@@ -2,6 +2,7 @@ from ewah.hooks.base import EWAHBaseHook
 
 import requests
 import json
+import time
 from dateutil.parser import parse
 from pytz import UTC
 
@@ -29,8 +30,8 @@ class EWAHShopifyGraphQLHook(EWAHBaseHook):
             },
         }
 
-    def execute_graphql_query(self, query, variables=None, shop=None, version=None):
-        """Execute a GraphQL query against Shopify's GraphQL API"""
+    def execute_graphql_query(self, query, variables=None, shop=None, version=None, max_retries=3):
+        """Execute a GraphQL query against Shopify's GraphQL API with retry logic"""
         headers = {
             "X-Shopify-Access-Token": self.conn.password,
             "Content-Type": "application/json",
@@ -45,38 +46,49 @@ class EWAHShopifyGraphQLHook(EWAHBaseHook):
         if variables:
             payload["variables"] = variables
 
-        response = requests.post(
-            self._BASE_URL.format(
-                shop=shop,
-                version=version,
-            ),
-            headers=headers,
-            json=payload
-        )
-        response.raise_for_status()
+        retry_delay = 1.0
+        for attempt in range(max_retries + 1):
+            try:
+                response = requests.post(
+                    self._BASE_URL.format(
+                        shop=shop,
+                        version=version,
+                    ),
+                    headers=headers,
+                    json=payload
+                )
+                response.raise_for_status()
 
-        data = response.json()
-        
-        # Log cost information if available
-        # requested: estimated before execution
-        # actual: real cost after execution (max 1,000 points allowed)
-        # Note: "Calls to the GraphQL Admin API are limited based on calculated query
-        # costs, which means you should consider the cost of requests over time,
-        # rather than the number of requests.
-        # currentlyAvailable: leaky bucket capacity,
-        # see https://shopify.dev/docs/api/usage/limits#the-leaky-bucket-algorithm
-        if "extensions" in data and "cost" in data["extensions"]:
-            cost = data["extensions"]["cost"]
-            self.log.info(
-                f"Query cost - Requested: {cost.get('requestedQueryCost')}, "
-                f"Actual: {cost.get('actualQueryCost')}, "
-                f"Available: {cost.get('throttleStatus', {}).get('currentlyAvailable')}"
-            )
-        
-        if "errors" in data:
-            raise Exception(f"GraphQL Errors: {data['errors']}")
+                data = response.json()
+                
+                # Log cost information if available
+                # requested: estimated before execution
+                # actual: real cost after execution (max 1,000 points allowed)
+                # Note: "Calls to the GraphQL Admin API are limited based on calculated query
+                # costs, which means you should consider the cost of requests over time,
+                # rather than the number of requests.
+                # currentlyAvailable: leaky bucket capacity,
+                # see https://shopify.dev/docs/api/usage/limits#the-leaky-bucket-algorithm
+                if "extensions" in data and "cost" in data["extensions"]:
+                    cost = data["extensions"]["cost"]
+                    self.log.info(
+                        f"Query cost - Requested: {cost.get('requestedQueryCost')}, "
+                        f"Actual: {cost.get('actualQueryCost')}, "
+                        f"Available: {cost.get('throttleStatus', {}).get('currentlyAvailable')}"
+                    )
+                
+                if "errors" in data:
+                    raise Exception(f"GraphQL Errors: {data['errors']}")
 
-        return data.get("data")
+                return data.get("data")
+                
+            except requests.exceptions.RequestException as e:
+                if attempt == max_retries:
+                    raise e
+                self.log.warning(
+                    f"Request failed (attempt {attempt + 1}/{max_retries + 1}): {e}"
+                )
+                time.sleep(retry_delay * (2 ** attempt))
 
     def flatten_order(self, order_node):
 
