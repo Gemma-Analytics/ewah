@@ -33,7 +33,8 @@ class EWAHShopifyGraphQLHook(EWAHBaseHook):
         """Execute a GraphQL query against Shopify's GraphQL API"""
         headers = {
             "X-Shopify-Access-Token": self.conn.password,
-            "Content-Type": "application/json"
+            "Content-Type": "application/json",
+            "X-GraphQL-Cost-Include-Fields": "true"
         }
 
         payload = {"query": query}
@@ -55,6 +56,23 @@ class EWAHShopifyGraphQLHook(EWAHBaseHook):
         response.raise_for_status()
 
         data = response.json()
+        
+        # Log cost information if available
+        # requested: estimated before execution
+        # actual: real cost after execution (max 1,000 points allowed)
+        # Note: "Calls to the GraphQL Admin API are limited based on calculated query
+        # costs, which means you should consider the cost of requests over time,
+        # rather than the number of requests.
+        # currentlyAvailable: leaky bucket capacity,
+        # see https://shopify.dev/docs/api/usage/limits#the-leaky-bucket-algorithm
+        if "extensions" in data and "cost" in data["extensions"]:
+            cost = data["extensions"]["cost"]
+            self.log.info(
+                f"Query cost - Requested: {cost.get('requestedQueryCost')}, "
+                f"Actual: {cost.get('actualQueryCost')}, "
+                f"Available: {cost.get('throttleStatus', {}).get('currentlyAvailable')}"
+            )
+        
         if "errors" in data:
             raise Exception(f"GraphQL Errors: {data['errors']}")
 
