@@ -30,12 +30,14 @@ class EWAHShopifyGraphQLHook(EWAHBaseHook):
             },
         }
 
-    def execute_graphql_query(self, query, variables=None, shop=None, version=None, max_retries=3):
+    def execute_graphql_query(
+        self, query, variables=None, shop=None, version=None, max_retries=3
+    ):
         """Execute a GraphQL query against Shopify's GraphQL API with retry logic"""
         headers = {
             "X-Shopify-Access-Token": self.conn.password,
             "Content-Type": "application/json",
-            "X-GraphQL-Cost-Include-Fields": "true"
+            "X-GraphQL-Cost-Include-Fields": "true",
         }
 
         payload = {"query": query}
@@ -55,12 +57,12 @@ class EWAHShopifyGraphQLHook(EWAHBaseHook):
                         version=version,
                     ),
                     headers=headers,
-                    json=payload
+                    json=payload,
                 )
                 response.raise_for_status()
 
                 data = response.json()
-                
+
                 # Log cost information if available
                 # requested: estimated before execution
                 # actual: real cost after execution (max 1,000 points allowed)
@@ -76,19 +78,19 @@ class EWAHShopifyGraphQLHook(EWAHBaseHook):
                         f"Actual: {cost.get('actualQueryCost')}, "
                         f"Available: {cost.get('throttleStatus', {}).get('currentlyAvailable')}"
                     )
-                
+
                 if "errors" in data:
                     raise Exception(f"GraphQL Errors: {data['errors']}")
 
                 return data.get("data")
-                
+
             except requests.exceptions.RequestException as e:
                 if attempt == max_retries:
                     raise e
                 self.log.warning(
                     f"Request failed (attempt {attempt + 1}/{max_retries + 1}): {e}"
                 )
-                time.sleep(retry_delay * (2 ** attempt))
+                time.sleep(retry_delay * (2**attempt))
 
     def flatten_order(self, order_node):
 
@@ -109,7 +111,9 @@ class EWAHShopifyGraphQLHook(EWAHBaseHook):
         flattened["tags"] = order_node.get("tags")
         flattened["totalWeight"] = order_node.get("totalWeight")
         flattened["displayFinancialStatus"] = order_node.get("displayFinancialStatus")
-        flattened["displayFulfillmentStatus"] = order_node.get("displayFulfillmentStatus")
+        flattened["displayFulfillmentStatus"] = order_node.get(
+            "displayFulfillmentStatus"
+        )
         flattened["statusPageUrl"] = order_node.get("statusPageUrl")
         flattened["taxesIncluded"] = order_node.get("taxesIncluded")
         flattened["currentSubtotalPriceSet"] = order_node.get("currentSubtotalPriceSet")
@@ -117,6 +121,7 @@ class EWAHShopifyGraphQLHook(EWAHBaseHook):
         flattened["totalTaxSet"] = order_node.get("totalTaxSet")
         flattened["totalDiscountsSet"] = order_node.get("totalDiscountsSet")
         flattened["discountCodes"] = order_node.get("discountCodes")
+
         # discount applications -> extract the node values
         disc_app_edges = order_node.get("discountApplications", {}).get("edges", [])
         disc_apps = [edge.get("node", {}) for edge in disc_app_edges]
@@ -241,7 +246,7 @@ class EWAHShopifyGraphQLHook(EWAHBaseHook):
 
         has_next_page = True
         cursor = None
-        
+
         # Build query string for GraphQL if data_from is provided
         query_string = None
         if data_from:
@@ -249,8 +254,8 @@ class EWAHShopifyGraphQLHook(EWAHBaseHook):
             dt = parse(str(data_from))
             if dt.tzinfo is None:
                 dt = dt.replace(tzinfo=UTC)
-            
-            iso_string = dt.isoformat().replace('+00:00', 'Z')
+
+            iso_string = dt.isoformat().replace("+00:00", "Z")
             query_string = f"updated_at:>'{iso_string}'"
             self.log.info(f"Filtering orders with query: {query_string}")
 
@@ -263,7 +268,9 @@ class EWAHShopifyGraphQLHook(EWAHBaseHook):
 
             self.log.info(f"Fetching orders with cursor: {cursor}")
 
-            data = self.execute_graphql_query(query, variables, shop=shop_id, version=version)
+            data = self.execute_graphql_query(
+                query, variables, shop=shop_id, version=version
+            )
 
             if not data or "orders" not in data:
                 break
