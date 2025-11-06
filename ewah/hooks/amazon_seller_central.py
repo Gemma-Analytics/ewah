@@ -882,11 +882,11 @@ class EWAHAmazonSellerCentralHook(EWAHBaseHook):
             data_until,
             report_options,
         )
-        
+
         if document_content is None:
             self.log.warning("No document content returned")
             return
-        
+
         data_io = StringIO(document_content.decode("latin-1"))
         csv_reader = csv.DictReader(data_io, delimiter="\t")
         data = []
@@ -978,8 +978,8 @@ class EWAHAmazonSellerCentralHook(EWAHBaseHook):
             )
 
             # Process the report data as JSON for this week
-            max_retries = 3
-            delay = 60
+            max_retries = 5
+            base_delay = 30
             data_raw = None
 
             try:
@@ -1006,6 +1006,8 @@ class EWAHAmazonSellerCentralHook(EWAHBaseHook):
                         )
 
                         if is_quota_error and attempt < max_retries - 1:
+                            # Exponential backoff: delay = base_delay * (2^attempt)
+                            delay = base_delay * (2**attempt)
                             self.log.warning(
                                 f"Quota exceeded for week {current_sunday.strftime('%Y-%m-%d')} to {current_saturday.strftime('%Y-%m-%d')}. "
                                 f"Attempt {attempt + 1}/{max_retries}. Waiting {delay} seconds before retry..."
