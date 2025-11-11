@@ -98,15 +98,18 @@ class EWAHShopifyGraphQLHook(EWAHBaseHook):
 
         # Basic order fields
         flattened["id"] = order_node.get("id", "").split("/")[-1]  # Extract ID from GID
+        flattened["legacyResourceId"] = order_node.get("legacyResourceId")
         flattened["gid"] = order_node.get("id")
         flattened["name"] = order_node.get("name")
         flattened["email"] = order_node.get("email")
         flattened["createdAt"] = order_node.get("createdAt")
         flattened["updatedAt"] = order_node.get("updatedAt")
-        flattened["cancelledAt"] = order_node.get("cancelledAt")
         flattened["processedAt"] = order_node.get("processedAt")
+        flattened["cancelledAt"] = order_node.get("cancelledAt")
+        flattened["cancelReason"] = order_node.get("cancelReason")
         flattened["closedAt"] = order_node.get("closedAt")
         flattened["currencyCode"] = order_node.get("currencyCode")
+        flattened["customerLocale"] = order_node.get("customerLocale")
         flattened["note"] = order_node.get("note")
         flattened["tags"] = order_node.get("tags")
         flattened["totalWeight"] = order_node.get("totalWeight")
@@ -114,6 +117,8 @@ class EWAHShopifyGraphQLHook(EWAHBaseHook):
         flattened["displayFulfillmentStatus"] = order_node.get(
             "displayFulfillmentStatus"
         )
+        flattened["sourceName "] = order_node.get("sourceName ")
+        flattened["returnStatus"] = order_node.get("returnStatus")
         flattened["statusPageUrl"] = order_node.get("statusPageUrl")
         flattened["taxesIncluded"] = order_node.get("taxesIncluded")
         flattened["currentSubtotalPriceSet"] = order_node.get("currentSubtotalPriceSet")
