@@ -60,7 +60,7 @@ setuptools.setup(
         "snowflake-sqlalchemy",
         
         "sshtunnel>=0.2.2",
-        "stripe",
+        "stripe<13.0.0",
         "virtualenv",
         "yahoofinancials-gemma-analytics==1.23",  # We needed to create our own fork + module to deal with Too Many Requests error
         "yfinance",
