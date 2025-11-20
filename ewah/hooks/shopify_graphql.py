@@ -17,7 +17,7 @@ class EWAHShopifyGraphQLHook(EWAHBaseHook):
     default_conn_name = "ewah_shopify_graphql_default"
     conn_type = "ewah_shopify_graphql"
     hook_name = "EWAH Shopify GraphQL Connection"
-    DEFAULT_API_VERSION = "2025-01"
+    DEFAULT_API_VERSION = "2025-10"
     _BASE_URL = "https://{shop}.myshopify.com/admin/api/{version}/graphql.json"
 
     @staticmethod
