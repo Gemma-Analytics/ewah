@@ -17,7 +17,7 @@ class EWAHShopifyGraphQLHook(EWAHBaseHook):
     default_conn_name = "ewah_shopify_graphql_default"
     conn_type = "ewah_shopify_graphql"
     hook_name = "EWAH Shopify GraphQL Connection"
-    DEFAULT_API_VERSION = "2025-01"
+    DEFAULT_API_VERSION = "2025-10"
     _BASE_URL = "https://{shop}.myshopify.com/admin/api/{version}/graphql.json"
 
     @staticmethod
@@ -101,6 +101,7 @@ class EWAHShopifyGraphQLHook(EWAHBaseHook):
         flattened["legacyResourceId"] = order_node.get("legacyResourceId")
         flattened["gid"] = order_node.get("id")
         flattened["name"] = order_node.get("name")
+        flattened["number"] = order_node.get("number")
         flattened["email"] = order_node.get("email")
         flattened["createdAt"] = order_node.get("createdAt")
         flattened["updatedAt"] = order_node.get("updatedAt")
@@ -166,6 +167,7 @@ class EWAHShopifyGraphQLHook(EWAHBaseHook):
                         id
                         legacyResourceId
                         name
+                        number
                         email
                         createdAt
                         updatedAt
@@ -235,6 +237,13 @@ class EWAHShopifyGraphQLHook(EWAHBaseHook):
                                     customAttributes { key value }
                                     totalDiscountSet { shopMoney { amount currencyCode }}
                                     originalUnitPriceSet { shopMoney { amount currencyCode }}
+                                    taxLines {
+                                        title
+                                        rate
+                                        priceSet {
+                                            shopMoney { amount currencyCode }
+                                        }
+                                    }
                                     discountAllocations {
                                         allocatedAmountSet { shopMoney { amount currencyCode } }
                                         discountApplication { index }
