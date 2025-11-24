@@ -919,7 +919,7 @@ class EWAHAmazonSellerCentralHook(EWAHBaseHook):
         Requirements:
         - Requests must include reportPeriod=WEEK in the reportsOptions
         - dataStartTime must be a Sunday and dataEndTime must be a Saturday
-        - The first date (data_from) in this report has to be a Sunday.
+        - If the first date (data_from) is not a Sunday, move it forward to the next available Sunday.
         """
         self.log.info("Fetching Brand Analytics Search Catalog Performance Report...")
 
@@ -941,14 +941,25 @@ class EWAHAmazonSellerCentralHook(EWAHBaseHook):
                 f"Only reportPeriod=WEEK is supported. Got: {report_period}"
             )
 
-        # date_from must be a Sunday
-        if data_from.weekday() != 6:
-            raise ValueError(
-                f"data_from must be a Sunday (number 6). Got: {data_from.weekday()}"
+        # Normalize data_from to date object if it's a datetime
+        if isinstance(data_from, datetime):
+            data_from = data_from.date()
+
+        # Handle date_from: Weekly reports need to start on a Sunday,
+        # so adjust to next Sunday if not already a Sunday
+        original_date = data_from
+        if data_from.weekday() != 6:  # Not Sunday
+            # Calculate days until next Sunday
+            # weekday: 0=Mon, 1=Tue, 2=Wed, 3=Thu, 4=Fri, 5=Sat, 6=Sun
+            days_until_sunday = 6 - data_from.weekday()
+            data_from = data_from + timedelta(days=days_until_sunday)
+            self.log.info(
+                f"Adjusted data_from from {original_date.strftime('%Y-%m-%d')} "
+                f"({original_date.strftime('%A')}) to next Sunday: {data_from.strftime('%Y-%m-%d')}"
             )
 
         # Set up weekly data fetching
-        start_date = data_from.date()
+        start_date = data_from
 
         # Calculate the last available Saturday
         today = date.today()
