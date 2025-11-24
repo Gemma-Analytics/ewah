@@ -919,7 +919,7 @@ class EWAHAmazonSellerCentralHook(EWAHBaseHook):
         Requirements:
         - Requests must include reportPeriod=WEEK in the reportsOptions
         - dataStartTime must be a Sunday and dataEndTime must be a Saturday
-        - The first date (data_from) in this report has to be a Sunday.
+        - If the first date (data_from) is not a Sunday, move it forward to the next available Sunday.
         """
         self.log.info("Fetching Brand Analytics Search Catalog Performance Report...")
 
