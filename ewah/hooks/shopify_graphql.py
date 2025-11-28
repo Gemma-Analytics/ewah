@@ -151,7 +151,16 @@ class EWAHShopifyGraphQLHook(EWAHBaseHook):
         first=50,
         data_from=None,
     ):
-        """Get orders data from Shopify GraphQL API with pagination"""
+        """Get data from Shopify GraphQL API with pagination
+        
+        Note on pagination limits:
+        - Orders: max 250 per page (controlled by 'first' parameter, default 50)
+        - Line items: max 250 per order (hardcoded in query)
+        - Discount applications: max 250 per order (hardcoded in query)
+        
+        For cases where we expect more items than these limits (e.g., orders with >250 line items,
+        or orders with >250 discount applications), additional pagination logic would be needed
+        to fetch subsequent pages using cursor-based pagination.
         shop_id = shop_id or self.conn.login
         version = version or self.DEFAULT_API_VERSION
 
