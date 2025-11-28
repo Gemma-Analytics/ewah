@@ -13,20 +13,28 @@ class EWAHShopifyGraphQLOperator(EWAHBaseOperator):
 
     def __init__(
         self,
+        endpoint=None,
         shop_id=None,
         api_version=None,
         first=250,  # 250 is the max
         *args,
         **kwargs,
     ):
+        self.endpoint = (endpoint or kwargs.get("target_table_name", "")).lower()
+
+        assert (
+            self.endpoint in EWAHShopifyGraphQLHook._ENDPOINTS
+        ), f"Invalid endpoint '{self.endpoint}'! Valid endpoints: {', '.join(EWAHShopifyGraphQLHook._ENDPOINTS)}"
+
         # Set default subsequent_field for orders
         if kwargs.get("extract_strategy") == EC.ES_SUBSEQUENT:
             kwargs["subsequent_field"] = kwargs.get("subsequent_field", "updatedAt")
 
         # Set default primary key
-        kwargs["primary_key"] = kwargs.get("primary_key", "gid") # ex: gid://shopify/{object_name}/{id}
+        kwargs["primary_key"] = kwargs.get(
+            "primary_key", "gid"
+        )  # ex: gid://shopify/{object_name}/{id}
         super().__init__(*args, **kwargs)
-
         self.shop_id = shop_id
         self.api_version = api_version
         self.first = first
@@ -47,6 +55,7 @@ class EWAHShopifyGraphQLOperator(EWAHBaseOperator):
             data_from = self.data_from
 
         for batch in self.source_hook.get_data(
+            endpoint=self.endpoint,
             shop_id=self.shop_id,
             version=self.api_version,
             first=self.first,

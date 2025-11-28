@@ -20,6 +20,10 @@ class EWAHShopifyGraphQLHook(EWAHBaseHook):
     DEFAULT_API_VERSION = "2025-10"
     _BASE_URL = "https://{shop}.myshopify.com/admin/api/{version}/graphql.json"
 
+    _ENDPOINTS = [
+        "orders",
+    ]
+
     @staticmethod
     def get_ui_field_behaviour() -> dict:
         return {
@@ -146,6 +150,7 @@ class EWAHShopifyGraphQLHook(EWAHBaseHook):
 
     def get_data(
         self,
+        endpoint,
         shop_id=None,
         version=None,
         first=50,
@@ -161,6 +166,15 @@ class EWAHShopifyGraphQLHook(EWAHBaseHook):
         For cases where we expect more items than these limits (e.g., orders with >250 line items,
         or orders with >250 discount applications), additional pagination logic would be needed
         to fetch subsequent pages using cursor-based pagination.
+        """
+        assert (
+            endpoint in self._ENDPOINTS
+        ), f"Invalid endpoint '{endpoint}'! Valid endpoints: {', '.join(self._ENDPOINTS)}"
+        # Note: Currently only "orders" endpoint is implemented
+        assert (
+            endpoint == "orders"
+        ), f"Endpoint '{endpoint}' not yet implemented. Only 'orders' is supported."
+
         shop_id = shop_id or self.conn.login
         version = version or self.DEFAULT_API_VERSION
 
