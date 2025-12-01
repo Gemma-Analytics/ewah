@@ -128,6 +128,11 @@ class EWAHHubspotHook(EWAHBaseHook):
             "deals",
             "p3909618_milestones",
         ],
+        # Despite it's cryptic name, this is a standard object in HubSpot called "services"
+        "0-162": [
+            "deals",
+            "p3909618_milestones"
+        ],
     }
 
     @staticmethod
