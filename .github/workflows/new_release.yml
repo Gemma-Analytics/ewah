@@ -13,7 +13,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
       - name: Create GitHub Release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}  # To authenticate POST
@@ -26,7 +26,7 @@ jobs:
             'https://api.github.com/repos/'"${GITHUB_REPOSITORY}"'/releases' \
             -d '{"tag_name":"v'"${VERSION}"'", "name":"v'"${VERSION}"'", "body":"This Release was automatically created by a GitHub Action after the merge of a PR. Please check the appropriate PR for the changelog."}'
       - name: Set up Python
-        uses: actions/setup-python@v2
+        uses: actions/setup-python@v5
         with:
           python-version: '3.8'
       - name: Install dependencies for PyPi publication
@@ -46,26 +46,33 @@ jobs:
     needs: release
     steps:
       - name: Checkout code
-        uses: actions/checkout@v2
-      - name: Build and publish Docker images
-        env:
-          DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
-          DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
+        uses: actions/checkout@v4
+      - name: Set executable permissions
         run: |
-          echo First need to give executable rights locally, otherwise image will not
-          echo be able to run properly - else will get a permission denied error on it
+          # Need to give executable rights locally, otherwise image will not
+          # be able to run properly - else will get a permission denied error on it
           chmod +x docker/scripts/entrypoint_prod.sh
-          VERSION=$(cat VERSION)
-          echo $DOCKER_PASSWORD | docker login \
-            --username ${DOCKER_USERNAME} \
-            --password-stdin
-          docker build . \
-            --file Dockerfile \
-            --tag gemmaanalytics/ewah:v${VERSION} \
-            --build-arg package_version=${VERSION}
-          docker build . \
-            --file Dockerfile \
-            --tag gemmaanalytics/ewah \
-            --build-arg package_version=${VERSION}
-          docker push gemmaanalytics/ewah:v${VERSION}
-          docker push gemmaanalytics/ewah
+      - name: Get version
+        id: version
+        run: echo "VERSION=$(cat VERSION)" >> $GITHUB_OUTPUT
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+      - name: Build and push Docker images
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./Dockerfile
+          platforms: linux/amd64,linux/arm64
+          push: true
+          build-args: |
+            package_version=${{ steps.version.outputs.VERSION }}
+          tags: |
+            gemmaanalytics/ewah:v${{ steps.version.outputs.VERSION }}
+            gemmaanalytics/ewah:latest
