@@ -127,12 +127,12 @@ class EWAHHubspotHook(EWAHBaseHook):
             "contacts",
             "deals",
             "p3909618_milestones",
-            "0-162"
+            "0-162",
         ],
         # Despite it's cryptic name, this is a standard object in HubSpot called "services"
         "0-162": [
             "deals",
-            "p3909618_milestones"
+            "p3909618_milestones",
         ],
     }
 
