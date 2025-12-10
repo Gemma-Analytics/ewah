@@ -43,13 +43,16 @@ jobs:
   build:
     name: Build Docker image (${{ matrix.platform }})
     needs: release
+    # Matrix strategy runs this job multiple times in parallel, once per configuration.
+    # Each configuration specifies the Docker platform and corresponding GitHub runner.
+    # Docs: https://docs.github.com/en/actions/using-jobs/using-a-matrix-for-your-jobs
     strategy:
       matrix:
         include:
           - platform: linux/amd64
             runner: ubuntu-latest
           - platform: linux/arm64
-            runner: ubuntu-24.04-arm
+            runner: ubuntu-24.04-arm  # Native ARM runner for faster builds
     runs-on: ${{ matrix.runner }}
     steps:
       - name: Checkout code
