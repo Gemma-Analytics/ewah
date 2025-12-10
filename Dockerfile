@@ -170,6 +170,7 @@ ENV AIRFLOW__CORE__HOSTNAME_CALLABLE="socket.gethostname"
 FROM dev_build as prod_build
 
 # Re-declare TARGETARCH for this stage (ARGs don't persist across FROM)
+# Needed for conditional Oracle extras installation below
 ARG TARGETARCH=amd64
 
 # don't install from bind-mounted volume
