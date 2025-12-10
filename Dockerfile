@@ -181,3 +181,8 @@ ENV AIRFLOW__WEBSERVER__WARN_DEPLOYMENT_EXPOSURE=False
 # install from pip
 ARG package_version
 RUN pip install --user --upgrade --no-cache-dir ewah==${package_version}
+
+# Install Oracle support on amd64 only (cx_Oracle requires Oracle Instant Client)
+RUN if [ "$TARGETARCH" = "amd64" ]; then \
+    pip install --user --upgrade --no-cache-dir "ewah[oracle]==${package_version}"; \
+fi
