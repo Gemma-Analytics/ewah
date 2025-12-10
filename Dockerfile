@@ -1,11 +1,23 @@
 FROM apache/airflow:2.3.4-python3.10 AS dev_build
 
+###############################################################################
+## Supported target architectures: amd64, arm64                              ##
+## - amd64: Full support (Chrome/Selenium, Oracle)                           ##
+## - arm64: Core support only (no Chrome/Selenium, no Oracle)                ##
+###############################################################################
+
 # TARGETARCH is automatically provided by Docker Buildx (amd64, arm64, etc.)
 # Default to amd64 for local development with plain docker build/docker compose
 ARG TARGETARCH=amd64
 
 ### --------------------------------------------- run as root => ##
 USER root
+
+# Validate target architecture early - fail fast if unsupported
+RUN if [ "$TARGETARCH" != "amd64" ] && [ "$TARGETARCH" != "arm64" ]; then \
+    echo "ERROR: Unsupported architecture '$TARGETARCH'. Supported: amd64, arm64" && exit 1; \
+fi
+
 RUN apt-get update
 
 # required packages to install psycopg2 which is a dependency of ewah
