@@ -1,7 +1,8 @@
 FROM apache/airflow:2.3.4-python3.10 AS dev_build
 
 # TARGETARCH is automatically provided by Docker Buildx (amd64, arm64, etc.)
-ARG TARGETARCH
+# Default to amd64 for local development with plain docker build/docker compose
+ARG TARGETARCH=amd64
 
 ### --------------------------------------------- run as root => ##
 USER root
@@ -157,7 +158,7 @@ ENV AIRFLOW__CORE__HOSTNAME_CALLABLE="socket.gethostname"
 FROM dev_build as prod_build
 
 # Re-declare TARGETARCH for this stage (ARGs don't persist across FROM)
-ARG TARGETARCH
+ARG TARGETARCH=amd64
 
 # don't install from bind-mounted volume
 ENV EWAH_IMAGE_TYPE='PROD'
