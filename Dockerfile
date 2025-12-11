@@ -7,16 +7,19 @@ FROM apache/airflow:2.3.4-python3.10 AS dev_build
 ###############################################################################
 
 # TARGETARCH is automatically provided by Docker Buildx (amd64, arm64, etc.)
-# Default to amd64 for local development with plain docker build/docker compose
-ARG TARGETARCH=amd64
+# When not using Buildx, we detect the actual architecture at build time
+ARG TARGETARCH
 
 ### --------------------------------------------- run as root => ##
 USER root
 
-# Validate target architecture early - fail fast if unsupported
-RUN if [ "$TARGETARCH" != "amd64" ] && [ "$TARGETARCH" != "arm64" ]; then \
-    echo "ERROR: Unsupported architecture '$TARGETARCH'. Supported: amd64, arm64" && exit 1; \
-fi
+# Determine effective architecture: use TARGETARCH if set, otherwise detect from system
+# This ensures correct behavior for both Buildx (CI) and plain docker build (local dev)
+RUN EFFECTIVE_ARCH="${TARGETARCH:-$(dpkg --print-architecture)}" && \
+    echo "EFFECTIVE_ARCH=${EFFECTIVE_ARCH}" > /etc/docker-build-arch && \
+    if [ "$EFFECTIVE_ARCH" != "amd64" ] && [ "$EFFECTIVE_ARCH" != "arm64" ]; then \
+        echo "ERROR: Unsupported architecture '$EFFECTIVE_ARCH'. Supported: amd64, arm64" && exit 1; \
+    fi
 
 RUN apt-get update
 
@@ -32,35 +35,37 @@ RUN apt-get install -y --no-install-recommends git
 
 # required to use Chrome with Selenium (amd64 only - no ARM64 binaries available)
 # see also: https://stackoverflow.com/questions/45323271/how-to-run-selenium-with-chrome-in-docker
-RUN if [ "$TARGETARCH" = "amd64" ]; then \
-    mkdir -p /opt/chrome && \
-    cd /opt/chrome && \
-    wget -q -O - https://dl-ssl.google.com/linux/linux_signing_key.pub | apt-key add - && \
-    sh -c 'echo "deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main" >> /etc/apt/sources.list.d/google-chrome.list' && \
-    apt-get -y update && \
-    apt-get install -y google-chrome-stable && \
-    apt-get install -yqq unzip && \
-    wget -O /tmp/chromedriver.zip http://chromedriver.storage.googleapis.com/`curl -sS chromedriver.storage.googleapis.com/LATEST_RELEASE`/chromedriver_linux64.zip && \
-    unzip /tmp/chromedriver.zip chromedriver -d /usr/local/bin/ && \
-    cd /opt && \
-    rm -r -f /opt/chrome; \
-fi
+RUN . /etc/docker-build-arch && \
+    if [ "$EFFECTIVE_ARCH" = "amd64" ]; then \
+        mkdir -p /opt/chrome && \
+        cd /opt/chrome && \
+        wget -q -O - https://dl-ssl.google.com/linux/linux_signing_key.pub | apt-key add - && \
+        sh -c 'echo "deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main" >> /etc/apt/sources.list.d/google-chrome.list' && \
+        apt-get -y update && \
+        apt-get install -y google-chrome-stable && \
+        apt-get install -yqq unzip && \
+        wget -O /tmp/chromedriver.zip http://chromedriver.storage.googleapis.com/`curl -sS chromedriver.storage.googleapis.com/LATEST_RELEASE`/chromedriver_linux64.zip && \
+        unzip /tmp/chromedriver.zip chromedriver -d /usr/local/bin/ && \
+        cd /opt && \
+        rm -r -f /opt/chrome; \
+    fi
 # set display port to avoid crash
 ENV DISPLAY=:99
 
 
 # install requirements due to Oracle (amd64 only - no ARM64 binaries available)
 # see also: https://cx-oracle.readthedocs.io/en/latest/user_guide/installation.html#installing-cx-oracle-on-linux
-RUN if [ "$TARGETARCH" = "amd64" ]; then \
-    mkdir -p /opt/oracle && \
-    apt-get install -y --no-install-recommends libaio1 unzip && \
-    cd /opt/oracle && \
-    wget https://download.oracle.com/otn_software/linux/instantclient/19800/instantclient-basic-linux.x64-19.8.0.0.0dbru.zip && \
-    unzip instantclient-basic-linux.x64-19.8.0.0.0dbru.zip && \
-    rm -r -f /opt/oracle/instantclient-basic-linux.x64-19.8.0.0.0dbru.zip && \
-    ldconfig /opt/oracle/instantclient_19_8 && \
-    chmod -R 777 /opt/oracle; \
-fi
+RUN . /etc/docker-build-arch && \
+    if [ "$EFFECTIVE_ARCH" = "amd64" ]; then \
+        mkdir -p /opt/oracle && \
+        apt-get install -y --no-install-recommends libaio1 unzip && \
+        cd /opt/oracle && \
+        wget https://download.oracle.com/otn_software/linux/instantclient/19800/instantclient-basic-linux.x64-19.8.0.0.0dbru.zip && \
+        unzip instantclient-basic-linux.x64-19.8.0.0.0dbru.zip && \
+        rm -r -f /opt/oracle/instantclient-basic-linux.x64-19.8.0.0.0dbru.zip && \
+        ldconfig /opt/oracle/instantclient_19_8 && \
+        chmod -R 777 /opt/oracle; \
+    fi
 
 # enable sudo
 RUN echo "airflow ALL=(ALL) NOPASSWD: ALL" > /etc/sudoers && \
@@ -78,7 +83,8 @@ USER airflow
 RUN pip install --user --upgrade --no-cache-dir pip 'setuptools<71'
 
 # required to make Oracle work with airflow user (amd64 only)
-RUN if [ "$TARGETARCH" = "amd64" ]; then sudo ldconfig /opt/oracle/instantclient_19_8; fi
+RUN . /etc/docker-build-arch && \
+    if [ "$EFFECTIVE_ARCH" = "amd64" ]; then sudo ldconfig /opt/oracle/instantclient_19_8; fi
 
 # required to use SSH
 RUN mkdir -p /home/airflow/.ssh
@@ -169,9 +175,7 @@ ENV AIRFLOW__CORE__HOSTNAME_CALLABLE="socket.gethostname"
 ###############################################################################
 FROM dev_build as prod_build
 
-# Re-declare TARGETARCH for this stage (ARGs don't persist across FROM)
-# Needed for conditional Oracle extras installation below
-ARG TARGETARCH=amd64
+# Note: /etc/docker-build-arch (with EFFECTIVE_ARCH) is inherited from dev_build
 
 # don't install from bind-mounted volume
 ENV EWAH_IMAGE_TYPE='PROD'
@@ -197,6 +201,7 @@ ARG package_version
 RUN pip install --user --upgrade --no-cache-dir ewah==${package_version}
 
 # Install Oracle support on amd64 only (cx_Oracle requires Oracle Instant Client)
-RUN if [ "$TARGETARCH" = "amd64" ]; then \
-    pip install --user --upgrade --no-cache-dir "ewah[oracle]==${package_version}"; \
-fi
+RUN . /etc/docker-build-arch && \
+    if [ "$EFFECTIVE_ARCH" = "amd64" ]; then \
+        pip install --user --upgrade --no-cache-dir "ewah[oracle]==${package_version}"; \
+    fi
