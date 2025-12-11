@@ -1,7 +1,23 @@
-FROM apache/airflow:2.3.4-python3.10 as dev_build
+FROM apache/airflow:2.3.4-python3.10 AS dev_build
+
+###############################################################################
+## Supported target architectures: amd64, arm64                              ##
+## - amd64: Full support (Chrome/Selenium, Oracle)                           ##
+## - arm64: Core support only (no Chrome/Selenium, no Oracle)                ##
+###############################################################################
+
+# TARGETARCH is automatically provided by Docker Buildx (amd64, arm64, etc.)
+# Default to amd64 for local development with plain docker build/docker compose
+ARG TARGETARCH=amd64
 
 ### --------------------------------------------- run as root => ##
 USER root
+
+# Validate target architecture early - fail fast if unsupported
+RUN if [ "$TARGETARCH" != "amd64" ] && [ "$TARGETARCH" != "arm64" ]; then \
+    echo "ERROR: Unsupported architecture '$TARGETARCH'. Supported: amd64, arm64" && exit 1; \
+fi
+
 RUN apt-get update
 
 # required packages to install psycopg2 which is a dependency of ewah
@@ -14,9 +30,10 @@ RUN mkdir /opt/ewah && \
 # required to use git
 RUN apt-get install -y --no-install-recommends git
 
-# required to use Chrome with Selenium
+# required to use Chrome with Selenium (amd64 only - no ARM64 binaries available)
 # see also: https://stackoverflow.com/questions/45323271/how-to-run-selenium-with-chrome-in-docker
-RUN mkdir -p /opt/chrome && \
+RUN if [ "$TARGETARCH" = "amd64" ]; then \
+    mkdir -p /opt/chrome && \
     cd /opt/chrome && \
     wget -q -O - https://dl-ssl.google.com/linux/linux_signing_key.pub | apt-key add - && \
     sh -c 'echo "deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main" >> /etc/apt/sources.list.d/google-chrome.list' && \
@@ -26,21 +43,24 @@ RUN mkdir -p /opt/chrome && \
     wget -O /tmp/chromedriver.zip http://chromedriver.storage.googleapis.com/`curl -sS chromedriver.storage.googleapis.com/LATEST_RELEASE`/chromedriver_linux64.zip && \
     unzip /tmp/chromedriver.zip chromedriver -d /usr/local/bin/ && \
     cd /opt && \
-    rm -r -f /opt/chrome
+    rm -r -f /opt/chrome; \
+fi
 # set display port to avoid crash
 ENV DISPLAY=:99
 
 
-# install requirements due to Oracle
+# install requirements due to Oracle (amd64 only - no ARM64 binaries available)
 # see also: https://cx-oracle.readthedocs.io/en/latest/user_guide/installation.html#installing-cx-oracle-on-linux
-RUN mkdir -p /opt/oracle && \
+RUN if [ "$TARGETARCH" = "amd64" ]; then \
+    mkdir -p /opt/oracle && \
     apt-get install -y --no-install-recommends libaio1 unzip && \
     cd /opt/oracle && \
     wget https://download.oracle.com/otn_software/linux/instantclient/19800/instantclient-basic-linux.x64-19.8.0.0.0dbru.zip && \
     unzip instantclient-basic-linux.x64-19.8.0.0.0dbru.zip && \
     rm -r -f /opt/oracle/instantclient-basic-linux.x64-19.8.0.0.0dbru.zip && \
     ldconfig /opt/oracle/instantclient_19_8 && \
-    chmod -R 777 /opt/oracle
+    chmod -R 777 /opt/oracle; \
+fi
 
 # enable sudo
 RUN echo "airflow ALL=(ALL) NOPASSWD: ALL" > /etc/sudoers && \
@@ -57,8 +77,8 @@ USER airflow
 
 RUN pip install --user --upgrade --no-cache-dir pip 'setuptools<71'
 
-# required to make Oracle work with airflow user
-RUN sudo ldconfig /opt/oracle/instantclient_19_8
+# required to make Oracle work with airflow user (amd64 only)
+RUN if [ "$TARGETARCH" = "amd64" ]; then sudo ldconfig /opt/oracle/instantclient_19_8; fi
 
 # required to use SSH
 RUN mkdir -p /home/airflow/.ssh
@@ -149,6 +169,10 @@ ENV AIRFLOW__CORE__HOSTNAME_CALLABLE="socket.gethostname"
 ###############################################################################
 FROM dev_build as prod_build
 
+# Re-declare TARGETARCH for this stage (ARGs don't persist across FROM)
+# Needed for conditional Oracle extras installation below
+ARG TARGETARCH=amd64
+
 # don't install from bind-mounted volume
 ENV EWAH_IMAGE_TYPE='PROD'
 
@@ -171,3 +195,8 @@ ENV AIRFLOW__WEBSERVER__WARN_DEPLOYMENT_EXPOSURE=False
 # install from pip
 ARG package_version
 RUN pip install --user --upgrade --no-cache-dir ewah==${package_version}
+
+# Install Oracle support on amd64 only (cx_Oracle requires Oracle Instant Client)
+RUN if [ "$TARGETARCH" = "amd64" ]; then \
+    pip install --user --upgrade --no-cache-dir "ewah[oracle]==${package_version}"; \
+fi

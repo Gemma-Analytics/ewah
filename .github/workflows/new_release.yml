@@ -1,7 +1,7 @@
 name: Full EWAH Release - GitHub tag, PyPi package, and Docker image
 
 on:
-  push:  # only run on a merged PR to main
+  push:  # Only run on a merged PR to main
     branches:
       - master
     paths:  # Only run if VERSION is bumped by the push
@@ -13,7 +13,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
       - name: Create GitHub Release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}  # To authenticate POST
@@ -26,7 +26,7 @@ jobs:
             'https://api.github.com/repos/'"${GITHUB_REPOSITORY}"'/releases' \
             -d '{"tag_name":"v'"${VERSION}"'", "name":"v'"${VERSION}"'", "body":"This Release was automatically created by a GitHub Action after the merge of a PR. Please check the appropriate PR for the changelog."}'
       - name: Set up Python
-        uses: actions/setup-python@v2
+        uses: actions/setup-python@v5
         with:
           python-version: '3.8'
       - name: Install dependencies for PyPi publication
@@ -41,31 +41,89 @@ jobs:
           python setup.py sdist bdist_wheel
           twine upload --skip-existing dist/*
   build:
-    name: Build and publish Docker images
-    runs-on: ubuntu-latest
+    name: Build Docker image (${{ matrix.platform }})
     needs: release
+    # Matrix strategy runs this job multiple times in parallel, once per configuration.
+    # Each configuration specifies the Docker platform and corresponding GitHub runner.
+    # Docs: https://docs.github.com/en/actions/using-jobs/using-a-matrix-for-your-jobs
+    strategy:
+      matrix:
+        include:
+          - platform: linux/amd64
+            arch: amd64
+            runner: ubuntu-24.04
+          - platform: linux/arm64
+            arch: arm64
+            runner: ubuntu-24.04-arm
+    runs-on: ${{ matrix.runner }}
     steps:
       - name: Checkout code
-        uses: actions/checkout@v2
-      - name: Build and publish Docker images
-        env:
-          DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
-          DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
+        uses: actions/checkout@v4
+      - name: Set executable permissions
         run: |
-          echo First need to give executable rights locally, otherwise image will not
-          echo be able to run properly - else will get a permission denied error on it
+          # Need to give executable rights locally, otherwise image will not
+          # be able to run properly - else will get a permission denied error on it
           chmod +x docker/scripts/entrypoint_prod.sh
-          VERSION=$(cat VERSION)
-          echo $DOCKER_PASSWORD | docker login \
-            --username ${DOCKER_USERNAME} \
-            --password-stdin
-          docker build . \
-            --file Dockerfile \
-            --tag gemmaanalytics/ewah:v${VERSION} \
-            --build-arg package_version=${VERSION}
-          docker build . \
-            --file Dockerfile \
-            --tag gemmaanalytics/ewah \
-            --build-arg package_version=${VERSION}
-          docker push gemmaanalytics/ewah:v${VERSION}
-          docker push gemmaanalytics/ewah
+      - name: Get version
+        id: version
+        run: echo "VERSION=$(cat VERSION)" >> $GITHUB_OUTPUT
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+      - name: Build and push by digest
+        id: build
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./Dockerfile
+          platforms: ${{ matrix.platform }}
+          build-args: |
+            package_version=${{ steps.version.outputs.VERSION }}
+          outputs: type=image,name=gemmaanalytics/ewah,push-by-digest=true,name-canonical=true,push=true
+      - name: Export digest
+        run: |
+          mkdir -p /tmp/digests
+          digest="${{ steps.build.outputs.digest }}"
+          touch "/tmp/digests/${digest#sha256:}"
+      - name: Upload digest
+        uses: actions/upload-artifact@v4
+        with:
+          name: digests-${{ matrix.arch }}
+          path: /tmp/digests/*
+          if-no-files-found: error
+          retention-days: 1
+
+  merge:
+    name: Create multi-arch manifest
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - name: Get version
+        id: version
+        run: echo "VERSION=$(cat VERSION)" >> $GITHUB_OUTPUT
+      - name: Download digests
+        uses: actions/download-artifact@v4
+        with:
+          path: /tmp/digests
+          pattern: digests-*
+          merge-multiple: true
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+      - name: Create manifest and push
+        working-directory: /tmp/digests
+        run: |
+          docker buildx imagetools create \
+            -t gemmaanalytics/ewah:v${{ steps.version.outputs.VERSION }} \
+            -t gemmaanalytics/ewah:latest \
+            $(printf 'gemmaanalytics/ewah@sha256:%s ' *)

@@ -27,7 +27,7 @@ setuptools.setup(
         "dbt-metabase<1.0",
         "certifi==2025.1.31",  # Workaround for Snowflake certificate errors
         "croniter",
-        "cx_Oracle",
+        # cx_Oracle moved to extras_require - only available on amd64 (no ARM64 binaries)
         "facebook_business",
         "google-ads>=25.2.0",
         "google-cloud-bigquery",
@@ -65,4 +65,8 @@ setuptools.setup(
         "yahoofinancials-gemma-analytics==1.23",  # We needed to create our own fork + module to deal with Too Many Requests error
         "yfinance",
     ],
+    extras_require={
+        # Oracle support requires Oracle Instant Client (amd64 only - no ARM64 binaries available)
+        "oracle": ["cx_Oracle"],
+    },
 )

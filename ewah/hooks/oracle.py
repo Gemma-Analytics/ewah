@@ -1,8 +1,15 @@
 from ewah.hooks.sql_base import EWAHSQLBaseHook
 
-import cx_Oracle
-
 from typing import Optional, List, Union
+
+# cx_Oracle is optional - only available on amd64 (no ARM64 binaries)
+try:
+    import cx_Oracle
+
+    CX_ORACLE_AVAILABLE = True
+except ImportError:
+    cx_Oracle = None
+    CX_ORACLE_AVAILABLE = False
 
 
 class EWAHOracleSQLOperator(EWAHSQLBaseHook):
@@ -52,6 +59,11 @@ class EWAHOracleSQLOperator(EWAHSQLBaseHook):
         return sql
 
     def _get_db_conn(self):
+        if not CX_ORACLE_AVAILABLE:
+            raise ImportError(
+                "cx_Oracle is not installed. Oracle support is only available on amd64 "
+                "architecture. Install with: pip install ewah[oracle]"
+            )
         return cx_Oracle.connect(
             self.conn.user,
             self.conn.password,
