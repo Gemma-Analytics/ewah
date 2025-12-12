@@ -130,6 +130,7 @@ class EWAHHubspotHook(EWAHBaseHook):
             "0-162",
         ],
         # Despite it's cryptic name, this is a standard object in HubSpot called "services"
+        # The resulting datbase table name is renamed to "services" in the operator file.
         # Avoid using the "all" value for associations of this object since it includes custom objects
         # of a single customer.
         "0-162": [
