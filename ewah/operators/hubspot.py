@@ -28,6 +28,9 @@ class EWAHHubspotOperator(EWAHBaseOperator):
         assert (
             object in EWAHHubspotHook.ACCEPTED_OBJECTS.keys()
         ), "Object {0} is invalid!".format(object)
+        # Rename object name "0-162" to database table name "services" for clarity
+        if object == "0-162":
+            kwargs["target_table_name"] = "services"
         if object == "properties":
             kwargs["primary_key"] = ["name", "object_type"]
         else:

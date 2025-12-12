@@ -130,6 +130,7 @@ class EWAHHubspotHook(EWAHBaseHook):
             "0-162",
         ],
         # Despite it's cryptic name, this is a standard object in HubSpot called "services"
+        # The resulting datbase table name is renamed to "services" in the operator file.
         # Avoid using the "all" value for associations of this object since it includes custom objects
         # of a single customer.
         "0-162": [
@@ -226,7 +227,7 @@ class EWAHHubspotHook(EWAHBaseHook):
                 ]
             elif object == "pipelines":
                 url_object_raw = self.PIPELINES_URL
-                object_list = ["tickets", "deals", "p3909618_milestones"]
+                object_list = ["tickets", "deals", "p3909618_milestones", "0-162"]
 
             params_object["objectType"] = object_list.pop(0)
             url_object = url_object_raw.format(params_object["objectType"])
