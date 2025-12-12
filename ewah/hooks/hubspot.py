@@ -226,7 +226,7 @@ class EWAHHubspotHook(EWAHBaseHook):
                 ]
             elif object == "pipelines":
                 url_object_raw = self.PIPELINES_URL
-                object_list = ["tickets", "deals", "p3909618_milestones"]
+                object_list = ["tickets", "deals", "p3909618_milestones", "0-162"]
 
             params_object["objectType"] = object_list.pop(0)
             url_object = url_object_raw.format(params_object["objectType"])
