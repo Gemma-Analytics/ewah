@@ -977,8 +977,8 @@ class EWAHAmazonSellerCentralHook(EWAHBaseHook):
 
         Requirements:
         - Requests must include reportPeriod=WEEK in the reportsOptions
-        - Use dataStartTime and dataEndTime parameters to specify date boundaries
         - dataStartTime must be a Sunday and dataEndTime must be a Saturday
+        - If the first date (data_from) is not a Sunday, move it forward to the next available Sunday.
         """
         self.log.info("Fetching Brand Analytics Search Catalog Performance Report...")
 
@@ -1000,14 +1000,25 @@ class EWAHAmazonSellerCentralHook(EWAHBaseHook):
                 f"Only reportPeriod=WEEK is supported. Got: {report_period}"
             )
 
-        # date_from must be a Sunday
-        if data_from.weekday() != 6:
-            raise ValueError(
-                f"data_from must be a Sunday (number 6). Got: {data_from.weekday()}"
+        # Normalize data_from to date object if it's a datetime
+        if isinstance(data_from, datetime):
+            data_from = data_from.date()
+
+        # Handle date_from: Weekly reports need to start on a Sunday,
+        # so adjust to next Sunday if not already a Sunday
+        original_date = data_from
+        if data_from.weekday() != 6:  # Not Sunday
+            # Calculate days until next Sunday
+            # weekday: 0=Mon, 1=Tue, 2=Wed, 3=Thu, 4=Fri, 5=Sat, 6=Sun
+            days_until_sunday = 6 - data_from.weekday()
+            data_from = data_from + timedelta(days=days_until_sunday)
+            self.log.info(
+                f"Adjusted data_from from {original_date.strftime('%Y-%m-%d')} "
+                f"({original_date.strftime('%A')}) to next Sunday: {data_from.strftime('%Y-%m-%d')}"
             )
 
         # Set up weekly data fetching
-        start_date = data_from.date()
+        start_date = data_from
 
         # Calculate the last available Saturday
         today = date.today()
@@ -1046,8 +1057,8 @@ class EWAHAmazonSellerCentralHook(EWAHBaseHook):
             )
 
             # Process the report data as JSON for this week
-            max_retries = 3
-            delay = 60
+            max_retries = 5
+            base_delay = 30
             data_raw = None
 
             try:
@@ -1074,6 +1085,8 @@ class EWAHAmazonSellerCentralHook(EWAHBaseHook):
                         )
 
                         if is_quota_error and attempt < max_retries - 1:
+                            # Exponential backoff: delay = base_delay * (2^attempt)
+                            delay = base_delay * (2**attempt)
                             self.log.warning(
                                 f"Quota exceeded for week {current_sunday.strftime('%Y-%m-%d')} to {current_saturday.strftime('%Y-%m-%d')}. "
                                 f"Attempt {attempt + 1}/{max_retries}. Waiting {delay} seconds before retry..."
@@ -1085,17 +1098,17 @@ class EWAHAmazonSellerCentralHook(EWAHBaseHook):
             except Exception as e:
                 # We assume that if the error is FATAL, it is because the report is not available yet
                 if "FATAL" in str(e):
-                    current_sunday += timedelta(days=7)
                     self.log.error(
-                        f"Fatal error encountered for week {current_sunday} to {current_saturday}: {e}\n Skipping week..."
+                        f"Fatal error encountered for week {current_sunday.strftime('%Y-%m-%d')} to {current_saturday.strftime('%Y-%m-%d')}: {e}\n Skipping week..."
                     )
+                    current_sunday += timedelta(days=7)
                     continue
                 else:
                     raise e
 
             if not data_raw:
                 self.log.info(
-                    f"No data returned for week {current_sunday} to {current_saturday}"
+                    f"No data returned for week {current_sunday.strftime('%Y-%m-%d')} to {current_saturday.strftime('%Y-%m-%d')}"
                 )
                 # Move to next week
                 current_sunday += timedelta(days=7)
@@ -1213,6 +1226,11 @@ class EWAHAmazonSellerCentralHook(EWAHBaseHook):
             if data:
                 yield data
 
+            # Log completion before moving to next week
+            self.log.info(
+                f"Retrieved report for week {current_sunday.strftime('%Y-%m-%d')} to {current_saturday.strftime('%Y-%m-%d')}"
+            )
+
             # Move to next week
             current_sunday += timedelta(days=7)
 
@@ -1243,7 +1261,7 @@ class EWAHAmazonSellerCentralHook(EWAHBaseHook):
         - Requests must include asin (list of ASINs) in the reportsOptions
         - ASINs are chunked into space-separated strings (max 200 chars per chunk)
         - Use dataStartTime and dataEndTime parameters to specify date boundaries
-        - dataStartTime must be a Sunday and dataEndTime must be a Saturday
+        - If the first date (data_from) is not a Sunday, move it forward to the next available Sunday.
         """
         self.log.info("Fetching Brand Analytics Search Query Performance Report...")
 
@@ -1358,8 +1376,8 @@ class EWAHAmazonSellerCentralHook(EWAHBaseHook):
                 chunk_report_options["asin"] = asin_chunk
 
                 # Process the report data as JSON for this week and ASIN chunk
-                max_retries = 3
-                delay = 60
+                max_retries = 5
+                base_delay = 30
                 data_raw = None
 
                 try:
@@ -1386,6 +1404,8 @@ class EWAHAmazonSellerCentralHook(EWAHBaseHook):
                             )
 
                             if is_quota_error and attempt < max_retries - 1:
+                                # Exponential backoff: delay = base_delay * (2^attempt)
+                                delay = base_delay * (2**attempt)
                                 self.log.warning(
                                     f"Quota exceeded for week {current_sunday.strftime('%Y-%m-%d')} to {current_saturday.strftime('%Y-%m-%d')}, chunk {chunk_idx + 1}. "
                                     f"Attempt {attempt + 1}/{max_retries}. Waiting {delay} seconds before retry..."
@@ -1568,6 +1588,11 @@ class EWAHAmazonSellerCentralHook(EWAHBaseHook):
                 if chunk_idx < len(asin_chunks) - 1:
                     self.log.info("Waiting 2 seconds before processing next chunk...")
                     time.sleep(2)
+
+            # Log completion before moving to next week
+            self.log.info(
+                f"Retrieved report for week {current_sunday.strftime('%Y-%m-%d')} to {current_saturday.strftime('%Y-%m-%d')}"
+            )
 
             # Move to next week
             current_sunday += timedelta(days=7)
