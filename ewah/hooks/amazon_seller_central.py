@@ -1134,18 +1134,10 @@ class EWAHAmazonSellerCentralHook(EWAHBaseHook):
                     flattened_row.update(
                         {
                             "impressionCount": impression_data.get("impressionCount"),
-                            "impressionMedianPrice": impression_data.get(
-                                "impressionMedianPrice"
-                            ),
-                            "sameDayShippingImpressionCount": impression_data.get(
-                                "sameDayShippingImpressionCount"
-                            ),
-                            "oneDayShippingImpressionCount": impression_data.get(
-                                "oneDayShippingImpressionCount"
-                            ),
-                            "twoDayShippingImpressionCount": impression_data.get(
-                                "twoDayShippingImpressionCount"
-                            ),
+                            "impressionMedianPrice": impression_data.get("impressionMedianPrice"),
+                            "sameDayShippingImpressionCount": impression_data.get("sameDayShippingImpressionCount"),
+                            "oneDayShippingImpressionCount": impression_data.get("oneDayShippingImpressionCount"),
+                            "twoDayShippingImpressionCount": impression_data.get("twoDayShippingImpressionCount"),
                         }
                     )
 
@@ -1157,15 +1149,9 @@ class EWAHAmazonSellerCentralHook(EWAHBaseHook):
                             "clickCount": click_data.get("clickCount"),
                             "clickRate": click_data.get("clickRate"),
                             "clickedMedianPrice": click_data.get("clickedMedianPrice"),
-                            "sameDayShippingClickCount": click_data.get(
-                                "sameDayShippingClickCount"
-                            ),
-                            "oneDayShippingClickCount": click_data.get(
-                                "oneDayShippingClickCount"
-                            ),
-                            "twoDayShippingClickCount": click_data.get(
-                                "twoDayShippingClickCount"
-                            ),
+                            "sameDayShippingClickCount": click_data.get("sameDayShippingClickCount"),
+                            "oneDayShippingClickCount": click_data.get("oneDayShippingClickCount"),
+                            "twoDayShippingClickCount": click_data.get("twoDayShippingClickCount"),
                         }
                     )
 
@@ -1175,18 +1161,10 @@ class EWAHAmazonSellerCentralHook(EWAHBaseHook):
                     flattened_row.update(
                         {
                             "cartAddCount": cart_add_data.get("cartAddCount"),
-                            "cartAddedMedianPrice": cart_add_data.get(
-                                "cartAddedMedianPrice"
-                            ),
-                            "sameDayShippingCartAddCount": cart_add_data.get(
-                                "sameDayShippingCartAddCount"
-                            ),
-                            "oneDayShippingCartAddCount": cart_add_data.get(
-                                "oneDayShippingCartAddCount"
-                            ),
-                            "twoDayShippingCartAddCount": cart_add_data.get(
-                                "twoDayShippingCartAddCount"
-                            ),
+                            "cartAddedMedianPrice": cart_add_data.get("cartAddedMedianPrice"),
+                            "sameDayShippingCartAddCount": cart_add_data.get("sameDayShippingCartAddCount"),
+                            "oneDayShippingCartAddCount": cart_add_data.get("oneDayShippingCartAddCount"),
+                            "twoDayShippingCartAddCount": cart_add_data.get("twoDayShippingCartAddCount"),
                         }
                     )
 
@@ -1196,22 +1174,12 @@ class EWAHAmazonSellerCentralHook(EWAHBaseHook):
                     flattened_row.update(
                         {
                             "purchaseCount": purchase_data.get("purchaseCount"),
-                            "searchTrafficSales": purchase_data.get(
-                                "searchTrafficSales"
-                            ),
+                            "searchTrafficSales": purchase_data.get("searchTrafficSales"),
                             "conversionRate": purchase_data.get("conversionRate"),
-                            "purchaseMedianPrice": purchase_data.get(
-                                "purchaseMedianPrice"
-                            ),
-                            "sameDayShippingPurchaseCount": purchase_data.get(
-                                "sameDayShippingPurchaseCount"
-                            ),
-                            "oneDayShippingPurchaseCount": purchase_data.get(
-                                "oneDayShippingPurchaseCount"
-                            ),
-                            "twoDayShippingPurchaseCount": purchase_data.get(
-                                "twoDayShippingPurchaseCount"
-                            ),
+                            "purchaseMedianPrice": purchase_data.get("purchaseMedianPrice"),
+                            "sameDayShippingPurchaseCount": purchase_data.get("sameDayShippingPurchaseCount"),
+                            "oneDayShippingPurchaseCount": purchase_data.get("oneDayShippingPurchaseCount"),
+                            "twoDayShippingPurchaseCount": purchase_data.get("twoDayShippingPurchaseCount"),
                         }
                     )
 
@@ -1450,12 +1418,8 @@ class EWAHAmazonSellerCentralHook(EWAHBaseHook):
                         flattened_row.update(
                             {
                                 "searchQuery": search_query_data.get("searchQuery"),
-                                "searchQueryScore": search_query_data.get(
-                                    "searchQueryScore"
-                                ),
-                                "searchQueryVolume": search_query_data.get(
-                                    "searchQueryVolume"
-                                ),
+                                "searchQueryScore": search_query_data.get("searchQueryScore"),
+                                "searchQueryVolume": search_query_data.get("searchQueryVolume"),
                             }
                         )
 
@@ -1464,15 +1428,9 @@ class EWAHAmazonSellerCentralHook(EWAHBaseHook):
                     if impression_data:
                         flattened_row.update(
                             {
-                                "totalQueryImpressionCount": impression_data.get(
-                                    "totalQueryImpressionCount"
-                                ),
-                                "asinImpressionCount": impression_data.get(
-                                    "asinImpressionCount"
-                                ),
-                                "asinImpressionShare": impression_data.get(
-                                    "asinImpressionShare"
-                                ),
+                                "totalQueryImpressionCount": impression_data.get("totalQueryImpressionCount"),
+                                "asinImpressionCount": impression_data.get("asinImpressionCount"),
+                                "asinImpressionShare": impression_data.get("asinImpressionShare"),
                             }
                         )
 
@@ -1485,21 +1443,11 @@ class EWAHAmazonSellerCentralHook(EWAHBaseHook):
                                 "totalClickRate": click_data.get("totalClickRate"),
                                 "asinClickCount": click_data.get("asinClickCount"),
                                 "asinClickShare": click_data.get("asinClickShare"),
-                                "totalMedianClickPrice": click_data.get(
-                                    "totalMedianClickPrice"
-                                ),
-                                "asinMedianClickPrice": click_data.get(
-                                    "asinMedianClickPrice"
-                                ),
-                                "totalSameDayShippingClickCount": click_data.get(
-                                    "totalSameDayShippingClickCount"
-                                ),
-                                "totalOneDayShippingClickCount": click_data.get(
-                                    "totalOneDayShippingClickCount"
-                                ),
-                                "totalTwoDayShippingClickCount": click_data.get(
-                                    "totalTwoDayShippingClickCount"
-                                ),
+                                "totalMedianClickPrice": click_data.get("totalMedianClickPrice"),
+                                "asinMedianClickPrice": click_data.get("asinMedianClickPrice"),
+                                "totalSameDayShippingClickCount": click_data.get("totalSameDayShippingClickCount"),
+                                "totalOneDayShippingClickCount": click_data.get("totalOneDayShippingClickCount"),
+                                "totalTwoDayShippingClickCount": click_data.get("totalTwoDayShippingClickCount"),
                             }
                         )
 
@@ -1508,33 +1456,15 @@ class EWAHAmazonSellerCentralHook(EWAHBaseHook):
                     if cart_add_data:
                         flattened_row.update(
                             {
-                                "totalCartAddCount": cart_add_data.get(
-                                    "totalCartAddCount"
-                                ),
-                                "totalCartAddRate": cart_add_data.get(
-                                    "totalCartAddRate"
-                                ),
-                                "asinCartAddCount": cart_add_data.get(
-                                    "asinCartAddCount"
-                                ),
-                                "asinCartAddShare": cart_add_data.get(
-                                    "asinCartAddShare"
-                                ),
-                                "totalMedianCartAddPrice": cart_add_data.get(
-                                    "totalMedianCartAddPrice"
-                                ),
-                                "asinMedianCartAddPrice": cart_add_data.get(
-                                    "asinMedianCartAddPrice"
-                                ),
-                                "totalSameDayShippingCartAddCount": cart_add_data.get(
-                                    "totalSameDayShippingCartAddCount"
-                                ),
-                                "totalOneDayShippingCartAddCount": cart_add_data.get(
-                                    "totalOneDayShippingCartAddCount"
-                                ),
-                                "totalTwoDayShippingCartAddCount": cart_add_data.get(
-                                    "totalTwoDayShippingCartAddCount"
-                                ),
+                                "totalCartAddCount": cart_add_data.get("totalCartAddCount"),
+                                "totalCartAddRate": cart_add_data.get("totalCartAddRate"),
+                                "asinCartAddCount": cart_add_data.get("asinCartAddCount"),
+                                "asinCartAddShare": cart_add_data.get("asinCartAddShare"),
+                                "totalMedianCartAddPrice": cart_add_data.get("totalMedianCartAddPrice"),
+                                "asinMedianCartAddPrice": cart_add_data.get("asinMedianCartAddPrice"),
+                                "totalSameDayShippingCartAddCount": cart_add_data.get("totalSameDayShippingCartAddCount"),
+                                "totalOneDayShippingCartAddCount": cart_add_data.get("totalOneDayShippingCartAddCount"),
+                                "totalTwoDayShippingCartAddCount": cart_add_data.get("totalTwoDayShippingCartAddCount"),
                             }
                         )
 
@@ -1543,33 +1473,15 @@ class EWAHAmazonSellerCentralHook(EWAHBaseHook):
                     if purchase_data:
                         flattened_row.update(
                             {
-                                "totalPurchaseCount": purchase_data.get(
-                                    "totalPurchaseCount"
-                                ),
-                                "totalPurchaseRate": purchase_data.get(
-                                    "totalPurchaseRate"
-                                ),
-                                "asinPurchaseCount": purchase_data.get(
-                                    "asinPurchaseCount"
-                                ),
-                                "asinPurchaseShare": purchase_data.get(
-                                    "asinPurchaseShare"
-                                ),
-                                "totalMedianPurchasePrice": purchase_data.get(
-                                    "totalMedianPurchasePrice"
-                                ),
-                                "asinMedianPurchasePrice": purchase_data.get(
-                                    "asinMedianPurchasePrice"
-                                ),
-                                "totalSameDayShippingPurchaseCount": purchase_data.get(
-                                    "totalSameDayShippingPurchaseCount"
-                                ),
-                                "totalOneDayShippingPurchaseCount": purchase_data.get(
-                                    "totalOneDayShippingPurchaseCount"
-                                ),
-                                "totalTwoDayShippingPurchaseCount": purchase_data.get(
-                                    "totalTwoDayShippingPurchaseCount"
-                                ),
+                                "totalPurchaseCount": purchase_data.get("totalPurchaseCount"),
+                                "totalPurchaseRate": purchase_data.get("totalPurchaseRate"),
+                                "asinPurchaseCount": purchase_data.get("asinPurchaseCount"),
+                                "asinPurchaseShare": purchase_data.get("asinPurchaseShare"),
+                                "totalMedianPurchasePrice": purchase_data.get("totalMedianPurchasePrice"),
+                                "asinMedianPurchasePrice": purchase_data.get("asinMedianPurchasePrice"),
+                                "totalSameDayShippingPurchaseCount": purchase_data.get("totalSameDayShippingPurchaseCount"),
+                                "totalOneDayShippingPurchaseCount": purchase_data.get("totalOneDayShippingPurchaseCount"),
+                                "totalTwoDayShippingPurchaseCount": purchase_data.get("totalTwoDayShippingPurchaseCount"),
                             }
                         )
 
