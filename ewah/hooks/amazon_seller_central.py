@@ -36,6 +36,9 @@ class EWAHAmazonSellerCentralHook(EWAHBaseHook):
     methods for authentication and getting the raw report contents.
     """
 
+    # Wait time between API requests for Brand Analytics reports (in seconds)
+    _WAIT_SECONDS_BRAND_ANALYTICS = 2
+
     # Allowed reports with the alias and various settings
     _REPORT_METADATA = {
         "orders": {
@@ -116,6 +119,17 @@ class EWAHAmazonSellerCentralHook(EWAHBaseHook):
             "report_options": {"reportPeriod": ["WEEK"]},
             "method_name": "get_brand_analytics_search_catalog_performance",
             "primary_key": ["asin", "startDate", "endDate"],
+            "subsequent_field": "endDate",
+            "accepted_strategies": [EC.ES_SUBSEQUENT],
+        },
+        "brand_analytics_search_query_performance": {
+            "report_type": "GET_BRAND_ANALYTICS_SEARCH_QUERY_PERFORMANCE_REPORT",
+            "report_options": {
+                "asin": [],
+                "reportPeriod": ["WEEK"],
+            },
+            "method_name": "get_brand_analytics_search_query_performance",
+            "primary_key": ["asin", "startDate", "endDate", "searchQuery"],
             "subsequent_field": "endDate",
             "accepted_strategies": [EC.ES_SUBSEQUENT],
         },
@@ -243,6 +257,55 @@ class EWAHAmazonSellerCentralHook(EWAHBaseHook):
     @staticmethod
     def _sign_msg(key, msg):
         return hmac.new(key, msg.encode("utf-8"), hashlib.sha256).digest()
+
+    @staticmethod
+    def _chunk_asins(asins, max_length=200):
+        """
+        Split a list of ASINs into chunks where each chunk (space-separated) is max max_length characters.
+
+        Args:
+            asins: List of ASIN strings
+            max_length: Maximum length for each space-separated ASIN list (default: 200)
+
+        Returns:
+            List of strings, where each string is a space-separated list of ASINs <= max_length chars
+        """
+        if not asins:
+            return []
+
+        chunks = []
+        current_chunk = []
+        current_length = 0
+
+        for asin in asins:
+            asin = str(asin).strip()
+            if not asin:
+                continue
+
+            # Calculate length needed: ASIN + space (if not first in chunk)
+            space_needed = 1 if current_chunk else 0
+            asin_length = len(asin)
+
+            # If adding this ASIN would exceed max_length, start a new chunk
+            if current_length + space_needed + asin_length > max_length:
+                if current_chunk:
+                    chunks.append(" ".join(current_chunk))
+                    current_chunk = []
+                    current_length = 0
+                else:
+                    # Single ASIN is too long - add it anyway (shouldn't happen for valid ASINs)
+                    chunks.append(asin)
+                    continue
+
+            # Add ASIN to current chunk
+            current_chunk.append(asin)
+            current_length += space_needed + asin_length
+
+        # Add the last chunk if it has any ASINs
+        if current_chunk:
+            chunks.append(" ".join(current_chunk))
+
+        return chunks
 
     @property
     def access_token(self):
@@ -458,6 +521,9 @@ class EWAHAmazonSellerCentralHook(EWAHBaseHook):
             available_options = report_metadata.get("report_options", {})
             assert isinstance(report_options, dict), "report_options must be a dic!"
             for option, value in report_options.items():
+                # ASIN is a dynamic list of strings, therefore we can not do a proper validation
+                if option == "asin":
+                    continue
                 assert (
                     option in available_options.keys()
                 ), f"Invalid report option '{option}'!"
@@ -971,6 +1037,15 @@ class EWAHAmazonSellerCentralHook(EWAHBaseHook):
             ) % 7  # Calculate days since last Saturday
             last_saturday = today - timedelta(days=days_since_saturday)
 
+        # Check if there's a valid date range (start must be before or equal to last_saturday)
+        if start_date > last_saturday:
+            self.log.warning(
+                f"No complete weeks available yet. Start date {start_date.strftime('%Y-%m-%d')} "
+                f"is after last available Saturday {last_saturday.strftime('%Y-%m-%d')}. "
+                f"Waiting for the week to complete."
+            )
+            return
+
         self.log.info(
             f"Fetching weekly data from {start_date.strftime('%Y-%m-%d')} to {last_saturday.strftime('%Y-%m-%d')}"
         )
@@ -1053,6 +1128,7 @@ class EWAHAmazonSellerCentralHook(EWAHBaseHook):
             data = []
             i = 0
             for item in raw_data:
+                # fmt: off
                 # Extract top-level fields
                 flattened_row = {
                     "startDate": item.get("startDate"),
@@ -1066,18 +1142,10 @@ class EWAHAmazonSellerCentralHook(EWAHBaseHook):
                     flattened_row.update(
                         {
                             "impressionCount": impression_data.get("impressionCount"),
-                            "impressionMedianPrice": impression_data.get(
-                                "impressionMedianPrice"
-                            ),
-                            "sameDayShippingImpressionCount": impression_data.get(
-                                "sameDayShippingImpressionCount"
-                            ),
-                            "oneDayShippingImpressionCount": impression_data.get(
-                                "oneDayShippingImpressionCount"
-                            ),
-                            "twoDayShippingImpressionCount": impression_data.get(
-                                "twoDayShippingImpressionCount"
-                            ),
+                            "impressionMedianPrice": impression_data.get("impressionMedianPrice"),
+                            "sameDayShippingImpressionCount": impression_data.get("sameDayShippingImpressionCount"),
+                            "oneDayShippingImpressionCount": impression_data.get("oneDayShippingImpressionCount"),
+                            "twoDayShippingImpressionCount": impression_data.get("twoDayShippingImpressionCount"),
                         }
                     )
 
@@ -1089,15 +1157,9 @@ class EWAHAmazonSellerCentralHook(EWAHBaseHook):
                             "clickCount": click_data.get("clickCount"),
                             "clickRate": click_data.get("clickRate"),
                             "clickedMedianPrice": click_data.get("clickedMedianPrice"),
-                            "sameDayShippingClickCount": click_data.get(
-                                "sameDayShippingClickCount"
-                            ),
-                            "oneDayShippingClickCount": click_data.get(
-                                "oneDayShippingClickCount"
-                            ),
-                            "twoDayShippingClickCount": click_data.get(
-                                "twoDayShippingClickCount"
-                            ),
+                            "sameDayShippingClickCount": click_data.get("sameDayShippingClickCount"),
+                            "oneDayShippingClickCount": click_data.get("oneDayShippingClickCount"),
+                            "twoDayShippingClickCount": click_data.get("twoDayShippingClickCount"),
                         }
                     )
 
@@ -1107,18 +1169,10 @@ class EWAHAmazonSellerCentralHook(EWAHBaseHook):
                     flattened_row.update(
                         {
                             "cartAddCount": cart_add_data.get("cartAddCount"),
-                            "cartAddedMedianPrice": cart_add_data.get(
-                                "cartAddedMedianPrice"
-                            ),
-                            "sameDayShippingCartAddCount": cart_add_data.get(
-                                "sameDayShippingCartAddCount"
-                            ),
-                            "oneDayShippingCartAddCount": cart_add_data.get(
-                                "oneDayShippingCartAddCount"
-                            ),
-                            "twoDayShippingCartAddCount": cart_add_data.get(
-                                "twoDayShippingCartAddCount"
-                            ),
+                            "cartAddedMedianPrice": cart_add_data.get("cartAddedMedianPrice"),
+                            "sameDayShippingCartAddCount": cart_add_data.get("sameDayShippingCartAddCount"),
+                            "oneDayShippingCartAddCount": cart_add_data.get("oneDayShippingCartAddCount"),
+                            "twoDayShippingCartAddCount": cart_add_data.get("twoDayShippingCartAddCount"),
                         }
                     )
 
@@ -1128,25 +1182,15 @@ class EWAHAmazonSellerCentralHook(EWAHBaseHook):
                     flattened_row.update(
                         {
                             "purchaseCount": purchase_data.get("purchaseCount"),
-                            "searchTrafficSales": purchase_data.get(
-                                "searchTrafficSales"
-                            ),
+                            "searchTrafficSales": purchase_data.get("searchTrafficSales"),
                             "conversionRate": purchase_data.get("conversionRate"),
-                            "purchaseMedianPrice": purchase_data.get(
-                                "purchaseMedianPrice"
-                            ),
-                            "sameDayShippingPurchaseCount": purchase_data.get(
-                                "sameDayShippingPurchaseCount"
-                            ),
-                            "oneDayShippingPurchaseCount": purchase_data.get(
-                                "oneDayShippingPurchaseCount"
-                            ),
-                            "twoDayShippingPurchaseCount": purchase_data.get(
-                                "twoDayShippingPurchaseCount"
-                            ),
+                            "purchaseMedianPrice": purchase_data.get("purchaseMedianPrice"),
+                            "sameDayShippingPurchaseCount": purchase_data.get("sameDayShippingPurchaseCount"),
+                            "oneDayShippingPurchaseCount": purchase_data.get("oneDayShippingPurchaseCount"),
+                            "twoDayShippingPurchaseCount": purchase_data.get("twoDayShippingPurchaseCount"),
                         }
                     )
-
+                # fmt: on
                 data.append(flattened_row)
                 i += 1
 
@@ -1168,8 +1212,314 @@ class EWAHAmazonSellerCentralHook(EWAHBaseHook):
 
             # Add a small delay between weekly requests to respect API rate limits
             if current_sunday <= last_saturday:
-                self.log.info("Waiting 2 seconds before processing next week...")
-                time.sleep(2)
+                self.log.info(f"Waiting {self._WAIT_SECONDS_BRAND_ANALYTICS} seconds before processing next week...")
+                time.sleep(self._WAIT_SECONDS_BRAND_ANALYTICS)
+
+    def get_brand_analytics_search_query_performance(
+        self,
+        marketplace_region,
+        report_name,
+        data_from,
+        data_until,
+        report_options=None,
+        ewah_options=None,
+        batch_size=10000,
+    ):
+        """Fetch Brand Analytics Search Query Performance Report from Amazon Seller Central.
+
+        This report provides insights into search query performance for brand analytics.
+        Only WEEK reportPeriod is supported.
+
+        Requirements:
+        - Requests must include reportPeriod=WEEK in the reportsOptions
+        - Requests must include asin (list of ASINs) in the reportsOptions
+        - ASINs are chunked into space-separated strings (max 200 chars per chunk)
+        - Use dataStartTime and dataEndTime parameters to specify date boundaries
+        - If the first date (data_from) is not a Sunday, move it forward to the next available Sunday.
+        """
+        self.log.info("Fetching Brand Analytics Search Query Performance Report...")
+
+        # Ensure report_options is a dictionary
+        if report_options is None:
+            report_options = {}
+
+        # Get ASINs from report_options - must be a list of ASIN strings
+        asins = report_options.get("asin")
+
+        if asins is None:
+            raise ValueError(
+                "asin must be specified in report_options for Brand Analytics Search Query Performance Report"
+            )
+
+        # Handle both single ASIN string, space-separated string, and list of ASINs
+        if isinstance(asins, str):
+            # Split by whitespace in case it's a space-separated string of ASINs
+            asins = asins.split()
+        elif not isinstance(asins, list):
+            raise ValueError(
+                f"asin must be a string or list of strings. Got: {type(asins)}"
+            )
+
+        # Chunk ASINs into space-separated strings respecting 200 char limit
+        asin_chunks = self._chunk_asins(asins, max_length=200)
+
+        if not asin_chunks:
+            raise ValueError("No valid ASINs provided in report_options")
+
+        self.log.info(f"Processing {len(asins)} ASINs in {len(asin_chunks)} chunk(s)")
+
+        # Validate that reportPeriod is provided
+        if "reportPeriod" not in report_options:
+            raise ValueError(
+                "reportPeriod must be specified in report_options for Brand Analytics Search Query Performance Report"
+            )
+
+        report_period = report_options["reportPeriod"]
+
+        # Validate reportPeriod
+        if report_period != "WEEK":
+            raise ValueError(
+                f"Only reportPeriod=WEEK is supported. Got: {report_period}"
+            )
+
+        # Normalize data_from to date object if it's a datetime
+        if isinstance(data_from, datetime):
+            data_from = data_from.date()
+
+        # Handle date_from: Weekly reports need to start on a Sunday,
+        # so adjust to next Sunday if not already a Sunday
+        original_date = data_from
+        if data_from.weekday() != 6:  # Not Sunday
+            # Calculate days until next Sunday
+            # weekday: 0=Mon, 1=Tue, 2=Wed, 3=Thu, 4=Fri, 5=Sat, 6=Sun
+            days_until_sunday = 6 - data_from.weekday()
+            data_from = data_from + timedelta(days=days_until_sunday)
+            self.log.info(
+                f"Adjusted data_from from {original_date.strftime('%Y-%m-%d')} "
+                f"({original_date.strftime('%A')}) to next Sunday: {data_from.strftime('%Y-%m-%d')}"
+            )
+
+        # Set up weekly data fetching
+        start_date = data_from
+
+        # Calculate the last available Saturday
+        today = date.today()
+        if today.weekday() == 5:  # Today is Saturday
+            last_saturday = today
+        else:  # Find the most recent Saturday
+            days_since_saturday = (
+                today.weekday() + 2
+            ) % 7  # Calculate days since last Saturday
+            last_saturday = today - timedelta(days=days_since_saturday)
+
+        # Check if there's a valid date range (start must be before or equal to last_saturday)
+        if start_date > last_saturday:
+            self.log.warning(
+                f"No complete weeks available yet. Start date {start_date.strftime('%Y-%m-%d')} "
+                f"is after last available Saturday {last_saturday.strftime('%Y-%m-%d')}. "
+                f"Waiting for the week to complete."
+            )
+            return
+
+        self.log.info(
+            f"Fetching weekly data from {start_date.strftime('%Y-%m-%d')} to {last_saturday.strftime('%Y-%m-%d')}"
+        )
+
+        # Process each week from start_date to last_saturday
+        current_sunday = start_date
+        while current_sunday <= last_saturday:
+            current_saturday = current_sunday + timedelta(days=6)
+
+            # End if this week would go beyond our end date
+            if current_saturday > last_saturday:
+                break
+
+            self.log.info(
+                f"Processing week: {current_sunday.strftime('%Y-%m-%d')} to {current_saturday.strftime('%Y-%m-%d')}"
+            )
+
+            # Process each ASIN chunk for this week
+            for chunk_idx, asin_chunk in enumerate(asin_chunks):
+                self.log.info(
+                    f"Processing ASIN chunk {chunk_idx + 1}/{len(asin_chunks)} for week {current_sunday.strftime('%Y-%m-%d')}:"
+                )
+                self.log.info(f"ASINs: {asin_chunk}")
+
+                # Create report options with this chunk's ASINs (space-separated string)
+                chunk_report_options = report_options.copy()
+                chunk_report_options["asin"] = asin_chunk
+
+                # Process the report data as JSON for this week and ASIN chunk
+                max_retries = 5
+                base_delay = 30
+                data_raw = None
+
+                try:
+                    for attempt in range(max_retries):
+                        try:
+                            data_raw = (
+                                self.get_report_data(
+                                    marketplace_region,
+                                    report_name,
+                                    current_sunday,
+                                    current_saturday,
+                                    chunk_report_options,
+                                )
+                                or b""
+                            ).decode()
+                            # Success - break out of retry loop
+                            break
+                        except (AssertionError, Exception) as e:
+                            error_text = str(e)
+                            # Check if it's a QuotaExceeded error (can occur at any stage of get_report_data)
+                            is_quota_error = (
+                                "QuotaExceeded" in error_text
+                                or "quota" in error_text.lower()
+                            )
+
+                            if is_quota_error and attempt < max_retries - 1:
+                                # Exponential backoff: delay = base_delay * (2^attempt)
+                                delay = base_delay * (2**attempt)
+                                self.log.warning(
+                                    f"Quota exceeded for week {current_sunday.strftime('%Y-%m-%d')} to {current_saturday.strftime('%Y-%m-%d')}, chunk {chunk_idx + 1}. "
+                                    f"Attempt {attempt + 1}/{max_retries}. Waiting {delay} seconds before retry..."
+                                )
+                                time.sleep(delay)
+                                continue
+                            # If max retries exceeded or non-quota error, raise
+                            raise
+                except Exception as e:
+                    # We assume that if the error is FATAL, it is because the report is not available yet
+                    if "FATAL" in str(e):
+                        self.log.error(
+                            f"Fatal error encountered for week {current_sunday} to {current_saturday}, chunk {chunk_idx + 1}: {e}\n Skipping chunk..."
+                        )
+                        continue
+                    else:
+                        raise e
+
+                if not data_raw:
+                    self.log.info(
+                        f"No data returned for week {current_sunday} to {current_saturday}, chunk {chunk_idx + 1}"
+                    )
+                    continue
+
+                json_data = json.loads(data_raw)
+                raw_data = json_data.get("dataByAsin", [])
+
+                # Process and flatten the data for this week and chunk
+                data = []
+                i = 0
+                for item in raw_data:
+                    # fmt: off
+                    # Extract top-level fields
+                    flattened_row = {
+                        "startDate": item.get("startDate"),
+                        "endDate": item.get("endDate"),
+                        "asin": item.get("asin"),
+                    }
+
+                    # Flatten searchQueryData fields
+                    search_query_data = item.get("searchQueryData", {})
+                    if search_query_data:
+                        flattened_row.update(
+                            {
+                                "searchQuery": search_query_data.get("searchQuery"),
+                                "searchQueryScore": search_query_data.get("searchQueryScore"),
+                                "searchQueryVolume": search_query_data.get("searchQueryVolume"),
+                            }
+                        )
+
+                    # Flatten impressionData fields
+                    impression_data = item.get("impressionData", {})
+                    if impression_data:
+                        flattened_row.update(
+                            {
+                                "totalQueryImpressionCount": impression_data.get("totalQueryImpressionCount"),
+                                "asinImpressionCount": impression_data.get("asinImpressionCount"),
+                                "asinImpressionShare": impression_data.get("asinImpressionShare"),
+                            }
+                        )
+
+                    # Flatten clickData fields
+                    click_data = item.get("clickData", {})
+                    if click_data:
+                        flattened_row.update(
+                            {
+                                "totalClickCount": click_data.get("totalClickCount"),
+                                "totalClickRate": click_data.get("totalClickRate"),
+                                "asinClickCount": click_data.get("asinClickCount"),
+                                "asinClickShare": click_data.get("asinClickShare"),
+                                "totalMedianClickPrice": click_data.get("totalMedianClickPrice"),
+                                "asinMedianClickPrice": click_data.get("asinMedianClickPrice"),
+                                "totalSameDayShippingClickCount": click_data.get("totalSameDayShippingClickCount"),
+                                "totalOneDayShippingClickCount": click_data.get("totalOneDayShippingClickCount"),
+                                "totalTwoDayShippingClickCount": click_data.get("totalTwoDayShippingClickCount"),
+                            }
+                        )
+
+                    # Flatten cartAddData fields
+                    cart_add_data = item.get("cartAddData", {})
+                    if cart_add_data:
+                        flattened_row.update(
+                            {
+                                "totalCartAddCount": cart_add_data.get("totalCartAddCount"),
+                                "totalCartAddRate": cart_add_data.get("totalCartAddRate"),
+                                "asinCartAddCount": cart_add_data.get("asinCartAddCount"),
+                                "asinCartAddShare": cart_add_data.get("asinCartAddShare"),
+                                "totalMedianCartAddPrice": cart_add_data.get("totalMedianCartAddPrice"),
+                                "asinMedianCartAddPrice": cart_add_data.get("asinMedianCartAddPrice"),
+                                "totalSameDayShippingCartAddCount": cart_add_data.get("totalSameDayShippingCartAddCount"),
+                                "totalOneDayShippingCartAddCount": cart_add_data.get("totalOneDayShippingCartAddCount"),
+                                "totalTwoDayShippingCartAddCount": cart_add_data.get("totalTwoDayShippingCartAddCount"),
+                            }
+                        )
+
+                    # Flatten purchaseData fields
+                    purchase_data = item.get("purchaseData", {})
+                    if purchase_data:
+                        flattened_row.update(
+                            {
+                                "totalPurchaseCount": purchase_data.get("totalPurchaseCount"),
+                                "totalPurchaseRate": purchase_data.get("totalPurchaseRate"),
+                                "asinPurchaseCount": purchase_data.get("asinPurchaseCount"),
+                                "asinPurchaseShare": purchase_data.get("asinPurchaseShare"),
+                                "totalMedianPurchasePrice": purchase_data.get("totalMedianPurchasePrice"),
+                                "asinMedianPurchasePrice": purchase_data.get("asinMedianPurchasePrice"),
+                                "totalSameDayShippingPurchaseCount": purchase_data.get("totalSameDayShippingPurchaseCount"),
+                                "totalOneDayShippingPurchaseCount": purchase_data.get("totalOneDayShippingPurchaseCount"),
+                                "totalTwoDayShippingPurchaseCount": purchase_data.get("totalTwoDayShippingPurchaseCount"),
+                            }
+                        )
+                    # fmt: on
+                    data.append(flattened_row)
+                    i += 1
+
+                    if i == batch_size:
+                        yield data
+                        i = 0
+                        data = []
+
+                if data:
+                    yield data
+
+                # Add a small delay between chunk requests to respect API rate limits
+                if chunk_idx < len(asin_chunks) - 1:
+                    self.log.info(f"Waiting {self._WAIT_SECONDS_BRAND_ANALYTICS} seconds before processing next chunk...")
+                    time.sleep(self._WAIT_SECONDS_BRAND_ANALYTICS)
+
+            # Log completion before moving to next week
+            self.log.info(
+                f"Retrieved report for week {current_sunday.strftime('%Y-%m-%d')} to {current_saturday.strftime('%Y-%m-%d')}"
+            )
+
+            # Move to next week
+            current_sunday += timedelta(days=7)
+
+            # Add a small delay between weekly requests to respect API rate limits
+            if current_sunday <= last_saturday:
+                self.log.info(f"Waiting {self._WAIT_SECONDS_BRAND_ANALYTICS} seconds before processing next week...")
+                time.sleep(self._WAIT_SECONDS_BRAND_ANALYTICS)
 
     def get_settlement_report_v2_data(
         self,
