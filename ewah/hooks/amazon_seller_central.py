@@ -129,7 +129,7 @@ class EWAHAmazonSellerCentralHook(EWAHBaseHook):
                 "reportPeriod": ["WEEK"],
             },
             "method_name": "get_brand_analytics_search_query_performance",
-            "primary_key": ["asin", "startDate", "endDate"],
+            "primary_key": ["asin", "startDate", "endDate", "searchQuery"],
             "subsequent_field": "endDate",
             "accepted_strategies": [EC.ES_SUBSEQUENT],
         },
