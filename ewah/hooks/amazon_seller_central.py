@@ -36,6 +36,9 @@ class EWAHAmazonSellerCentralHook(EWAHBaseHook):
     methods for authentication and getting the raw report contents.
     """
 
+    # Wait time between API requests for Brand Analytics reports (in seconds)
+    _WAIT_SECONDS_BRAND_ANALYTICS = 2
+
     # Allowed reports with the alias and various settings
     _REPORT_METADATA = {
         "orders": {
@@ -113,7 +116,7 @@ class EWAHAmazonSellerCentralHook(EWAHBaseHook):
         },
         "brand_analytics_search_catalog_performance": {
             "report_type": "GET_BRAND_ANALYTICS_SEARCH_CATALOG_PERFORMANCE_REPORT",
-            "report_options": {"reportPeriod": ["WEEK", "MONTH", "QUARTER"]},
+            "report_options": {"reportPeriod": ["WEEK"]},
             "method_name": "get_brand_analytics_search_catalog_performance",
             "primary_key": ["asin", "startDate", "endDate"],
             "subsequent_field": "endDate",
@@ -123,7 +126,7 @@ class EWAHAmazonSellerCentralHook(EWAHBaseHook):
             "report_type": "GET_BRAND_ANALYTICS_SEARCH_QUERY_PERFORMANCE_REPORT",
             "report_options": {
                 "asin": [],
-                "reportPeriod": ["WEEK", "MONTH", "QUARTER"],
+                "reportPeriod": ["WEEK"],
             },
             "method_name": "get_brand_analytics_search_query_performance",
             "primary_key": ["asin", "startDate", "endDate"],
@@ -938,15 +941,19 @@ class EWAHAmazonSellerCentralHook(EWAHBaseHook):
         else:
             self.log.info(f"Using provided data_from: {data_from}")
 
-        data_io = StringIO(
-            self.get_report_data(
-                marketplace_region,
-                report_name,
-                data_from,
-                data_until,
-                report_options,
-            ).decode("latin-1")
+        document_content = self.get_report_data(
+            marketplace_region,
+            report_name,
+            data_from,
+            data_until,
+            report_options,
         )
+
+        if document_content is None:
+            self.log.warning("No document content returned")
+            return
+
+        data_io = StringIO(document_content.decode("latin-1"))
         csv_reader = csv.DictReader(data_io, delimiter="\t")
         data = []
         i = 0
@@ -1121,6 +1128,7 @@ class EWAHAmazonSellerCentralHook(EWAHBaseHook):
             data = []
             i = 0
             for item in raw_data:
+                # fmt: off
                 # Extract top-level fields
                 flattened_row = {
                     "startDate": item.get("startDate"),
@@ -1182,7 +1190,7 @@ class EWAHAmazonSellerCentralHook(EWAHBaseHook):
                             "twoDayShippingPurchaseCount": purchase_data.get("twoDayShippingPurchaseCount"),
                         }
                     )
-
+                # fmt: on
                 data.append(flattened_row)
                 i += 1
 
@@ -1204,10 +1212,8 @@ class EWAHAmazonSellerCentralHook(EWAHBaseHook):
 
             # Add a small delay between weekly requests to respect API rate limits
             if current_sunday <= last_saturday:
-                self.log.info("Waiting 2 seconds before processing next week...")
-                time.sleep(2)
-
-            print(f"Retrieved report for week {current_sunday} to {current_saturday}\n")
+                self.log.info(f"Waiting {self._WAIT_SECONDS_BRAND_ANALYTICS} seconds before processing next week...")
+                time.sleep(self._WAIT_SECONDS_BRAND_ANALYTICS)
 
     def get_brand_analytics_search_query_performance(
         self,
@@ -1405,6 +1411,7 @@ class EWAHAmazonSellerCentralHook(EWAHBaseHook):
                 data = []
                 i = 0
                 for item in raw_data:
+                    # fmt: off
                     # Extract top-level fields
                     flattened_row = {
                         "startDate": item.get("startDate"),
@@ -1484,7 +1491,7 @@ class EWAHAmazonSellerCentralHook(EWAHBaseHook):
                                 "totalTwoDayShippingPurchaseCount": purchase_data.get("totalTwoDayShippingPurchaseCount"),
                             }
                         )
-
+                    # fmt: on
                     data.append(flattened_row)
                     i += 1
 
@@ -1498,8 +1505,8 @@ class EWAHAmazonSellerCentralHook(EWAHBaseHook):
 
                 # Add a small delay between chunk requests to respect API rate limits
                 if chunk_idx < len(asin_chunks) - 1:
-                    self.log.info("Waiting 2 seconds before processing next chunk...")
-                    time.sleep(2)
+                    self.log.info(f"Waiting {self._WAIT_SECONDS_BRAND_ANALYTICS} seconds before processing next chunk...")
+                    time.sleep(self._WAIT_SECONDS_BRAND_ANALYTICS)
 
             # Log completion before moving to next week
             self.log.info(
@@ -1511,10 +1518,8 @@ class EWAHAmazonSellerCentralHook(EWAHBaseHook):
 
             # Add a small delay between weekly requests to respect API rate limits
             if current_sunday <= last_saturday:
-                self.log.info("Waiting 2 seconds before processing next week...")
-                time.sleep(2)
-
-            print(f"Retrieved report for week {current_sunday} to {current_saturday}\n")
+                self.log.info(f"Waiting {self._WAIT_SECONDS_BRAND_ANALYTICS} seconds before processing next week...")
+                time.sleep(self._WAIT_SECONDS_BRAND_ANALYTICS)
 
     def get_settlement_report_v2_data(
         self,
