@@ -1027,15 +1027,60 @@ class EWAHAmazonSellerCentralHook(EWAHBaseHook):
         # Set up weekly data fetching
         start_date = data_from
 
-        # Calculate the last available Saturday
+        # Calculate the max available Saturday (based on today) - can't fetch future data
         today = date.today()
         if today.weekday() == 5:  # Today is Saturday
-            last_saturday = today
+            max_available_saturday = today
         else:  # Find the most recent Saturday
             days_since_saturday = (
                 today.weekday() + 2
             ) % 7  # Calculate days since last Saturday
-            last_saturday = today - timedelta(days=days_since_saturday)
+            max_available_saturday = today - timedelta(days=days_since_saturday)
+
+        # Handle data_until: Weekly reports need to end on a Saturday
+        if data_until is not None:
+            # Normalize data_until to date object if it's a datetime
+            if isinstance(data_until, datetime):
+                data_until = data_until.date()
+
+            original_until = data_until
+            if data_until.weekday() != 5:  # Not Saturday
+                # Calculate days until next Saturday
+                # weekday: 0=Mon, 1=Tue, 2=Wed, 3=Thu, 4=Fri, 5=Sat, 6=Sun
+                days_until_saturday = (5 - data_until.weekday()) % 7
+                if days_until_saturday == 0:
+                    days_until_saturday = 7
+                next_saturday = data_until + timedelta(days=days_until_saturday)
+
+                # If next Saturday would be in the future, adjust backward instead
+                if next_saturday > max_available_saturday:
+                    # Calculate days since last Saturday
+                    days_since_saturday = (data_until.weekday() + 2) % 7
+                    if days_since_saturday == 0:
+                        days_since_saturday = 7
+                    data_until = data_until - timedelta(days=days_since_saturday)
+                    self.log.info(
+                        f"Adjusted data_until from {original_until.strftime('%Y-%m-%d')} "
+                        f"({original_until.strftime('%A')}) to previous Saturday: {data_until.strftime('%Y-%m-%d')}"
+                    )
+                else:
+                    data_until = next_saturday
+                    self.log.info(
+                        f"Adjusted data_until from {original_until.strftime('%Y-%m-%d')} "
+                        f"({original_until.strftime('%A')}) to next Saturday: {data_until.strftime('%Y-%m-%d')}"
+                    )
+
+            # Final cap at max available Saturday (in case data_until itself was a future Saturday)
+            if data_until > max_available_saturday:
+                self.log.info(
+                    f"Capping data_until from {data_until.strftime('%Y-%m-%d')} "
+                    f"to max available Saturday: {max_available_saturday.strftime('%Y-%m-%d')}"
+                )
+                data_until = max_available_saturday
+
+            last_saturday = data_until
+        else:
+            last_saturday = max_available_saturday
 
         # Check if there's a valid date range (start must be before or equal to last_saturday)
         if start_date > last_saturday:
@@ -1302,15 +1347,60 @@ class EWAHAmazonSellerCentralHook(EWAHBaseHook):
         # Set up weekly data fetching
         start_date = data_from
 
-        # Calculate the last available Saturday
+        # Calculate the max available Saturday (based on today) - can't fetch future data
         today = date.today()
         if today.weekday() == 5:  # Today is Saturday
-            last_saturday = today
+            max_available_saturday = today
         else:  # Find the most recent Saturday
             days_since_saturday = (
                 today.weekday() + 2
             ) % 7  # Calculate days since last Saturday
-            last_saturday = today - timedelta(days=days_since_saturday)
+            max_available_saturday = today - timedelta(days=days_since_saturday)
+
+        # Handle data_until: Weekly reports need to end on a Saturday
+        if data_until is not None:
+            # Normalize data_until to date object if it's a datetime
+            if isinstance(data_until, datetime):
+                data_until = data_until.date()
+
+            original_until = data_until
+            if data_until.weekday() != 5:  # Not Saturday
+                # Calculate days until next Saturday
+                # weekday: 0=Mon, 1=Tue, 2=Wed, 3=Thu, 4=Fri, 5=Sat, 6=Sun
+                days_until_saturday = (5 - data_until.weekday()) % 7
+                if days_until_saturday == 0:
+                    days_until_saturday = 7
+                next_saturday = data_until + timedelta(days=days_until_saturday)
+
+                # If next Saturday would be in the future, adjust backward instead
+                if next_saturday > max_available_saturday:
+                    # Calculate days since last Saturday
+                    days_since_saturday = (data_until.weekday() + 2) % 7
+                    if days_since_saturday == 0:
+                        days_since_saturday = 7
+                    data_until = data_until - timedelta(days=days_since_saturday)
+                    self.log.info(
+                        f"Adjusted data_until from {original_until.strftime('%Y-%m-%d')} "
+                        f"({original_until.strftime('%A')}) to previous Saturday: {data_until.strftime('%Y-%m-%d')}"
+                    )
+                else:
+                    data_until = next_saturday
+                    self.log.info(
+                        f"Adjusted data_until from {original_until.strftime('%Y-%m-%d')} "
+                        f"({original_until.strftime('%A')}) to next Saturday: {data_until.strftime('%Y-%m-%d')}"
+                    )
+
+            # Final cap at max available Saturday (in case data_until itself was a future Saturday)
+            if data_until > max_available_saturday:
+                self.log.info(
+                    f"Capping data_until from {data_until.strftime('%Y-%m-%d')} "
+                    f"to max available Saturday: {max_available_saturday.strftime('%Y-%m-%d')}"
+                )
+                data_until = max_available_saturday
+
+            last_saturday = data_until
+        else:
+            last_saturday = max_available_saturday
 
         # Check if there's a valid date range (start must be before or equal to last_saturday)
         if start_date > last_saturday:
