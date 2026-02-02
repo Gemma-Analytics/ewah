@@ -77,8 +77,9 @@ class EWAHHubspotHook(EWAHBaseHook):
         ],
         "properties": [],
         "owners": [],
-        # Required object pipelines can be specified as an association for the pipelines
-        # object in the DAG config
+        # Required object pipelines need to be specified as an association for the pipelines
+        # object in the DAG config. Giving the "all" value for associations of this object
+        # or giving no value at all will not load any pipeline and will result in an assertion error.
         "pipelines": [],
         "engagements": [
             "companies",
