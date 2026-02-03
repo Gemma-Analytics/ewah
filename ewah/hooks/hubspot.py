@@ -77,6 +77,9 @@ class EWAHHubspotHook(EWAHBaseHook):
         ],
         "properties": [],
         "owners": [],
+        # Required object pipelines need to be specified as an association for the pipelines
+        # object in the DAG config. Giving the "all" value for associations of this object
+        # or giving no value at all will not load any pipeline and will result in an assertion error.
         "pipelines": [],
         "engagements": [
             "companies",
@@ -206,11 +209,11 @@ class EWAHHubspotHook(EWAHBaseHook):
 
         if object in ("properties", "pipelines"):
             # Special case: not a normal object
-            assert not associations
             assert not properties
             assert not exclude_properties
 
             if object == "properties":
+                assert not associations
                 url_object_raw = self.PROPERTIES_URL
                 object_list = [  # engagements is OK! but only get them once
                     o
@@ -226,8 +229,12 @@ class EWAHHubspotHook(EWAHBaseHook):
                     )
                 ]
             elif object == "pipelines":
+                assert associations
                 url_object_raw = self.PIPELINES_URL
-                object_list = ["tickets", "deals", "p3909618_milestones", "0-162"]
+                object_list = [i for i in associations]
+                self.log.info(f"Loading following pipelines: {associations}")
+                # clear associations from pipelines
+                associations = None
 
             params_object["objectType"] = object_list.pop(0)
             url_object = url_object_raw.format(params_object["objectType"])
