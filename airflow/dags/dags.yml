@@ -470,6 +470,7 @@ el_dags:
   EL_Personio:
     dag_strategy: atomic
     el_operator: personio
+    dwh_conn_id: dwh_postgres_audit
     target_schema_name: raw_personio
     operator_config:
       general_config:
