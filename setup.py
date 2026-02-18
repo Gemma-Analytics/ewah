@@ -29,7 +29,7 @@ setuptools.setup(
         "croniter",
         # cx_Oracle moved to extras_require - only available on amd64 (no ARM64 binaries)
         "facebook_business",
-        "google-ads>=25.2.0",
+        "google-ads>=29.1.0",
         "google-cloud-bigquery",
         "google-cloud-storage",
         "googlemaps",
@@ -51,14 +51,14 @@ setuptools.setup(
         "recurly",
         "selenium",
         "simple-salesforce",
-        
+
         # Snowflake connector dependencies (ref: https://stackoverflow.com/a/76463170)
         "snowflake-connector-python[pandas]",
         "pyarrow",
         "pandas",
         "sqlalchemy",
         "snowflake-sqlalchemy",
-        
+
         "sshtunnel>=0.2.2",
         "stripe<13.0.0",
         "virtualenv",
