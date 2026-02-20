@@ -539,6 +539,10 @@ class EWAHBaseOperator(BaseOperator):
         finally:
             self.uploader.close()
             del self.uploader
+            if hasattr(self, "source_hook") and callable(
+                getattr(self.source_hook, "close", None)
+            ):
+                self.source_hook.close()
 
     def test_if_target_table_exists(self):
         # TODO: move this function to uploader
