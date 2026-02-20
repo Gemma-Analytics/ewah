@@ -1,0 +1,41 @@
+name: Claude Code Review
+
+on:
+  pull_request:
+    types: [opened, synchronize]
+
+permissions:
+  id-token: write
+  contents: read
+  pull-requests: write
+  issues: write
+
+jobs:
+  review:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Generate GitHub App token
+        id: app-token
+        uses: actions/create-github-app-token@v2
+        with:
+          app-id: ${{ secrets.GEMMA_CLAUDE_ASSISTANT_APP_ID }}
+          private-key: ${{ secrets.GEMMA_CLAUDE_ASSISTANT_APP_PRIVATE_KEY }}
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.CLAUDE_CODE_ROLE_ARN }}
+          aws-region: eu-central-1
+
+      - name: Review PR
+        uses: anthropics/claude-code-action@v1
+        with:
+          github_token: ${{ steps.app-token.outputs.token }}
+          use_bedrock: "true"
+          prompt: |
+            /review
+            Additionally, check for compliance with CLAUDE.md, EWAH_ARCHITECTURE.md, and the version constraints (Airflow 2.3.x, Python 3.10).
+          claude_args: "--model eu.anthropic.claude-sonnet-4-6 --max-turns 5"
