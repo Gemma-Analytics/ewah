@@ -51,10 +51,15 @@ jobs:
             const file = '${{ steps.claude.outputs.execution_file }}';
             if (!fs.existsSync(file)) return;
 
-            const data = JSON.parse(fs.readFileSync(file, 'utf8'));
-            const cost = data.total_cost_usd ?? 0;
-            const turns = data.num_turns ?? 0;
-            const duration = data.duration_ms ? Math.round(data.duration_ms / 1000) : 0;
+            const messages = JSON.parse(fs.readFileSync(file, 'utf8'));
+            const result = Array.isArray(messages)
+              ? messages.find(m => m.type === 'result')
+              : messages;
+            if (!result) return;
+
+            const cost = result.total_cost_usd ?? 0;
+            const turns = result.num_turns ?? 0;
+            const duration = result.duration_ms ? Math.round(result.duration_ms / 1000) : 0;
 
             const body = `**Claude review cost:** \$${cost.toFixed(4)} · ${turns} turns · ${duration}s · \`eu.anthropic.claude-sonnet-4-6\``;
 
