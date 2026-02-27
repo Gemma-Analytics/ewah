@@ -12,10 +12,10 @@ permissions:
 
 jobs:
   review:
-    uses: Gemma-Analytics/.github/.github/workflows/claude.yml@main
+    uses: Gemma-Analytics/.github/.github/workflows/claude-review.yml@main
     with:
-      prompt: |
-        /review
-        Additionally, check for compliance with CLAUDE.md, EWAH_ARCHITECTURE.md, and the version constraints (Airflow 2.3.x, Python 3.10).
-      max_turns: "5"
+      additional_instructions: |
+        - Compliance with EWAH_ARCHITECTURE.md (component hierarchy, extract strategies, schema isolation)
+        - Airflow 2.3.x compatibility (no 2.4+ features like setup/teardown tasks, datasets, airflow.sdk imports)
+        - Python 3.10 compatibility (no 3.11+ features like ExceptionGroup, no 3.12+ type statement)
     secrets: inherit
