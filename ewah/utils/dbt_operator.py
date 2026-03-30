@@ -195,12 +195,7 @@ class EWAHdbtOperator(BaseOperator):
             else:
                 raise Exception("dbt_version must be a string or a list of strings!")
             self.log.info('Creating temp profile "{0}"'.format(profile_name))
-            profiles_yml = {
-                "config": {
-                    "send_anonymous_usage_stats": False,
-                    "use_colors": False,  # colors won't be useful in logs
-                },
-            }
+            profiles_yml = {}
             if self.dwh_engine == EC.DWH_ENGINE_POSTGRES:
                 mb_database = dwh_conn.schema
                 profiles_yml[profile_name] = {
