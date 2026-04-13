@@ -347,7 +347,8 @@ class EWAHHubspotHook(EWAHBaseHook):
                             )
                             if try_number >= retries:
                                 raise
-                        sleep(wait_for_seconds)
+                        if try_number < retries:
+                            sleep(wait_for_seconds)
                     assert request.status_code < 300, request.text
                     assert request.status_code >= 200, request.text
                     associations_data[association].update(
