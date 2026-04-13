@@ -312,18 +312,43 @@ class EWAHHubspotHook(EWAHBaseHook):
                     {"inputs": [{"id": str(datum["id"])} for datum in response_data]}
                 )
                 for association in associations:
-                    request = requests.post(
-                        assoc_url.format(
-                            fromObjectType=object,
-                            toObjectType=association,
-                        ),
-                        headers={
-                            "accept": "application/json",
-                            "content-type": "application/json",
-                            "authorization": "Bearer {0}".format(self.conn.api_key),
-                        },
-                        data=payload,
-                    )
+                    try_number = 0
+                    retries = 3
+                    wait_for_seconds = 30
+                    while try_number < retries:
+                        try_number += 1
+                        try:
+                            request = requests.post(
+                                assoc_url.format(
+                                    fromObjectType=object,
+                                    toObjectType=association,
+                                ),
+                                headers={
+                                    "accept": "application/json",
+                                    "content-type": "application/json",
+                                    "authorization": "Bearer {0}".format(self.conn.api_key),
+                                },
+                                data=payload,
+                            )
+                            # Bad requests are retried in the while loop
+                            if request.status_code >= 200 and request.status_code < 300:
+                                break
+                            self.log.info(
+                                "Status {0} - Waiting {2}s and trying again. Response:\n\n{1}".format(
+                                    request.status_code, request.text, wait_for_seconds
+                                )
+                            )
+                        # Connection errors are retried in the while loop
+                        except requests.exceptions.ConnectionError as e:
+                            self.log.info(
+                                "Connection error on attempt {0}/{1}: {2} - Waiting {3}s and trying again.".format(
+                                    try_number, retries, str(e), wait_for_seconds
+                                )
+                            )
+                            if try_number >= retries:
+                                raise
+                        if try_number < retries:
+                            sleep(wait_for_seconds)
                     assert request.status_code < 300, request.text
                     assert request.status_code >= 200, request.text
                     associations_data[association].update(
