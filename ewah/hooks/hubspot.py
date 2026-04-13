@@ -172,7 +172,7 @@ class EWAHHubspotHook(EWAHBaseHook):
         headers: Optional[dict] = None,
         expected_status_code: int = 200,
         retries: int = 3,
-        wait_for_seconds: int = 60,
+        wait_for_seconds: int = 30,
     ):
         # Every once in a while, the HubSpot API returns a 502 Bad Gateway
         # error. This appears to be random and related to HubSpot's server
@@ -181,15 +181,26 @@ class EWAHHubspotHook(EWAHBaseHook):
         try_number = 0
         while try_number < retries:
             try_number += 1
-            request = requests.get(url, params=params, headers=headers)
-            if request.status_code == expected_status_code:
-                break
-            self.log.info(
-                "Status {0} - Waiting {2}s and trying again. Response:\n\n{1}".format(
-                    request.status_code, request.text, wait_for_seconds
+            try:
+                request = requests.get(url, params=params, headers=headers)
+                if request.status_code == expected_status_code:
+                    break
+                self.log.info(
+                    "Status {0} - Waiting {2}s and trying again. Response:\n\n{1}".format(
+                        request.status_code, request.text, wait_for_seconds
+                    )
                 )
-            )
-            sleep(60)
+            # Connection errors are retried in the while loop
+            except requests.exceptions.ConnectionError as e:
+                self.log.info(
+                    "Connection error on attempt {0}/{1}: {2} - Waiting {3}s and trying again.".format(
+                        try_number, retries, str(e), wait_for_seconds
+                    )
+                )
+                if try_number >= retries:
+                    raise
+            if try_number < retries:
+                sleep(wait_for_seconds)
         return request
 
     def get_data_in_batches(
