@@ -136,6 +136,8 @@ class EWAHdbtOperator(BaseOperator):
         # env to be used in processes later
         env = os.environ.copy()
         env["PIP_USER"] = "no"
+        env["DBT_SEND_ANONYMOUS_USAGE_STATS"] = "False"
+        env["DBT_USE_COLORS"] = "False"
 
         if self.env_var_conn_ids:
             for env_var_conn_id in self.env_var_conn_ids:
