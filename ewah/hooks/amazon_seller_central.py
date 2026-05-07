@@ -39,6 +39,9 @@ class EWAHAmazonSellerCentralHook(EWAHBaseHook):
     # Wait time between API requests for Brand Analytics reports (in seconds)
     _WAIT_SECONDS_BRAND_ANALYTICS = 2
 
+    # Wait time between daily API requests for Sales and Traffic reports (in seconds)
+    _WAIT_SECONDS_SALES_AND_TRAFFIC = 120
+
     # Allowed reports with the alias and various settings
     _REPORT_METADATA = {
         "orders": {
@@ -756,7 +759,6 @@ class EWAHAmazonSellerCentralHook(EWAHBaseHook):
 
         while True:
             # Sales and traffic report needs to be requested individually per day
-            started = datetime.now()  # used in the next iteration, if applicable
             data_from_dt = data_from
             if isinstance(data_from_dt, pendulum.Date):
                 # Uploader class doesn't like Pendulum (data_from_dt is added to data)
@@ -767,16 +769,39 @@ class EWAHAmazonSellerCentralHook(EWAHBaseHook):
                 )
 
             # Note that if no data is returned (e.g., timeframe too early), the get_report_data method returns None
-            data_raw = (
-                self.get_report_data(
-                    marketplace_region,
-                    report_name,
-                    data_from,
-                    data_from,
-                    report_options,
-                )
-                or b""
-            ).decode()
+            max_retries = 5
+            base_delay = 30
+            data_raw = None
+
+            for attempt in range(max_retries):
+                try:
+                    data_raw = (
+                        self.get_report_data(
+                            marketplace_region,
+                            report_name,
+                            data_from,
+                            data_from,
+                            report_options,
+                        )
+                        or b""
+                    ).decode()
+                    break
+                except (AssertionError, Exception) as e:
+                    error_text = str(e)
+                    is_quota_error = (
+                        "QuotaExceeded" in error_text
+                        or "quota" in error_text.lower()
+                    )
+                    if is_quota_error and attempt < max_retries - 1:
+                        delay = base_delay * (2**attempt)
+                        self.log.warning(
+                            f"Quota exceeded for date {data_from_dt}. "
+                            f"Attempt {attempt + 1}/{max_retries}. Waiting {delay} seconds before retry..."
+                        )
+                        time.sleep(delay)
+                        continue
+                    raise
+
             data = json.loads(data_raw or "{}").get("salesAndTrafficByAsin", [])
             for datum in data:
                 # add the requested day to all rows
@@ -787,15 +812,8 @@ class EWAHAmazonSellerCentralHook(EWAHBaseHook):
             if data_from > data_until:
                 break
 
-            self.log.info("Delaying execution for up to a minute...")
-            # Delaying to avoid hitting API request rate limits
-            # --> Wait 1 minute between iterations
-            time.sleep(
-                max(
-                    0,
-                    (started + timedelta(seconds=60) - datetime.now()).total_seconds(),
-                )
-            )
+            self.log.info("Delaying execution for 2 minutes...")
+            time.sleep(self._WAIT_SECONDS_SALES_AND_TRAFFIC)
 
     def get_fba_returns_data(
         self,
