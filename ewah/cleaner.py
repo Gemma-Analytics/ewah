@@ -11,6 +11,7 @@ from hashlib import sha256
 from bson.json_util import dumps  # dumping mongob objects to string
 from bson.objectid import ObjectId
 from collections import OrderedDict
+from datetime import timedelta
 from decimal import Decimal
 from uuid import UUID
 
@@ -240,6 +241,12 @@ class EWAHCleaner(LoggingMixin):
                     value = float(value)
                 elif isinstance(value, UUID):
                     value = str(value)
+                elif isinstance(value, timedelta):
+                    # Preserve `timedelta` as the inferred type (so the engine-
+                    # specific mapping is honored) but coerce the value to a
+                    # number of seconds for binding to numeric warehouse columns.
+                    value_type = timedelta
+                    value = value.total_seconds()
                 row[key] = value
 
                 # Set the fields_definition for the key

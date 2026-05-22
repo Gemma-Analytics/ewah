@@ -94,6 +94,9 @@ class EWAHConstants:
             bool: "BOOLEAN",
             datetime: "TIMESTAMP_TZ",
             date: "DATE",
+            # Snowflake has no native INTERVAL column type; durations are
+            # represented as total seconds (microsecond resolution).
+            timedelta: "NUMBER(38, 6)",
             UUID: "TEXT",
         },
         DWH_ENGINE_BIGQUERY: {
