@@ -105,6 +105,8 @@ class EWAHSnowflakeHook(EWAHBaseHook):
             }
 
         if not hasattr(self, "_snow_conn"):
+            # Keeps the Snowflake session alive via background heartbeats; prevents mid-task auth failure when key-pair JWT expires after 60 min.
+            connection_params["client_session_keep_alive"] = True
             self._snow_conn = snowflake.connector.connect(**connection_params)
 
         return self._snow_conn
