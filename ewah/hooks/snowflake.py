@@ -105,13 +105,7 @@ class EWAHSnowflakeHook(EWAHBaseHook):
             }
 
         if not hasattr(self, "_snow_conn"):
-            # Keep the session alive across long-running tasks. Without this,
-            # key-pair (JWT) auth fails on operations that run longer than the
-            # 60-minute JWT lifetime, because the original JWT signed at
-            # connect-time expires mid-task. With keep-alive, the connector
-            # transparently sends `/session/heartbeat` requests (~every 15 min,
-            # clamped by the connector) that refresh the JWT in the background.
-            # Harmless for short-lived tasks and for password auth.
+            # Keeps the Snowflake session alive via background heartbeats; prevents mid-task auth failure when key-pair JWT expires after 60 min.
             connection_params["client_session_keep_alive"] = True
             self._snow_conn = snowflake.connector.connect(**connection_params)
 
