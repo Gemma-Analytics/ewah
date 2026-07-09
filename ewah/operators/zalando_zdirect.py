@@ -182,19 +182,21 @@ class EWAHZalandoZDirectOperator(EWAHBaseOperator):
         """Return distinct (order_id, id) pairs from the ORDER_ITEMS _NEXT table.
 
         If `since` is provided, restrict to rows whose `_ewah_executed_at` is >= since.
-        `since` may be a datetime or an ISO-8601 string and is rendered as a SQL literal;
-        it must come from a trusted source (e.g. get_max_value_of_column).
+        `since` may be a datetime or an ISO-8601 string and is bound as a query
+        parameter.
         """
         try:
             table = self._qualified_target_table("ORDER_ITEMS")
             query = f'SELECT DISTINCT "order_id", "id" FROM {table}'
+            params = None
             if since is not None:
                 since_str = since.isoformat() if hasattr(since, "isoformat") else str(since)
-                query += f' WHERE "_ewah_executed_at" >= \'{since_str}\''
+                query += ' WHERE "_ewah_executed_at" >= %(since)s'
+                params = {"since": since_str}
             self.log.info(f"Executing query: {query}")
             hook = self._dwh_hook()
             try:
-                records = hook.execute_and_return_result(query)
+                records = hook.execute_and_return_result(query, params=params)
             finally:
                 hook.close()
             pairs = [(row[0], row[1]) for row in records if row and row[0] and row[1]]
