@@ -166,7 +166,11 @@ class EWAHZalandoZDirectOperator(EWAHBaseOperator):
         try:
             query = f'SELECT DISTINCT "id" FROM {self._qualified_target_table("ORDERS")}'
             self.log.info(f"Executing query: {query}")
-            records = self._dwh_hook().execute_and_return_result(query)
+            hook = self._dwh_hook()
+            try:
+                records = hook.execute_and_return_result(query)
+            finally:
+                hook.close()
             order_ids = [row[0] for row in records if row and row[0]]
             self.log.info(f"Found {len(order_ids)} order IDs in the database")
             return order_ids
@@ -188,7 +192,11 @@ class EWAHZalandoZDirectOperator(EWAHBaseOperator):
                 since_str = since.isoformat() if hasattr(since, "isoformat") else str(since)
                 query += f' WHERE "_ewah_executed_at" >= \'{since_str}\''
             self.log.info(f"Executing query: {query}")
-            records = self._dwh_hook().execute_and_return_result(query)
+            hook = self._dwh_hook()
+            try:
+                records = hook.execute_and_return_result(query)
+            finally:
+                hook.close()
             pairs = [(row[0], row[1]) for row in records if row and row[0] and row[1]]
             self.log.info(f"Found {len(pairs)} distinct order item pairs in database")
             return pairs
