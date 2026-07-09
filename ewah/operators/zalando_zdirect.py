@@ -317,16 +317,18 @@ class EWAHZalandoZDirectOperator(EWAHBaseOperator):
 
             all_items = []
             batch_size = 10000  # Upload in batches
+            total_items_count = 0
 
             self.log.info(f"Fetching items for {len(order_ids)} orders")
 
             for i, order_id in enumerate(order_ids):
                 items = self.source_hook.fetch_order_items(order_id)
                 all_items.extend(items)
+                total_items_count += len(items)
 
                 # Log progress every 1000 orders
                 if (i + 1) % 1000 == 0:
-                    self.log.info(f"Processed {i + 1}/{len(order_ids)} orders, collected {len(all_items)} items")
+                    self.log.info(f"Processed {i + 1}/{len(order_ids)} orders, collected {total_items_count} items")
 
                 # Upload in batches to avoid memory issues
                 if len(all_items) >= batch_size:
@@ -340,7 +342,7 @@ class EWAHZalandoZDirectOperator(EWAHBaseOperator):
             if all_items:
                 self.upload_data(all_items)
 
-            self.log.info(f"Done extracting order items. Collected {len(all_items)} items")
+            self.log.info(f"Done extracting order items. Collected {total_items_count} items")
 
         # Special handling for order-item-lines: orders → order items → order item lines.
         # The DAG enforces ORDERS → ORDER_ITEMS → ORDER_ITEM_LINES, so by the time we
