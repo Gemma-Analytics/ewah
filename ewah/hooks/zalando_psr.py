@@ -18,6 +18,7 @@ import requests
 class EWAHZalandoPSRHook(EWAHBaseHook):
     """
     Hook to communicate with the Zalando PSR (Product Status Reports) GraphQL API.
+    Note: It can be modified to use other API endpoints using GrapgQL in Zalando eco-system.
     Uses OAuth 2.0 client-credentials flow for authentication (same as zDirect REST).
 
     Connection fields:
@@ -35,7 +36,7 @@ class EWAHZalandoPSRHook(EWAHBaseHook):
         "client_secret": "password",
         "merchant_id": "host",
     }
-
+    # CHANGE the naming to match the targeted service
     conn_name_attr = "ewah_zalando_psr_conn_id"
     default_conn_name = "ewah_zalando_psr_default"
     conn_type = "ewah_zalando_psr"
@@ -173,6 +174,7 @@ class EWAHZalandoPSRHook(EWAHBaseHook):
             if response.status_code == 200:
                 break
             elif response.status_code == 429:
+                # CHANGE if calling data from another service
                 # PSR rate limit is 240 calls/minute. Back off exponentially on 429.
                 wait_time = retry_delay * (2 ** attempt)
                 self.log.warning(

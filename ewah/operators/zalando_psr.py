@@ -8,6 +8,7 @@ import time
 
 class EWAHZalandoPSROperator(EWAHBaseOperator):
     """
+    # CHANGE description if calling data from another service
     Operator to extract data from the Zalando PSR (Product Status Reports) GraphQL API.
     Uses OAuth 2.0 client-credentials flow for authentication (same as zDirect REST;
     see hook).
@@ -30,7 +31,7 @@ class EWAHZalandoPSROperator(EWAHBaseOperator):
     The API base URL is passed as an operator kwarg (defaults to production). The
     GraphQL endpoint is `{base_url}/graphql`; the token endpoint is `{base_url}/auth/token`.
     """
-
+    # CHANGE if calling data from another service
     _NAMES = ["zalando_psr", "psr"]
 
     _ACCEPTED_EXTRACT_STRATEGIES = {
@@ -122,6 +123,7 @@ class EWAHZalandoPSROperator(EWAHBaseOperator):
             input_parts.append(f"cursor: {json.dumps(cursor)}")
         input_block = "{ " + ", ".join(input_parts) + " }"
 
+        # ADJUST the query to match the targeted service
         return f"""
         {{
           psr {{
@@ -242,9 +244,10 @@ class EWAHZalandoPSROperator(EWAHBaseOperator):
 
             cursor = result.get("cursor")
             if not cursor:
-                # Per PSR docs, a null cursor marks the last page.
+                # Per docs, a null cursor marks the last page.
                 break
 
+            # DOUBLE CHECK limits if calling data from another service
             # Stay comfortably under the 240 calls/minute PSR rate limit.
             time.sleep(0.3)
 
