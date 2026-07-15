@@ -33,7 +33,7 @@ table_configs = {
 # CHANGE DAG name if calling data from another service
 # Creates the Zalando PSR DAG. Uses a dedicated source connection (`zalando_psr`)
 # and loads into a separate ZALANDO_PSR schema, keeping PSR tables apart from the
-# zDirect REST tables. Reuses the shared baesiq warehouse connection.
+# zDirect REST tables. Reuses the shared Snowflake warehouse connection.
 zalando_psr_dag = dag_factory_atomic(
     dag_name="EL_Zalando_PSR",
     dwh_engine=EC.DWH_ENGINE_SNOWFLAKE,
