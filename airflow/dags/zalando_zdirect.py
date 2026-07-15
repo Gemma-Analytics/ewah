@@ -67,13 +67,13 @@ print(
 zalando_dag = dag_factory_atomic(
     dag_name="EL_Zalando_zDirect",
     dwh_engine=EC.DWH_ENGINE_SNOWFLAKE,
-    dwh_conn_id="dwh_baesiq",
+    dwh_conn_id="dwh",
     start_date=datetime(2026, 2, 20),
     el_operator=EWAHZalandoZDirectOperator,
     operator_config={
         "general_config": {
             "source_conn_id": "zalando_zdirect",
-            "params": {"slack_channel": "baesiq"},
+            "params": {"slack_channel": "xxx"},
             "batch_size": 10000,
         },
         "tables": table_configs,
