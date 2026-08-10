@@ -36,10 +36,13 @@ class EWAHZalandoZDirectHook(EWAHBaseHook):
     conn_type = "ewah_zalando_zdirect"
     hook_name = "EWAH Zalando zDirect Connection"
 
-    # Defaults; the operator overrides base_url and token state is per instance
+    # Default; the operator overrides this per instance (e.g. to sandbox)
     base_url = "https://api.merchants.zalando.com"
-    access_token = None
-    token_expires_at = 0
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.access_token = None
+        self.token_expires_at = 0
 
     @staticmethod
     def get_ui_field_behaviour():
