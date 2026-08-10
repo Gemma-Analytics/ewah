@@ -123,10 +123,10 @@ class EWAHZalandoZDirectHook(EWAHBaseHook):
                 self.log.warning(f"Too many requests. For more information please check Rate Limiting from developer docs. Waiting {wait_time}s before retry {attempt + 1}/{max_retries}...")
                 time.sleep(wait_time)
             else:
-                raise Exception(f"Failed to obtain access token after {max_retries} retries: {response.status_code} - {response.text}")
+                raise Exception(f"Failed to obtain access token: {response.status_code} - {response.text}")
 
         if response.status_code != 200:
-            raise Exception(f"Failed to obtain access token: {response.status_code} - {response.text}")
+            raise Exception(f"Failed to obtain access token after {max_retries} retries: {response.status_code} - {response.text}")
 
         token_response = response.json()
         self.access_token = token_response.get("access_token")
