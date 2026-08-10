@@ -74,7 +74,6 @@ zalando_dag = dag_factory_atomic(
         "general_config": {
             "source_conn_id": "zalando_zdirect",
             "params": {"slack_channel": "xxx"},
-            "batch_size": 10000,
         },
         "tables": table_configs,
     },

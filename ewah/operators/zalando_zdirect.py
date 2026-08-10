@@ -45,7 +45,6 @@ class EWAHZalandoZDirectOperator(EWAHBaseOperator):
         page_size=50,
         lookback_days=365,  # For endpoints requiring date range (e.g., customer-returned-items)
         base_url="https://api.merchants.zalando.com",  # Override to sandbox in the DAG config if needed
-        batch_size=None,  # Swallowed here so it doesn't reach EWAHBaseOperator (which rejects it)
         *args,
         **kwargs,
     ):
