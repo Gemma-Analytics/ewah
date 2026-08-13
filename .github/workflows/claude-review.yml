@@ -2,7 +2,9 @@ name: Claude Code Review
 
 on:
   pull_request:
-    types: [opened, synchronize]
+    types: [opened, ready_for_review]
+  issue_comment:
+    types: [created]
 
 permissions:
   id-token: write
@@ -12,6 +14,13 @@ permissions:
 
 jobs:
   review:
+    # Draft PRs are skipped on 'opened' and reviewed once when marked ready —
+    # otherwise a PR opened as draft gets reviewed twice (opened + ready_for_review).
+    if: |
+      (github.event_name == 'pull_request' && !github.event.pull_request.draft) ||
+      (github.event_name == 'issue_comment' &&
+       github.event.issue.pull_request &&
+       startsWith(github.event.comment.body, '@claude review'))
     uses: Gemma-Analytics/.github/.github/workflows/claude-review.yml@main
     with:
       additional_instructions: |
