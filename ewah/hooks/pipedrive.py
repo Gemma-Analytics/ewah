@@ -47,15 +47,14 @@ class EWAHPipedriveHook(EWAHBaseHook):
                     # Wait for ratelimit to fill up again
                     time.sleep(2)
 
-                data += result["data"]
-                if (
-                    result.get("additional_data", {})
-                    .get("pagination", {})
-                    .get("next_start")
-                ):
-                    params["start"] = result["additional_data"]["pagination"][
-                        "next_start"
-                    ]
+                # Pipedrive sends an explicit null - not a missing key - for both
+                # fields on unpaginated or empty endpoints (e.g. leadSources), and a
+                # get() default only applies to missing keys. Hence "or", not a default.
+                data += result.get("data") or []
+                additional_data = result.get("additional_data") or {}
+                pagination = additional_data.get("pagination") or {}
+                if pagination.get("next_start"):
+                    params["start"] = pagination["next_start"]
                 else:
                     # Stop iterating, no more pages to go
                     params["start"] = None
