@@ -42,10 +42,19 @@ class EWAHZalandoPSRHook(EWAHBaseHook):
     conn_type = "ewah_zalando_psr"
     hook_name = "EWAH Zalando PSR Connection"
 
-    # Defaults; the operator overrides base_url and token state is per instance
+    # Default; the operator overrides this per instance (e.g. to sandbox)
     base_url = "https://api.merchants.zalando.com"
-    access_token = None
-    token_expires_at = 0
+
+    # (connect, read) timeouts in seconds. Without these, a hung connection would
+    # block the Airflow worker slot indefinitely. GraphQL queries can aggregate
+    # over large product sets, hence the generous read timeout.
+    token_timeout = (10, 30)
+    graphql_timeout = (10, 300)
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.access_token = None
+        self.token_expires_at = 0
 
     @staticmethod
     def get_ui_field_behaviour():
@@ -119,7 +128,10 @@ class EWAHZalandoPSRHook(EWAHBaseHook):
         response = None
         for attempt in range(max_retries):
             response = self.session.post(
-                token_url, headers=token_headers, data=token_data
+                token_url,
+                headers=token_headers,
+                data=token_data,
+                timeout=self.token_timeout,
             )
             if response.status_code == 200:
                 break
@@ -168,7 +180,10 @@ class EWAHZalandoPSRHook(EWAHBaseHook):
         for attempt in range(max_retries):
             headers = self.authenticate()
             response = self.session.post(
-                self.graphql_url, headers=headers, data=json.dumps(payload)
+                self.graphql_url,
+                headers=headers,
+                data=json.dumps(payload),
+                timeout=self.graphql_timeout,
             )
 
             if response.status_code == 200:

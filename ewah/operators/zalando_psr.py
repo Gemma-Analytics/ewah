@@ -242,9 +242,26 @@ class EWAHZalandoPSROperator(EWAHBaseOperator):
                 f"(running total {total_rows})"
             )
 
+            previous_cursor = cursor
             cursor = result.get("cursor")
             if not cursor:
                 # Per docs, a null cursor marks the last page.
+                break
+            if not items:
+                # Defensive: the API should null the cursor on the last page, but
+                # an empty page with a live cursor would loop forever.
+                self.log.warning(
+                    f"Page {page} returned no models but a non-null cursor - "
+                    f"stopping pagination."
+                )
+                break
+            if cursor == previous_cursor:
+                # Defensive: a cursor that does not advance would re-request the
+                # same page forever and re-upload its rows.
+                self.log.warning(
+                    f"Page {page} returned an unchanged cursor - "
+                    f"stopping pagination."
+                )
                 break
 
             # DOUBLE CHECK limits if calling data from another service
