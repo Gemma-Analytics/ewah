@@ -11,6 +11,7 @@ from ewah.hooks.base import EWAHBaseHook
 
 import base64
 import json
+import re
 import time
 import requests
 
@@ -224,6 +225,11 @@ class EWAHZalandoPSRHook(EWAHBaseHook):
 
         Example: hook.introspect_type("ProductSimple")
         """
+        # type_name is interpolated into the query, so restrict it to the GraphQL
+        # name grammar rather than letting arbitrary text into the document.
+        if not re.fullmatch(r"[_A-Za-z][_0-9A-Za-z]*", type_name or ""):
+            raise ValueError(f"Invalid GraphQL type name: {type_name!r}")
+
         query = f"""
         {{
           __type(name: "{type_name}") {{
