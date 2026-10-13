@@ -41,6 +41,10 @@ setuptools.setup(
         "openpyxl",
         "protobuf",
         "psycopg2",
+        # pyOpenSSL 22 (inherited from the Airflow base image) declares no upper bound
+        # on cryptography but breaks with cryptography>=39 on `import OpenSSL`;
+        # 23.0.0+ declares compatible cryptography bounds; <24 keeps cryptography <42
+        "pyOpenSSL>=23.0.0,<24",
         "pyairtable",
         "pymongo",
         "pymssql==2.3.1",  # Version 2.3.2 fails to build wheel due to missing file sqlfront.h

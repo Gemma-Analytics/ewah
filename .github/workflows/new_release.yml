@@ -74,6 +74,22 @@ jobs:
         with:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
+      - name: Build image for smoke test
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./Dockerfile
+          platforms: ${{ matrix.platform }}
+          build-args: |
+            package_version=${{ steps.version.outputs.VERSION }}
+          tags: ewah:smoke-test
+          load: true
+      - name: Run smoke test
+        run: |
+          chmod +x docker/scripts/smoke_test.sh
+          docker run --rm --network none --entrypoint bash \
+            -v "$PWD/docker/scripts/smoke_test.sh:/smoke_test.sh:ro" \
+            ewah:smoke-test /smoke_test.sh
       - name: Build and push by digest
         id: build
         uses: docker/build-push-action@v6

@@ -1,0 +1,32 @@
+name: Docker image smoke test
+
+on:
+  pull_request:
+    branches:
+      - master
+
+jobs:
+  smoke_test:
+    name: Build image from source and run smoke test (amd64)
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - name: Set executable permissions
+        run: chmod +x docker/scripts/entrypoint_prod.sh docker/scripts/smoke_test.sh
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      - name: Build image from local source
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./Dockerfile
+          target: local_build
+          platforms: linux/amd64
+          tags: ewah:smoke-test
+          load: true
+      - name: Run smoke test
+        run: |
+          docker run --rm --network none --entrypoint bash \
+            -v "$PWD/docker/scripts/smoke_test.sh:/smoke_test.sh:ro" \
+            ewah:smoke-test /smoke_test.sh

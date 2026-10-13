@@ -171,6 +171,19 @@ ENV AIRFLOW__SCHEDULER__CHILD_PROCESS_LOG_DIRECTORY=/opt/airflow/logs/scheduler
 ENV AIRFLOW__CORE__HOSTNAME_CALLABLE="socket.gethostname"
 
 ###############################################################################
+## Multi-Stage build: install EWAH from the local source, used to test a     ##
+## change before it is released (e.g. in CI)                                 ##
+###############################################################################
+FROM dev_build as local_build
+
+ENV EWAH_IMAGE_TYPE='PROD'
+ENV EWAH_RUN_DEV_SUPPORT_SCRIPTS='0'
+
+COPY --chown=airflow:root . /tmp/ewah_src
+RUN pip install --user --upgrade --no-cache-dir /tmp/ewah_src && \
+    rm -r -f /tmp/ewah_src
+
+###############################################################################
 ## Multi-Stage build: for the publishable EWAH image, install EWAH from pip  ##
 ###############################################################################
 FROM dev_build as prod_build
