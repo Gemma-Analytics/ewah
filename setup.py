@@ -25,7 +25,7 @@ setuptools.setup(
         "avro",
         "azure-storage-blob>=2.1.0",  # a temporay 2.0.0 bugfix
         "dbt-metabase<1.0",
-        "certifi==2025.1.31",  # Workaround for Snowflake certificate errors
+        "certifi==2026.10.19",  # Workaround for Snowflake certificate errors
         "croniter",
         # cx_Oracle moved to extras_require - only available on amd64 (no ARM64 binaries)
         "facebook_business",
